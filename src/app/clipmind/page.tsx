@@ -308,9 +308,10 @@ export default function ClipMindPage() {
         );
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to stream response.';
       console.error('Error fetching stream response:', err);
-      addToast(err.message || 'Failed to stream response.', 'warning');
+      addToast(errorMessage, 'warning');
       
       // Remove loading indicator if AI returned empty response
       setMessages(prev => {
@@ -636,7 +637,7 @@ export default function ClipMindPage() {
                       {q.title}
                     </h4>
                     <p className="text-[11px] text-neutral-400 leading-normal">
-                      "{q.desc}"
+                      &ldquo;{q.desc}&rdquo;
                     </p>
                   </div>
                 ))}

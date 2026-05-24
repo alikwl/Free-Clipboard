@@ -3,6 +3,19 @@ import { createClient } from '@/utils/supabase/server';
 
 const apiKey = process.env.OPENROUTER_API_KEY || '';
 
+interface HistoryMessage {
+  role: string;
+  content: string;
+}
+
+interface RankedClip {
+  clip: Record<string, unknown>;
+  meta: Record<string, unknown>;
+  score: number;
+}
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
 function extractKeywords(text: string): string[] {
   return text
     .toLowerCase()
@@ -12,7 +25,7 @@ function extractKeywords(text: string): string[] {
 }
 
 async function saveConversationMessage(
-  supabase: any,
+  supabase: SupabaseClient,
   conversationId: string,
   userId: string,
   userMessage: string,
@@ -32,7 +45,7 @@ async function saveConversationMessage(
       { role: 'assistant', content: aiMessage, created_at: new Date().toISOString() }
     ];
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       messages: newMessages,
       updated_at: new Date().toISOString()
     };
@@ -117,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     // Extract keywords and find matches
     const queryKeywords = extractKeywords(message);
-    const rankedClips: { clip: any; meta: any; score: number }[] = [];
+    const rankedClips: RankedClip[] = [];
 
     if (metaList && clipsList) {
       for (const meta of metaList) {
@@ -250,7 +263,7 @@ Rules:
 5. Proactively suggest related tags or clips from their context when relevant to expand their ideas.`;
 
     // Map history to standard chat format
-    const formattedHistory = history.map((h: any) => ({
+    const formattedHistory = history.map((h: HistoryMessage) => ({
       role: h.role === 'user' ? 'user' : 'assistant',
       content: h.content
     })).slice(-10); // feed last 10 messages for memory conservation
