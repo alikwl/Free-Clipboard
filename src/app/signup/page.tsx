@@ -24,10 +24,9 @@ export default function SignupPage() {
   const broadcastAuthToken = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
-      window.postMessage({ type: 'FC_AUTH', token: session.access_token }, window.location.origin);
-      if (window.opener) {
-        window.opener.postMessage({ type: 'FC_AUTH', token: session.access_token }, '*');
-      }
+      try { window.postMessage({ type: 'FC_AUTH', token: session.access_token }, '*'); } catch { /* noop */ }
+      try { window.opener?.postMessage({ type: 'FC_AUTH', token: session.access_token }, '*'); } catch { /* noop */ }
+      try { window.postMessage({ type: 'FC_AUTH', token: session.access_token }, window.location.origin); } catch { /* noop */ }
     }
   };
 

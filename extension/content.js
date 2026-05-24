@@ -263,7 +263,7 @@
   // ══════════════════════════════════════════════════════════
 
   window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'FC_AUTH') {
+    if (event.data && event.data.type === 'FC_AUTH' && event.data.token && typeof event.data.token === 'string') {
       safeStorageSet({ fc_token: event.data.token }, () => {
         safeSendMessage({ type: 'SET_TOKEN', token: event.data.token });
         showToast('\u2705 Connected to FreeClipboard');

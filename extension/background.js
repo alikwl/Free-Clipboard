@@ -140,7 +140,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.storage.local.set({ fc_token: msg.token }, () => {
       startSyncTimer();
       syncClips();
+      // Notify popup to re-render
+      chrome.runtime.sendMessage({ type: 'AUTH_CHANGED' }).catch(() => {});
     });
+    sendResponse({ success: true });
   }
 
   if (msg.type === 'EXPAND_SNIPPET') {

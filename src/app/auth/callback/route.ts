@@ -26,13 +26,13 @@ h3{color:#e2e2e8;margin-top:20px;margin-bottom:8px}
 </style></head>
 <body><div class="container">
 <div class="spinner"></div>
-<h3>Signing you in</h3>
-<p>Sending credentials to extension&hellip;</p>
+<h3>Signed in</h3>
+<p>Redirecting&hellip;</p>
 </div>
 <script>
-window.opener && window.opener.postMessage({ type: 'FC_AUTH', token: '${token}' }, '*');
-window.postMessage({ type: 'FC_AUTH', token: '${token}' }, '${origin}');
-setTimeout(function(){ window.location.href = '${redirectUrl}'; }, 600);
+try{window.opener&&window.opener.postMessage({type:'FC_AUTH',token:'${token}'},'*');}catch(e){}
+window.postMessage({type:'FC_AUTH',token:'${token}'},'*');
+setTimeout(function(){window.location.href='${redirectUrl}';},80);
 </script></body></html>`,
         {
           status: 200,

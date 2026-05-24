@@ -5,6 +5,8 @@ const LOGIN_URL = 'https://freeclipboard.com/login';
 const icons = { text: '\u{1F4C4}', code: '\u{1F4BB}', url: '\u{1F517}', other: '\u{1F4CB}' };
 
 function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
   const t = document.createElement('div');
   t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t);
@@ -13,6 +15,47 @@ function showToast(msg) {
 
 function clipIcon(type) {
   return icons[type] || icons.other;
+}
+
+async function getToken() {
+  return new Promise(resolve => {
+    try { chrome.storage.local.get(['fc_token'], r => resolve(r.fc_token || null)); }
+    catch (_) { resolve(null); }
+  });
+}
+
+async function loadProfile() {
+  const token = await getToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(API_BASE + '/api/profile', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function loadClips() {
+  const token = await getToken();
+  if (!token) { clips = []; return; }
+  try {
+    const res = await fetch(API_BASE + '/api/clips?limit=20', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      clips = data.clips || data || [];
+    } else {
+      throw new Error('Failed');
+    }
+  } catch {
+    const cached = await new Promise(resolve => {
+      try { chrome.storage.local.get(['cached_clips'], r => resolve(r.cached_clips || [])); }
+      catch (_) { resolve([]); }
+    });
+    clips = cached;
+  }
 }
 
 // ── Render: Logged-out ────────────────────────────────────
@@ -150,63 +193,20 @@ async function quickAddClip() {
     document.getElementById('quickSaveBtn').disabled = true;
     showToast('Saved!');
     loadClips();
+    renderClipList();
   } catch (err) {
     showToast('Failed to save clip');
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────
 function escapeHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
   return d.innerHTML;
 }
 
-async function getToken() {
-  return new Promise(resolve => {
-    chrome.storage.local.get(['fc_token'], (r) => resolve(r.fc_token || null));
-  });
-}
-
-async function loadProfile() {
-  const token = await getToken();
-  if (!token) return null;
-  try {
-    const res = await fetch(API_BASE + '/api/profile', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
-}
-
-async function loadClips() {
-  const token = await getToken();
-  if (!token) { clips = []; return; }
-  try {
-    const res = await fetch(API_BASE + '/api/clips?limit=20', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!res.ok) throw new Error('Failed');
-    const data = await res.json();
-    clips = data.clips || data || [];
-    chrome.storage.local.set({ cached_clips: clips });
-  } catch {
-    const cached = await new Promise(r => chrome.storage.local.get(['cached_clips'], r));
-    clips = cached.cached_clips || [];
-  }
-}
-
-// ── Message listener ──────────────────────────────────────
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'CLIP_SAVED') {
-    loadClips();
-    if (document.getElementById('clipList')) renderClipList();
-  }
-});
-
-// ── Init ──────────────────────────────────────────────────
-(async function init() {
+// ── Main init ─────────────────────────────────────────────
+async function init() {
   const token = await getToken();
   if (!token) { renderLoggedOut(); return; }
 
@@ -215,4 +215,21 @@ chrome.runtime.onMessage.addListener((msg) => {
 
   await loadClips();
   renderLoggedIn();
-})();
+}
+
+// ── Listen for auth changes ───────────────────────────────
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'AUTH_CHANGED' || msg.type === 'CLIP_SAVED') {
+    init();
+  }
+});
+
+// ── Also check auth when popup becomes visible ────────────
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    init();
+  }
+});
+
+// ── Initial load ──────────────────────────────────────────
+init();
