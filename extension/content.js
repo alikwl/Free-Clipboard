@@ -6,6 +6,25 @@
   let cachedClips = [];
   let userContext = { name: '', email: '' };
 
+  function isValid() {
+    return !!(chrome.runtime && chrome.runtime.id);
+  }
+
+  function safeStorageGet(keys, cb) {
+    if (!isValid()) return;
+    try { chrome.storage.local.get(keys, cb); } catch (_) {}
+  }
+
+  function safeStorageSet(obj, cb) {
+    if (!isValid()) return;
+    try { chrome.storage.local.set(obj, cb); } catch (_) {}
+  }
+
+  function safeSendMessage(msg, cb) {
+    if (!isValid()) return;
+    try { chrome.runtime.sendMessage(msg, cb); } catch (_) {}
+  }
+
   // ══════════════════════════════════════════════════════════
   //  Snippet expansion
   // ══════════════════════════════════════════════════════════
@@ -55,7 +74,7 @@
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
 
     // Track usage
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: 'EXPAND_SNIPPET',
       trigger: d.trigger
     });
@@ -76,7 +95,7 @@
   }
 
   function loadSnippets() {
-    chrome.storage.local.get(['snippets', 'userContext'], r => {
+    safeStorageGet(['snippets', 'userContext'], r => {
       snippets = r.snippets || [];
       userContext = r.userContext || {};
     });
@@ -99,7 +118,7 @@
 
   function showQuickPaste() {
     removeOverlay();
-    chrome.storage.local.get(['cached_clips'], r => {
+    safeStorageGet(['cached_clips'], r => {
       cachedClips = (r.cached_clips || []).slice(0, 5);
       if (cachedClips.length === 0) {
         showToast('No clips saved yet');
@@ -208,34 +227,36 @@
 
   document.addEventListener('mouseup', () => {
     const sel = window.getSelection()?.toString() || '';
-    chrome.runtime.sendMessage({ type: 'HAS_SELECTION', hasSelection: sel.length > 0 });
+    safeSendMessage({ type: 'HAS_SELECTION', hasSelection: sel.length > 0 });
   });
 
   // ══════════════════════════════════════════════════════════
   //  Keyboard shortcut: Ctrl+Shift+V triggers overlay (handled via background command)
   // ══════════════════════════════════════════════════════════
 
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === 'SHOW_QUICK_PASTE') showQuickPaste();
-    if (msg.type === 'SAVE_SELECTION') {
-      const sel = window.getSelection()?.toString()?.trim();
-      if (sel) {
-        chrome.storage.local.get(['fc_token'], (r) => {
-          if (!r.fc_token) { showToast('Please log in to FreeClipboard'); return; }
-          fetch(API_BASE + '/api/clips', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + r.fc_token
-            },
-            body: JSON.stringify({ content: sel, source_url: window.location.href })
-          })
-          .then(res => { if (res.ok) showToast('\u2705 Saved to FreeClipboard'); else showToast('Failed to save'); })
-          .catch(() => showToast('Failed to save'));
-        });
+  try {
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg.type === 'SHOW_QUICK_PASTE') showQuickPaste();
+      if (msg.type === 'SAVE_SELECTION') {
+        const sel = window.getSelection()?.toString()?.trim();
+        if (sel) {
+          safeStorageGet(['fc_token'], (r) => {
+            if (!r.fc_token) { showToast('Please log in to FreeClipboard'); return; }
+            fetch(API_BASE + '/api/clips', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + r.fc_token
+              },
+              body: JSON.stringify({ content: sel, source_url: window.location.href })
+            })
+            .then(res => { if (res.ok) showToast('\u2705 Saved to FreeClipboard'); else showToast('Failed to save'); })
+            .catch(() => showToast('Failed to save'));
+          });
+        }
       }
-    }
-  });
+    });
+  } catch (_) {}
 
   // ══════════════════════════════════════════════════════════
   //  Auth bridge: receive token from web app login page
@@ -243,8 +264,8 @@
 
   window.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'FC_AUTH') {
-      chrome.storage.local.set({ fc_token: event.data.token }, () => {
-        chrome.runtime.sendMessage({ type: 'SET_TOKEN', token: event.data.token });
+      safeStorageSet({ fc_token: event.data.token }, () => {
+        safeSendMessage({ type: 'SET_TOKEN', token: event.data.token });
         showToast('\u2705 Connected to FreeClipboard');
       });
     }
@@ -262,13 +283,21 @@
 
   scanInputs();
   loadSnippets();
-  const observer = new MutationObserver(scanInputs);
-  observer.observe(document.body, { childList: true, subtree: true });
 
-  // Refresh snippets every 30 minutes
-  setInterval(loadSnippets, 30 * 60 * 1000);
-  // Refresh cached clips every 5 minutes
+  const observer = new MutationObserver(scanInputs);
+  try { observer.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+
+  // Safely refresh snippets every 30 minutes
   setInterval(() => {
-    chrome.storage.local.get(['cached_clips'], r => { cachedClips = r.cached_clips || []; });
+    if (!chrome.runtime?.id) return;
+    loadSnippets();
+  }, 30 * 60 * 1000);
+
+  // Safely refresh cached clips every 5 minutes
+  setInterval(() => {
+    if (!chrome.runtime?.id) return;
+    try {
+      safeStorageGet(['cached_clips'], r => { cachedClips = r.cached_clips || []; });
+    } catch (_) {}
   }, 5 * 60 * 1000);
 })();
