@@ -217,14 +217,21 @@ async function init() {
   renderLoggedIn();
 }
 
-// ── Listen for auth changes ───────────────────────────────
+// ── React to auth token changes instantly ─────────────────
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.fc_token) {
+    init();
+  }
+});
+
+// ── Listen for messages from background ───────────────────
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'AUTH_CHANGED' || msg.type === 'CLIP_SAVED') {
     init();
   }
 });
 
-// ── Also check auth when popup becomes visible ────────────
+// ── Reload when popup becomes visible ─────────────────────
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     init();

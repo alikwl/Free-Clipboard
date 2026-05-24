@@ -1,4 +1,5 @@
 const API_BASE = 'https://freeclipboard.com';
+let authToken = null;
 
 // ── Get stored auth token ─────────────────────────────────
 async function getToken() {
@@ -137,13 +138,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === 'SET_TOKEN') {
+    authToken = msg.token;
     chrome.storage.local.set({ fc_token: msg.token }, () => {
       startSyncTimer();
       syncClips();
-      // Notify popup to re-render
+      // Broadcast to all extension views
       chrome.runtime.sendMessage({ type: 'AUTH_CHANGED' }).catch(() => {});
     });
     sendResponse({ success: true });
+    return true;
   }
 
   if (msg.type === 'EXPAND_SNIPPET') {
