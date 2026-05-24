@@ -1,148 +1,151 @@
-const API_BASE = 'https://freeclipboard.com';
+const SITE = 'https://freeclipboard.com';
 
-async function init() {
-  const stored = await chrome.storage.local.get(['fc_token']);
+(async function init() {
+  showView('loading');
 
+  // 1. Try stored token first
+  const stored = await getStorage('fc_token');
   if (stored.fc_token) {
-    try {
-      const res = await fetch(API_BASE + '/api/auth/me', {
-        headers: { 'Authorization': 'Bearer ' + stored.fc_token }
-      });
-
-      if (res.ok) {
-        const user = await res.json();
-        showDashboard(user);
-        loadClips();
-      } else {
-        chrome.storage.local.remove('fc_token');
-        showLogin();
-      }
-    } catch (e) {
-      const cached = await chrome.storage.local.get('fc_clips_cache');
-      if (cached.fc_clips_cache && cached.fc_clips_cache.length) {
-        showDashboard({ email: 'Offline mode', plan: 'free' });
-        renderClips(cached.fc_clips_cache);
-      } else {
-        showLogin();
-      }
+    const valid = await validateToken(stored.fc_token);
+    if (valid) {
+      showView('dashboard');
+      document.getElementById('user-email').textContent = stored.fc_email || '';
+      updatePlanBadge(stored.fc_plan || 'free');
+      await loadClips(stored.fc_token);
+      return;
     }
-  } else {
-    showLogin();
+  }
+
+  // 2. No stored token — try cookie-based auto-login
+  await tryCookieLogin();
+})();
+
+async function tryCookieLogin() {
+  showView('loading');
+
+  try {
+    const res = await fetch(SITE + '/api/auth/extension-session', {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      await setStorage({
+        fc_token: data.token,
+        fc_email: data.email,
+        fc_plan: data.plan
+      });
+      showView('dashboard');
+      document.getElementById('user-email').textContent = data.email;
+      updatePlanBadge(data.plan);
+      await loadClips(data.token);
+    } else {
+      showView('login');
+    }
+  } catch (e) {
+    showView('login');
+    document.getElementById('login-status').textContent =
+      'Could not reach freeclipboard.com';
   }
 }
 
-// ── View toggles ──────────────────────────────────────────
-function showLogin() {
-  document.getElementById('view-login').style.display = 'flex';
-  document.getElementById('view-dashboard').style.display = 'none';
-}
-
-function showDashboard(user) {
-  document.getElementById('view-login').style.display = 'none';
-  document.getElementById('view-dashboard').style.display = 'flex';
-  document.getElementById('user-email').textContent = user.email || 'User';
-  document.getElementById('avatar-initial').textContent = (user.email || 'FC').slice(0, 2).toUpperCase();
-
-  const badge = document.getElementById('plan-badge');
-  badge.textContent = user.plan === 'pro' ? 'PRO' : 'Free';
-  badge.className = 'plan-badge ' + (user.plan === 'pro' ? 'plan-pro' : 'plan-free');
-}
-
-// ── Load clips from background ────────────────────────────
-async function loadClips() {
-  document.getElementById('clips-loading').style.display = 'block';
-  document.getElementById('clips-list').innerHTML = '';
-
-  const clips = await new Promise(resolve => {
-    chrome.runtime.sendMessage({ type: 'GET_CLIPS' }, res => {
-      resolve(res?.clips || []);
+async function validateToken(token) {
+  try {
+    const res = await fetch(SITE + '/api/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
     });
-  });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
 
-  document.getElementById('clips-loading').style.display = 'none';
-  renderClips(clips);
+async function loadClips(token) {
+  const list = document.getElementById('clips-list');
+  list.innerHTML = '<div class="loading-text">Loading clips...</div>';
+
+  try {
+    const res = await fetch(SITE + '/api/clips?limit=8', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        await clearStorage();
+        showView('login');
+      }
+      return;
+    }
+
+    const data = await res.json();
+    const clips = data.clips || data || [];
+    renderClips(clips);
+    await setStorage({ fc_clips_cache: clips });
+  } catch (e) {
+    const cached = await getStorage('fc_clips_cache');
+    if (cached.fc_clips_cache && cached.fc_clips_cache.length) {
+      renderClips(cached.fc_clips_cache);
+    } else {
+      list.innerHTML = '<div class="loading-text">Offline - no cached clips</div>';
+    }
+  }
 }
 
 function renderClips(clips) {
-  const container = document.getElementById('clips-list');
-
+  const list = document.getElementById('clips-list');
   if (!clips.length) {
-    container.innerHTML = '<div style="text-align:center;padding:30px;color:#52525b;font-size:12px">No clips yet. Save something!</div>';
+    list.innerHTML = '<div class="empty-state">No clips yet!<br><small>Copy text and save it here</small></div>';
     return;
   }
-
-  container.innerHTML = clips.map(c => `
-    <div class="clip-item" data-id="${c.id}">
-      <div class="clip-preview">${escHtml((c.content || '').substring(0, 60))}${c.content && c.content.length > 60 ? '...' : ''}</div>
-      <button class="copy-btn" data-id="${c.id}">Copy</button>
+  list.innerHTML = clips.map(clip => `
+    <div class="clip-row" data-content="${escAttr(clip.content)}">
+      <div class="clip-text">${escHtml((clip.content || '').substring(0, 65))}${(clip.content || '').length > 65 ? '\u2026' : ''}</div>
+      <span class="copy-indicator">Copy</span>
     </div>
   `).join('');
 
-  container.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyClip(btn.dataset.id);
-    });
-  });
-
-  container.querySelectorAll('.clip-item').forEach(item => {
-    item.addEventListener('click', () => copyClip(item.dataset.id));
+  list.querySelectorAll('.clip-row').forEach(row => {
+    row.addEventListener('click', () => copyText(row.dataset.content, row));
   });
 }
 
-async function copyClip(clipId) {
-  const cached = await chrome.storage.local.get('fc_clips_cache');
-  const clips = cached.fc_clips_cache || [];
-  const clip = clips.find(c => c.id === clipId);
-  if (!clip) return;
-
-  await navigator.clipboard.writeText(clip.content);
-
-  const btn = document.querySelector(`.copy-btn[data-id="${clipId}"]`);
-  if (btn) {
-    btn.textContent = 'Copied!';
-    btn.style.background = '#22c55e';
-    btn.style.color = '#fff';
-    setTimeout(() => {
-      btn.textContent = 'Copy';
-      btn.style.background = '';
-      btn.style.color = '';
-    }, 1500);
+async function copyText(content, el) {
+  await navigator.clipboard.writeText(content);
+  const ind = el.querySelector('.copy-indicator');
+  if (ind) {
+    ind.textContent = '\u2713';
+    ind.style.color = '#22c55e';
+    setTimeout(() => { ind.textContent = 'Copy'; ind.style.color = ''; }, 1500);
   }
 }
 
-// ── Quick save ────────────────────────────────────────────
 async function saveQuickClip() {
   const input = document.getElementById('quick-input');
   const content = input.value.trim();
   if (!content) return;
 
   const btn = document.getElementById('save-btn');
-  btn.textContent = 'Saving...';
+  btn.textContent = '...';
   btn.disabled = true;
 
-  const stored = await chrome.storage.local.get('fc_token');
+  const stored = await getStorage('fc_token');
 
   try {
-    const res = await fetch(API_BASE + '/api/clips', {
+    const res = await fetch(SITE + '/api/clips', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + stored.fc_token,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content, title: content.substring(0, 40) })
     });
 
     if (res.ok) {
       input.value = '';
-      btn.textContent = 'Saved!';
-      btn.style.background = '#22c55e';
-      setTimeout(() => {
-        btn.textContent = 'Save';
-        btn.style.background = '';
-        btn.disabled = false;
-      }, 1500);
-      loadClips();
+      btn.textContent = '\u2713';
+      setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1500);
+      await loadClips(stored.fc_token);
     } else {
       btn.textContent = 'Error';
       btn.disabled = false;
@@ -153,52 +156,46 @@ async function saveQuickClip() {
   }
 }
 
-function escHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function showView(view) {
+  document.getElementById('view-loading').style.display = view === 'loading' ? 'flex' : 'none';
+  document.getElementById('view-login').style.display = view === 'login' ? 'flex' : 'none';
+  document.getElementById('view-dashboard').style.display = view === 'dashboard' ? 'flex' : 'none';
 }
+
+function updatePlanBadge(plan) {
+  const badge = document.getElementById('plan-badge');
+  badge.textContent = plan === 'pro' ? '\u{1F451} PRO' : 'Free';
+  badge.style.background = plan === 'pro' ? '#f59e0b22' : '#7C3AED22';
+  badge.style.color = plan === 'pro' ? '#fbbf24' : '#a78bfa';
+}
+
+function getStorage(key) { return new Promise(r => chrome.storage.local.get(key, r)); }
+function setStorage(obj) { return new Promise(r => chrome.storage.local.set(obj, r)); }
+function clearStorage() { return new Promise(r => chrome.storage.local.clear(r)); }
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+function escAttr(s) { return (s || '').replace(/'/g, "\\'").replace(/\n/g, ' '); }
 
 // ── Button listeners ──────────────────────────────────────
 document.getElementById('login-btn').addEventListener('click', () => {
-  chrome.tabs.create({ url: API_BASE + '/login' });
+  chrome.tabs.create({ url: SITE + '/login' });
+  window.close();
 });
 
-document.getElementById('refresh-btn').addEventListener('click', () => init());
-
+document.getElementById('refresh-btn').addEventListener('click', () => window.location.reload());
+document.getElementById('refresh-btn-dash').addEventListener('click', () => window.location.reload());
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await clearStorage();
+  showView('login');
+});
 document.getElementById('save-btn').addEventListener('click', saveQuickClip);
-
-document.getElementById('quick-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    saveQuickClip();
-  }
+document.getElementById('quick-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveQuickClip(); }
 });
-
-document.getElementById('open-dashboard').addEventListener('click', () => {
-  chrome.tabs.create({ url: API_BASE + '/dashboard' });
+document.getElementById('open-site').addEventListener('click', () => {
+  chrome.tabs.create({ url: SITE + '/dashboard' });
 });
-
-document.getElementById('refresh-clips').addEventListener('click', () => loadClips());
-
-document.getElementById('logout-link').addEventListener('click', () => {
-  chrome.storage.local.clear(() => {
-    showLogin();
-  });
-});
-
-document.getElementById('logout-btn').addEventListener('click', () => {
-  chrome.storage.local.clear(() => {
-    showLogin();
-  });
-});
-
-// ── Listen for auth from background ───────────────────────
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'AUTH_CHANGED') init();
-});
-
-// ── Start ─────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', init);

@@ -1,67 +1,29 @@
 (function () {
   'use strict';
 
-  const HOST = window.location.hostname;
-  const IS_FC = HOST.includes('freeclipboard.com') || HOST === 'localhost';
+  document.addEventListener('keyup', (e) => {
+    const el = e.target;
+    if (!['INPUT', 'TEXTAREA'].includes(el.tagName) && !el.isContentEditable) return;
 
-  if (!IS_FC) {
-    handleSnippetExpansion();
-    return;
-  }
+    let value = el.value || el.textContent || '';
+    const match = value.match(/;;(\w+)$/);
+    if (!match) return;
 
-  // ══════════════════════════════════════════════════════════
-  //  On freeclipboard.com: listen for auth token from website
-  // ══════════════════════════════════════════════════════════
-  window.addEventListener('message', (event) => {
-    if (!IS_FC) return;
-    if (event.data?.type !== 'FC_AUTH_TOKEN') return;
-    if (!event.data?.token) return;
+    const trigger = ';;' + match[1];
+    chrome.storage.local.get('fc_snippets', (stored) => {
+      const snippets = stored.fc_snippets || [];
+      const snippet = snippets.find(s => s.trigger_key === trigger);
+      if (!snippet) return;
 
-    console.log('FreeClipboard: Token received, sending to extension');
-
-    chrome.runtime.sendMessage({
-      type: 'SAVE_TOKEN',
-      token: event.data.token
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.log('Extension message error:', chrome.runtime.lastError.message);
-        return;
+      const newValue = value.replace(trigger, snippet.content);
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        el.value = newValue;
+      } else {
+        el.textContent = newValue;
       }
-      console.log('Token saved:', response);
+      showToast('Snippet expanded');
     });
   });
-
-  // Also handle snippet expansion on freeclipboard.com
-  handleSnippetExpansion();
-
-  // ══════════════════════════════════════════════════════════
-  //  Snippet expansion
-  // ══════════════════════════════════════════════════════════
-  function handleSnippetExpansion() {
-    document.addEventListener('keyup', (e) => {
-      const el = e.target;
-      if (!['INPUT', 'TEXTAREA'].includes(el.tagName) && !el.isContentEditable) return;
-
-      let value = el.value || el.textContent || '';
-      const match = value.match(/;;(\w+)$/);
-      if (!match) return;
-
-      const trigger = ';;' + match[1];
-      chrome.storage.local.get('fc_snippets', (stored) => {
-        const snippets = stored.fc_snippets || [];
-        const snippet = snippets.find(s => s.trigger_key === trigger);
-        if (!snippet) return;
-
-        const newValue = value.replace(trigger, snippet.content);
-        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-          el.value = newValue;
-        } else {
-          el.textContent = newValue;
-        }
-        showToast('Snippet expanded');
-      });
-    });
-  }
 
   function showToast(message) {
     const toast = document.createElement('div');
