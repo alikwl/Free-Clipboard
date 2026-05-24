@@ -169,7 +169,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
             role="dialog"
             aria-modal="true"
             className={cn(
-              "relative z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg my-auto",
+              "relative z-50 grid w-full max-w-lg gap-4 border bg-background p-4 md:p-6 shadow-lg duration-200 rounded-xl sm:rounded-lg my-auto mx-2 sm:mx-0",
               className
             )}
             onClick={(e) => e.stopPropagation()}

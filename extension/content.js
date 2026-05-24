@@ -114,10 +114,11 @@
     overlayEl.id = 'fc-quick-paste';
     overlayEl.innerHTML = `
       <style>
-        #fc-quick-paste { position:fixed; bottom:20px; right:20px; z-index:999999;
+        #fc-quick-paste { position:fixed; bottom:16px; right:16px; left:16px; z-index:999999;
           background:#0f172a; border:1px solid rgba(99,102,241,0.4); border-radius:14px;
-          padding:12px; min-width:260px; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,0.6);
-          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+          padding:12px; max-width:360px; box-shadow:0 20px 60px rgba(0,0,0,0.6);
+          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+          margin-left:auto; }
         #fc-quick-paste .fc-title { font-size:10px; font-weight:800; color:#818cf8;
           text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;
           display:flex; align-items:center; gap:6px; }
@@ -191,11 +192,11 @@
     const t = document.createElement('div');
     t.textContent = msg;
     t.style.cssText = `
-      position:fixed; bottom:20px; right:20px; z-index:9999999;
+      position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:9999999;
       padding:10px 18px; border-radius:10px; font-size:12px; font-weight:600;
       background:#0f172a; border:1px solid #22c55e; color:#86efac;
       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-      pointer-events:none; transition:opacity 0.3s; opacity:1;
+      pointer-events:none; transition:opacity 0.3s; opacity:1; white-space:nowrap;
     `;
     document.body.appendChild(t);
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);

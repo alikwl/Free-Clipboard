@@ -12,6 +12,7 @@ import {
   Trash2,
   Send,
   Home,
+  Menu,
   Crown,
   Sparkles,
   Loader2,
@@ -49,6 +50,7 @@ export default function ClipMindPage() {
   const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
   const [userTrialEndsAt, setUserTrialEndsAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Conversations list & active states
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -427,7 +429,9 @@ export default function ClipMindPage() {
       
       <ProGate isPro={isPro} feature="ClipMind" message="Unlock ClipMind" className="flex w-full h-screen overflow-hidden">
         {/* --- SIDEBAR PANEL (260px) --- */}
-        <aside className="w-[260px] border-r border-white/5 bg-black/40 backdrop-blur-md flex flex-col shrink-0 transition-all duration-300">
+        <aside className={`fixed inset-y-0 left-0 z-40 w-[260px] border-r border-white/5 bg-black/60 backdrop-blur-md flex flex-col shrink-0 transition-transform duration-300 md:static md:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
         
         {/* Sidebar Header */}
         <div className="p-4 border-b border-white/5 flex flex-col gap-3 shrink-0">
@@ -514,12 +518,24 @@ export default function ClipMindPage() {
         </div>
       </aside>
 
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden" />
+      )}
+
       {/* --- MAIN CHAT CONTAINER --- */}
       <main className="flex-grow flex flex-col h-screen overflow-hidden">
         
         {/* Chat Header topbar */}
-        <header className="h-[60px] border-b border-white/5 bg-black/20 px-6 flex items-center justify-between shrink-0">
+        <header className="h-[60px] border-b border-white/5 bg-black/20 px-4 md:px-6 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5 min-w-0 pr-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-1.5 rounded-lg border border-white/10 text-neutral-400 hover:text-white shrink-0"
+              title="Open sidebar"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
             <h2 className="text-sm font-bold text-neutral-200 truncate">
               {conversations.find(c => c.id === activeConversationId)?.title || 'New Chat Session'}
             </h2>
@@ -540,7 +556,7 @@ export default function ClipMindPage() {
               return (
                 <div
                   key={index}
-                  className={`flex gap-3 max-w-[75%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
+                  className={`flex gap-3 max-w-[90%] md:max-w-[75%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
                 >
                   {/* Chat Avatar */}
                   <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center border ${

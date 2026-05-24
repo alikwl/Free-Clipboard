@@ -85,10 +85,10 @@ export default function UpgradePage() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-12">
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
         {/* Title */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-black text-white mb-3">
+          <h1 className="text-2xl md:text-3xl font-black text-white mb-3">
             Choose Your Plan
           </h1>
           <p className="text-sm text-neutral-400 max-w-md mx-auto">

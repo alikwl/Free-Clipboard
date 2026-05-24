@@ -53,7 +53,7 @@ import {
 import confetti from 'canvas-confetti';
 import ProGate from '@/components/pro-gate';
 import UpgradeModal from '@/components/upgrade-modal';
-import { getClipLimitStatus, FREE_CLIP_LIMIT, isProUser } from '@/lib/clip-limits';
+import { FREE_CLIP_LIMIT, isProUser } from '@/lib/clip-limits';
 
 interface Clip {
   id: string;
@@ -2078,7 +2078,6 @@ export default function Dashboard() {
     : folders.find(f => f.id === selectedFolderId);
 
   const isPro = isProUser(userPlan, userTrialEndsAt);
-  const clipLimitStatus = getClipLimitStatus(clips.length);
 
   return (
     <div className="min-h-screen bg-[#07070a] text-neutral-100 flex font-sans selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-hidden">
@@ -2503,7 +2502,7 @@ export default function Dashboard() {
       <div className="flex-grow flex flex-col min-w-0 z-10">
         
         {/* --- TOP BAR --- */}
-        <header className="h-16 border-b border-white/5 bg-neutral-950/40 backdrop-blur-md flex items-center justify-between px-4 md:px-8 shrink-0">
+        <header className="h-auto min-h-[64px] border-b border-white/5 bg-neutral-950/40 backdrop-blur-md flex flex-wrap items-center justify-between px-3 md:px-8 py-2 gap-2 shrink-0">
           
           <div className="flex items-center flex-grow md:flex-initial gap-2">
             {/* Hamburger Button for mobile */}
@@ -2671,71 +2670,63 @@ export default function Dashboard() {
         </header>
 
         {/* --- DASHBOARD WRAPPER --- */}
-        <main className="flex-grow p-8 overflow-y-auto scrollbar-thin">
+        <main className="flex-grow p-4 md:p-8 overflow-y-auto scrollbar-thin">
           
-          {/* --- LIMIT WARNING BANNERS --- */}
-          {userPlan === 'free' && clips.length >= 500 && (
-            <div className="mb-6 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-300 backdrop-blur-md flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center border border-rose-500/20 text-rose-400">
-                  <X className="w-4 h-4 animate-pulse" />
+          {/* --- LIMIT WARNING BANNER --- */}
+          {userPlan === 'free' && clips.length >= 450 && (
+            <div className={`mb-4 md:mb-6 p-3 md:p-4 rounded-xl border backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top duration-300 shadow-xl ${
+              clips.length >= 500
+                ? 'border-rose-500/20 bg-rose-500/5 text-rose-300'
+                : clips.length >= 490
+                ? 'border-orange-500/20 bg-orange-500/5 text-orange-300'
+                : 'border-amber-500/20 bg-amber-500/5 text-amber-300'
+            }`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${
+                  clips.length >= 500
+                    ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                    : clips.length >= 490
+                    ? 'bg-orange-500/10 border-orange-500/20 text-orange-400'
+                    : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                }`}>
+                  {clips.length >= 500 ? <X className="w-4 h-4 animate-pulse" /> :
+                   clips.length >= 490 ? <AlertCircle className="w-4 h-4 animate-pulse" /> :
+                   <Info className="w-4 h-4" />}
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-neutral-200">Free Clip Limit Reached (500/500)</p>
-                  <p className="text-[11px] text-rose-400/80 font-medium">You&apos;ve built an amazing collection of 500 clips! Upgrade to Pro to keep going — $5/mo</p>
-                </div>
-              </div>
-              <Button 
-                onClick={() => setIsUpgradeModalOpen(true)}
-                className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider px-3.5 h-8 shrink-0 rounded-lg shadow-lg shadow-rose-500/10 border-0"
-              >
-                Upgrade Now
-              </Button>
-            </div>
-          )}
-
-          {userPlan === 'free' && clips.length >= 490 && clips.length < 500 && (
-            <div className="mb-6 p-4 rounded-xl border border-orange-500/20 bg-orange-500/5 text-orange-300 backdrop-blur-md flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center border border-orange-500/20 text-orange-400">
-                  <AlertCircle className="w-4 h-4 animate-pulse" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-neutral-200">Only {FREE_CLIP_LIMIT - clips.length} clips left!</p>
-                  <p className="text-[11px] text-orange-400/80 font-medium">You&apos;re almost at the free limit. Upgrade to Pro for unlimited clips.</p>
-                </div>
-              </div>
-              <Button 
-                onClick={() => setIsUpgradeModalOpen(true)}
-                className="bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black uppercase tracking-wider px-3.5 h-8 shrink-0 rounded-lg shadow-lg shadow-orange-500/10 border-0"
-              >
-                Upgrade
-              </Button>
-            </div>
-          )}
-
-          {userPlan === 'free' && clips.length >= 450 && clips.length < 490 && (
-            <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-300 backdrop-blur-md flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-400">
-                  <Info className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-neutral-200">{FREE_CLIP_LIMIT - clips.length} clips remaining — upgrade</p>
-                  <p className="text-[11px] text-amber-400/80 font-medium">You have used {clips.length} out of {FREE_CLIP_LIMIT} free clips. Upgrade to Pro to unlock unlimited clips.</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-neutral-200 truncate">
+                    {clips.length >= 500
+                      ? 'Free Clip Limit Reached (500/500)'
+                      : clips.length >= 490
+                      ? `Only ${FREE_CLIP_LIMIT - clips.length} clips left!`
+                      : `${FREE_CLIP_LIMIT - clips.length} clips remaining — upgrade`}
+                  </p>
+                  <p className="text-[11px] opacity-80 font-medium">
+                    {clips.length >= 500
+                      ? "You've built an amazing collection of 500 clips! Upgrade to Pro to keep going — $5/mo"
+                      : clips.length >= 490
+                      ? "You're almost at the free limit. Upgrade to Pro for unlimited clips."
+                      : `You have used ${clips.length} out of ${FREE_CLIP_LIMIT} free clips. Upgrade to Pro to unlock unlimited clips.`}
+                  </p>
                 </div>
               </div>
               <Button 
                 onClick={() => setIsUpgradeModalOpen(true)}
-                className="bg-amber-500 hover:bg-amber-600 text-black text-[10px] font-black uppercase tracking-wider px-3.5 h-8 shrink-0 rounded-lg shadow-lg shadow-amber-500/10 border-0"
+                className={`text-[10px] font-black uppercase tracking-wider px-3.5 h-8 shrink-0 rounded-lg shadow-lg border-0 ${
+                  clips.length >= 500
+                    ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/10'
+                    : clips.length >= 490
+                    ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-500/10'
+                    : 'bg-amber-500 hover:bg-amber-600 text-black shadow-amber-500/10'
+                }`}
               >
-                Upgrade
+                {clips.length >= 500 ? 'Upgrade Now' : 'Upgrade'}
               </Button>
             </div>
           )}
            
           {/* Page Section Heading */}
-          <div className="flex items-center justify-between mb-6 shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-6 gap-3 shrink-0">
             <div>
               <div className="flex items-center gap-2">
                 <Grid className="w-4 h-4 text-indigo-400" />
@@ -2752,7 +2743,7 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Select Mode Toggle */}
               <button
                 onClick={() => {
@@ -2873,13 +2864,13 @@ export default function Dashboard() {
 
           {/* Trial Banner */}
           {trialDaysLeft !== null && trialDaysLeft > 0 && userPlan === 'free' && (
-            <div className="mb-6 p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 backdrop-blur-md flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
+            <div className="mb-4 md:mb-6 p-3 md:p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400 shrink-0">
                   <Sparkles className="w-4 h-4 animate-pulse" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-neutral-200">✨ Pro Trial: {trialDaysLeft} day{trialDaysLeft > 1 ? 's' : ''} left</p>
+                  <p className="text-xs font-bold text-neutral-200">Pro Trial: {trialDaysLeft} day{trialDaysLeft > 1 ? 's' : ''} left</p>
                   <p className="text-[11px] text-indigo-400/80 font-medium">Enjoy all Pro features free during your trial. Upgrade to keep access.</p>
                 </div>
               </div>
@@ -2892,50 +2883,9 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Clip Limit Warning Banners */}
-          {!isPro && clipLimitStatus.level === 'warning' && (
-            <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-300 backdrop-blur-md flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-400">
-                  <Info className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-neutral-200">{clipLimitStatus.message}</p>
-                  <p className="text-[11px] text-amber-400/80 font-medium">Upgrade to Pro for unlimited clips.</p>
-                </div>
-              </div>
-              <Button 
-                onClick={() => router.push('/upgrade')}
-                className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider px-3.5 h-8 shrink-0 rounded-lg shadow-lg shadow-amber-500/10 border-0"
-              >
-                Upgrade
-              </Button>
-            </div>
-          )}
-
-          {!isPro && clipLimitStatus.level === 'critical' && (
-            <div className="mb-6 p-4 rounded-xl border border-orange-500/20 bg-orange-500/5 text-orange-300 backdrop-blur-md flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center border border-orange-500/20 text-orange-400 animate-pulse">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-neutral-200">{clipLimitStatus.message}</p>
-                  <p className="text-[11px] text-orange-400/80 font-medium">Upgrade now to avoid losing access.</p>
-                </div>
-              </div>
-              <Button 
-                onClick={() => router.push('/upgrade')}
-                className="bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black uppercase tracking-wider px-3.5 h-8 shrink-0 rounded-lg shadow-lg shadow-orange-500/10 border-0"
-              >
-                Upgrade
-              </Button>
-            </div>
-          )}
-
           {/* --- CLIPS GRID --- */}
           {sortedClips.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
               {sortedClips.map((clip) => {
                 const clipFolder = folders.find(f => f.id === clip.folder_id);
                 const truncatedContent = clip.content.length > 100 
