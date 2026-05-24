@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "FreeClipboard",
+  "version": "1.0.0",
+  "description": "Save anything to your clipboard, anywhere",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "contextMenus",
+    "scripting",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://freeclipboard.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "commands": {
+    "save-clip": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C"
+      },
+      "description": "Save selected text"
+    },
+    "quick-paste": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+V"
+      },
+      "description": "Open quick paste"
+    }
+  }
+}
