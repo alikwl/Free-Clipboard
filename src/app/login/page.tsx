@@ -50,6 +50,8 @@ function LoginContent() {
         if (error) throw error;
         
         await broadcastAuthToken();
+        // Small delay so content script can relay to background before navigation
+        await new Promise(r => setTimeout(r, 200));
         router.push('/dashboard');
         router.refresh();
       } else {

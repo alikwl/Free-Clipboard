@@ -64,6 +64,8 @@ export default function SignupPage() {
       } else if (data.session) {
         // Email confirmation is disabled — user is signed in immediately
         await broadcastAuthToken();
+        // Small delay so content script can relay to background before navigation
+        await new Promise(r => setTimeout(r, 200));
         router.push('/dashboard');
         router.refresh();
       } else {
