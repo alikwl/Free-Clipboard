@@ -1,5 +1,6 @@
 const API_BASE = 'https://freeclipboard.com';
 const DASHBOARD_URL = 'https://freeclipboard.com/dashboard';
+const LOGIN_URL = 'https://freeclipboard.com/login';
 
 const icons = { text: '\u{1F4C4}', code: '\u{1F4BB}', url: '\u{1F517}', other: '\u{1F4CB}' };
 
@@ -37,7 +38,7 @@ function renderLoggedOut() {
     </div>
   `;
   document.getElementById('loginBtn').onclick = () => {
-    chrome.tabs.create({ url: DASHBOARD_URL + '/login' });
+    chrome.tabs.create({ url: LOGIN_URL });
   };
 }
 

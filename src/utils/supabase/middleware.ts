@@ -46,8 +46,10 @@ export async function updateSession(request: NextRequest) {
     return redirectResponse;
   };
 
-  // Protect /dashboard route — redirect to login if not authed
-  if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+  const PROTECTED_PATHS = ['/dashboard', '/clipmind', '/graph', '/analytics', '/upgrade'];
+
+  // Protect all authenticated routes — redirect to login if not authed
+  if (PROTECTED_PATHS.some(p => request.nextUrl.pathname.startsWith(p)) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return copyAuthCookies(NextResponse.redirect(url));
