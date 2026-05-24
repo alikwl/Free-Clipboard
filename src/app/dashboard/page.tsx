@@ -580,6 +580,16 @@ export default function Dashboard() {
           setUserTrialEndsAt(profile.trial_ends_at);
         }
 
+        // Send token to extension on page mount (for refresh button)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          window.postMessage({
+            type: 'FC_AUTH_TOKEN',
+            token: session.access_token,
+            source: 'freeclipboard_website'
+          }, window.location.origin);
+        }
+
         // Calculate trial days left
         if (profile?.trial_ends_at && profile.plan === 'free') {
           const trialEnd = new Date(profile.trial_ends_at);

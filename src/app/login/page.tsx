@@ -32,9 +32,12 @@ function LoginContent() {
   const broadcastAuthToken = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
-      try { window.postMessage({ type: 'FC_AUTH', token: session.access_token }, '*'); } catch { /* noop */ }
-      try { window.opener?.postMessage({ type: 'FC_AUTH', token: session.access_token }, '*'); } catch { /* noop */ }
-      try { window.postMessage({ type: 'FC_AUTH', token: session.access_token }, window.location.origin); } catch { /* noop */ }
+      const targetOrigin = window.location.origin || 'https://freeclipboard.com';
+      window.postMessage({
+        type: 'FC_AUTH_TOKEN',
+        token: session.access_token,
+        source: 'freeclipboard_website'
+      }, targetOrigin);
     }
   };
 
@@ -50,8 +53,6 @@ function LoginContent() {
         if (error) throw error;
         
         await broadcastAuthToken();
-        // Small delay so content script can relay to background before navigation
-        await new Promise(r => setTimeout(r, 200));
         router.push('/dashboard');
         router.refresh();
       } else {

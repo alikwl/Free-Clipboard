@@ -1,120 +1,127 @@
 const API_BASE = 'https://freeclipboard.com';
 
-// ── Token management ──────────────────────────────────────
-async function getToken() {
-  return new Promise(resolve => {
-    chrome.storage.local.get(['fc_token'], r => resolve(r.fc_token || null));
-  });
-}
+// ── Message handler ───────────────────────────────────────
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
-async function setToken(token) {
-  return new Promise(resolve => {
-    chrome.storage.local.set({ fc_token: token }, () => {
-      // Also cache clips for offline access
-      startSyncTimer();
-      syncClips();
-      // Notify all extension views
-      chrome.runtime.sendMessage({ type: 'AUTH_CHANGED' }).catch(() => {});
-      resolve();
+  if (message.type === 'SAVE_TOKEN') {
+    chrome.storage.local.set({
+      fc_token: message.token,
+      fc_token_saved_at: Date.now()
+    }, () => {
+      console.log('FreeClipboard: Token saved successfully');
+      sendResponse({ success: true });
+      chrome.notifications.create('login_success', {
+        type: 'basic',
+        iconUrl: 'icon48.png',
+        title: 'FreeClipboard',
+        message: 'Logged in! Your clips will sync now.'
+      });
     });
-  });
-}
+    return true;
+  }
 
-// ── Sync clips every 10 minutes ───────────────────────────
-let syncTimer = null;
-function startSyncTimer() {
-  if (syncTimer) clearInterval(syncTimer);
-  syncTimer = setInterval(syncClips, 10 * 60 * 1000);
-}
+  if (message.type === 'SAVE_CLIP') {
+    handleSaveClip(message.content, message.url).then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
 
-async function syncClips() {
-  const token = await getToken();
+  if (message.type === 'GET_CLIPS') {
+    getClipsFromAPI().then(clips => {
+      sendResponse({ clips });
+    });
+    return true;
+  }
+});
+
+// ── Save clip ─────────────────────────────────────────────
+async function handleSaveClip(content, sourceUrl) {
+  const stored = await chrome.storage.local.get('fc_token');
+  const token = stored.fc_token;
   if (!token) return;
-  try {
-    const res = await fetch(API_BASE + '/api/clips?limit=20', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    chrome.storage.local.set({ cached_clips: data.clips || data || [] });
-  } catch (_) {}
-}
 
-// ── Notification helper ───────────────────────────────────
-function notify(title, msg) {
-  chrome.notifications.create({
-    type: 'basic', iconUrl: 'icon48.png', title, message: msg, priority: 0
-  });
-}
-
-// ── Save clip helper ──────────────────────────────────────
-async function saveSelected(text, url) {
-  const token = await getToken();
-  if (!token) { notify('FreeClipboard', 'Please log in first'); return; }
   try {
     const res = await fetch(API_BASE + '/api/clips', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ content: text, source_url: url || '' })
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        content,
+        source_url: sourceUrl,
+        title: content.substring(0, 50)
+      })
     });
-    if (res.ok) {
-      notify('FreeClipboard', '\u2705 Saved to FreeClipboard');
-      syncClips();
-      chrome.runtime.sendMessage({ type: 'CLIP_SAVED' }).catch(() => {});
-    } else {
-      notify('FreeClipboard', 'Failed to save');
+
+    if (res.status === 401) {
+      chrome.storage.local.remove('fc_token');
+      return;
     }
-  } catch (_) { notify('FreeClipboard', 'Error saving'); }
+
+    if (res.ok) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon48.png',
+        title: 'FreeClipboard',
+        message: 'Clip saved!'
+      });
+    }
+  } catch (e) {
+    console.log('Save clip error:', e);
+  }
 }
 
-// ── Keyboard shortcuts ────────────────────────────────────
-chrome.commands.onCommand.addListener(async (cmd) => {
-  if (cmd === 'save-clip') {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) return;
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => window.getSelection()?.toString() || ''
+// ── Get clips from API ────────────────────────────────────
+async function getClipsFromAPI() {
+  const stored = await chrome.storage.local.get('fc_token');
+  const token = stored.fc_token;
+  if (!token) return [];
+
+  try {
+    const res = await fetch(API_BASE + '/api/clips?limit=8', {
+      headers: { 'Authorization': 'Bearer ' + token }
     });
-    const text = (result?.result || '').trim();
-    if (!text) { notify('FreeClipboard', 'No text selected'); return; }
-    saveSelected(text, tab.url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const clips = data.clips || data || [];
+    chrome.storage.local.set({ fc_clips_cache: clips });
+    return clips;
+  } catch (e) {
+    const cached = await chrome.storage.local.get('fc_clips_cache');
+    return cached.fc_clips_cache || [];
   }
-  if (cmd === 'quick-paste') {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'SHOW_QUICK_PASTE' }).catch(() => {});
-  }
+}
+
+// ── Keyboard shortcut: Ctrl+Shift+C ───────────────────────
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'save-clip') return;
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => window.getSelection()?.toString() || ''
+  }).then(async ([result]) => {
+    if (result?.result) {
+      await handleSaveClip(result.result, tab.url);
+    }
+  });
 });
 
 // ── Context menu ──────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({ id: 'save-fc', title: 'Save to FreeClipboard', contexts: ['selection'] });
-  startSyncTimer();
-  syncClips();
+  chrome.contextMenus.create({
+    id: 'save-fc',
+    title: 'Save to FreeClipboard',
+    contexts: ['selection']
+  });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'save-fc' && info.selectionText) {
-    saveSelected(info.selectionText, tab?.url || '');
+    await handleSaveClip(info.selectionText, tab?.url || '');
   }
 });
-
-// ── Message handler ───────────────────────────────────────
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'SYNC_CLIPS') {
-    syncClips().then(() => {
-      chrome.storage.local.get(['cached_clips'], r => sendResponse({ clips: r.cached_clips || [] }));
-    }).catch(() => sendResponse({ clips: [] }));
-    return true;
-  }
-
-  if (msg.type === 'SET_TOKEN') {
-    setToken(msg.token).then(() => sendResponse({ success: true }));
-    return true;
-  }
-});
-
-// ── Init ──────────────────────────────────────────────────
-chrome.runtime.onStartup.addListener(() => { startSyncTimer(); syncClips(); });
-startSyncTimer();
-syncClips();

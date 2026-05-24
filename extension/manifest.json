@@ -1,25 +1,28 @@
 {
   "manifest_version": 3,
   "name": "FreeClipboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Save anything to your clipboard, anywhere",
   "permissions": [
     "storage",
     "activeTab",
     "contextMenus",
     "scripting",
-    "notifications"
+    "notifications",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "https://freeclipboard.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "matches": ["https://freeclipboard.com/*", "<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
     }
   ],
   "action": {
@@ -40,13 +43,7 @@
       "suggested_key": {
         "default": "Ctrl+Shift+C"
       },
-      "description": "Save selected text"
-    },
-    "quick-paste": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+V"
-      },
-      "description": "Open quick paste"
+      "description": "Save selected text to FreeClipboard"
     }
   }
 }

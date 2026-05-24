@@ -1,166 +1,78 @@
 (function () {
   'use strict';
 
-  const API_BASE = 'https://freeclipboard.com';
-  let snippets = [];
-  let cachedClips = [];
-  let userContext = { name: '', email: '' };
+  const HOST = window.location.hostname;
+  const IS_FC = HOST.includes('freeclipboard.com') || HOST === 'localhost';
 
-  function active() {
-    return !!(chrome.runtime && chrome.runtime.id);
-  }
-
-  function safeGet(keys, cb) {
-    if (!active()) { cb({}); return; }
-    try { chrome.storage.local.get(keys, cb); } catch (_) { cb({}); }
+  if (!IS_FC) {
+    handleSnippetExpansion();
+    return;
   }
 
   // ══════════════════════════════════════════════════════════
-  //  AUTH BRIDGE — relay token to background immediately
+  //  On freeclipboard.com: listen for auth token from website
   // ══════════════════════════════════════════════════════════
-  window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'FC_AUTH' && typeof e.data.token === 'string' && e.data.token.length > 20) {
-      // Send to background IMMEDIATELY — background persists it
-      if (active()) {
-        chrome.runtime.sendMessage({ type: 'SET_TOKEN', token: e.data.token });
+  window.addEventListener('message', (event) => {
+    if (!IS_FC) return;
+    if (event.data?.type !== 'FC_AUTH_TOKEN') return;
+    if (!event.data?.token) return;
+
+    console.log('FreeClipboard: Token received, sending to extension');
+
+    chrome.runtime.sendMessage({
+      type: 'SAVE_TOKEN',
+      token: event.data.token
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.log('Extension message error:', chrome.runtime.lastError.message);
+        return;
       }
-      showToast('\u2705 Connected');
-    }
+      console.log('Token saved:', response);
+    });
   });
+
+  // Also handle snippet expansion on freeclipboard.com
+  handleSnippetExpansion();
 
   // ══════════════════════════════════════════════════════════
   //  Snippet expansion
   // ══════════════════════════════════════════════════════════
+  function handleSnippetExpansion() {
+    document.addEventListener('keyup', (e) => {
+      const el = e.target;
+      if (!['INPUT', 'TEXTAREA'].includes(el.tagName) && !el.isContentEditable) return;
 
-  function resolveVars(content) {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const first = (userContext.name || '').split(' ')[0] || userContext.name;
-    return content
-      .replace(/\{name\}/g, first)
-      .replace(/\{email\}/g, userContext.email)
-      .replace(/\{date\}/g, `${day}/${month}/${year}`)
-      .replace(/\{time\}/g, `${h}:${m}`)
-      .replace(/\{url\}/g, window.location.href)
-      .replace(/\{title\}/g, document.title);
-  }
+      let value = el.value || el.textContent || '';
+      const match = value.match(/;;(\w+)$/);
+      if (!match) return;
 
-  function detectTrigger(textarea) {
-    const pos = textarea.selectionStart;
-    const text = textarea.value;
-    const before = text.substring(0, pos);
-    const match = before.match(/;;[a-zA-Z0-9_-]*$/);
-    if (!match || match[0].length < 3) return null;
-    return { trigger: match[0], start: pos - match[0].length, end: pos };
-  }
+      const trigger = ';;' + match[1];
+      chrome.storage.local.get('fc_snippets', (stored) => {
+        const snippets = stored.fc_snippets || [];
+        const snippet = snippets.find(s => s.trigger_key === trigger);
+        if (!snippet) return;
 
-  function expandSnippet(textarea) {
-    const d = detectTrigger(textarea);
-    if (!d) return false;
-    const snip = snippets.find(s => s.trigger_key === d.trigger);
-    if (!snip) return false;
-    const resolved = resolveVars(snip.content);
-    const text = textarea.value;
-    const newText = text.substring(0, d.start) + resolved + text.substring(d.end);
-    textarea.value = newText;
-    const cursor = d.start + resolved.length;
-    textarea.selectionStart = cursor;
-    textarea.selectionEnd = cursor;
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    textarea.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  function attachSnippets(el) {
-    if (el.dataset.fcSnippet) return;
-    el.dataset.fcSnippet = '1';
-    el.addEventListener('keyup', () => expandSnippet(el));
-  }
-
-  function scanInputs() {
-    document.querySelectorAll(
-      'input[type="text"], input[type="search"], textarea, [contenteditable="true"]'
-    ).forEach(attachSnippets);
-  }
-
-  function loadSnippets() {
-    safeGet(['snippets', 'userContext'], r => {
-      snippets = r.snippets || [];
-      userContext = r.userContext || {};
+        const newValue = value.replace(trigger, snippet.content);
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          el.value = newValue;
+        } else {
+          el.textContent = newValue;
+        }
+        showToast('Snippet expanded');
+      });
     });
   }
 
-  // ══════════════════════════════════════════════════════════
-  //  Quick paste overlay (Ctrl+Shift+V)
-  // ══════════════════════════════════════════════════════════
-
-  let overlayEl = null;
-
-  function removeOverlay() {
-    if (overlayEl) { overlayEl.remove(); overlayEl = null; }
-    document.removeEventListener('keydown', onOverlayKey);
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position:fixed;bottom:20px;right:20px;background:#7C3AED;color:white;
+      padding:10px 16px;border-radius:8px;font-size:14px;z-index:999999;
+      box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:fcSlideIn .3s ease;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    `;
+    toast.textContent = '\u{1F4CB} ' + message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
   }
-
-  function onOverlayKey(e) { if (e.key === 'Escape') removeOverlay(); }
-
-  function showQuickPaste() {
-    removeOverlay();
-    safeGet(['cached_clips'], r => {
-      cachedClips = (r.cached_clips || []).slice(0, 5);
-      if (!cachedClips.length) { showToast('No clips saved yet'); return; }
-      buildOverlay();
-    });
-  }
-
-  function buildOverlay() {
-    overlayEl = document.createElement('div');
-    overlayEl.id = 'fc-quick-paste';
-    overlayEl.innerHTML = `<style>#fc-quick-paste{position:fixed;bottom:16px;right:16px;left:16px;z-index:999999;background:#0f172a;border:1px solid rgba(99,102,241,0.4);border-radius:14px;padding:12px;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin-left:auto}#fc-quick-paste .fc-title{font-size:10px;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px}#fc-quick-paste .fc-clip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .15s;background:rgba(255,255,255,0.02);margin-bottom:4px}#fc-quick-paste .fc-clip:hover{background:rgba(99,102,241,0.1)}#fc-quick-paste .fc-clip-text{flex:1;font-size:11px;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#fc-quick-paste .fc-clip-num{font-size:9px;color:#52525b;font-weight:700;min-width:16px;text-align:center}#fc-quick-paste .fc-hint{font-size:9px;color:#52525b;text-align:center;margin-top:8px}</style><div class="fc-title"><span>\u{1F4CB}</span> Quick Paste</div>${cachedClips.map((c,i)=>`<div class="fc-clip" data-idx="${i}"><span class="fc-clip-num">${i+1}</span><span class="fc-clip-text">${escapeHtml((c.content||'').substring(0,80))}</span></div>`).join('')}<div class="fc-hint">Click to paste &bull; Esc to close</div>`;
-    document.body.appendChild(overlayEl);
-    overlayEl.querySelectorAll('.fc-clip').forEach(el => {
-      el.onclick = () => {
-        const clip = cachedClips[parseInt(el.dataset.idx)];
-        if (!clip) return;
-        const a = document.activeElement;
-        if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.isContentEditable)) {
-          if (a.isContentEditable) { document.execCommand('insertText', false, clip.content); }
-          else { const s = a.selectionStart, e = a.selectionEnd; a.value = a.value.substring(0,s) + clip.content + a.value.substring(e); a.selectionStart = a.selectionEnd = s + clip.content.length; a.dispatchEvent(new Event('input',{bubbles:true})); }
-        } else { navigator.clipboard.writeText(clip.content); }
-        removeOverlay();
-      };
-    });
-    document.addEventListener('keydown', onOverlayKey);
-    setTimeout(() => document.addEventListener('click', function h(e) { if (!overlayEl?.contains(e.target)) { removeOverlay(); document.removeEventListener('click', h); } }), 0);
-  }
-
-  function showToast(msg) {
-    const t = document.createElement('div'); t.textContent = msg;
-    t.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999999;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;background:#0f172a;border:1px solid #22c55e;color:#86efac;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;pointer-events:none;transition:opacity .3s;opacity:1;white-space:nowrap';
-    document.body.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);
-  }
-
-  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-  // ══════════════════════════════════════════════════════════
-  //  Message handlers
-  // ══════════════════════════════════════════════════════════
-  try { chrome.runtime.onMessage.addListener(msg => { if (msg.type === 'SHOW_QUICK_PASTE') showQuickPaste(); }); } catch (_) {}
-
-  document.addEventListener('mouseup', () => {
-    if (active()) chrome.runtime.sendMessage({ type: 'HAS_SELECTION', hasSelection: !!(window.getSelection()?.toString()) }).catch(()=>{});
-  });
-
-  // ══════════════════════════════════════════════════════════
-  //  Init
-  // ══════════════════════════════════════════════════════════
-  scanInputs();
-  loadSnippets();
-  try { new MutationObserver(scanInputs).observe(document.body, { childList: true, subtree: true }); } catch (_) {}
-  setInterval(() => { if (active()) loadSnippets(); }, 30 * 60 * 1000);
-  setInterval(() => { if (active()) safeGet(['cached_clips'], r => { cachedClips = r.cached_clips || []; }); }, 5 * 60 * 1000);
 })();
