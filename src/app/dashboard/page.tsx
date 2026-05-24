@@ -33,6 +33,7 @@ import {
   LogOut,
   Menu,
   Plus, 
+  Puzzle,
   Search, 
   Share2,
   Sparkles,
@@ -54,6 +55,10 @@ import confetti from 'canvas-confetti';
 import ProGate from '@/components/pro-gate';
 import UpgradeModal from '@/components/upgrade-modal';
 import { FREE_CLIP_LIMIT, isProUser } from '@/lib/clip-limits';
+import { OfflineBanner } from '@/components/offline-banner';
+import { MobileBottomNav } from '@/components/mobile-bottom-nav';
+import { OnboardingModal } from '@/components/onboarding-modal';
+import { ClipListSkeleton } from '@/components/skeletons';
 
 interface Clip {
   id: string;
@@ -126,11 +131,13 @@ export default function Dashboard() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [clips, setClips] = useState<Clip[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
   
   // Navigation & Filtering
   const [activeFilter, setActiveFilter] = useState<'all' | 'pinned' | 'folder'>('all');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [smartSearch, setSmartSearch] = useState(false);
   
   // Modals & Forms
@@ -190,6 +197,12 @@ export default function Dashboard() {
 
   // Mobile sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Share Modal States
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -424,6 +437,8 @@ export default function Dashboard() {
       const storedFolders = localStorage.getItem('freeclipboard_dashboard_folders');
       if (storedClips) setClips(JSON.parse(storedClips));
       if (storedFolders) setFolders(JSON.parse(storedFolders));
+    } finally {
+      setDataLoading(false);
     }
   }, [supabase, addToast]);
 
@@ -2056,8 +2071,8 @@ export default function Dashboard() {
     }
 
     // 2. Top bar search filtering
-    if (searchQuery.trim().length > 0) {
-      const query = searchQuery.toLowerCase();
+    if (debouncedSearch.trim().length > 0) {
+      const query = debouncedSearch.toLowerCase();
       const contentMatch = clip.content.toLowerCase().includes(query);
       const titleMatch = clip.title?.toLowerCase().includes(query) || false;
       const tagMatch = clip.tags.some(tag => tag.toLowerCase().includes(query));
@@ -2085,6 +2100,8 @@ export default function Dashboard() {
       {/* Dynamic Background Ambient Blurs */}
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-violet-600/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[140px] -z-10 pointer-events-none" />
+
+      <OfflineBanner />
 
       {/* --- MOBILE SIDEBAR BACKDROP OVERLAY --- */}
       {isSidebarOpen && (
@@ -2670,7 +2687,7 @@ export default function Dashboard() {
         </header>
 
         {/* --- DASHBOARD WRAPPER --- */}
-        <main className="flex-grow p-4 md:p-8 overflow-y-auto scrollbar-thin">
+        <main className="flex-grow p-4 md:p-8 pb-20 md:pb-8 overflow-y-auto scrollbar-thin">
           
           {/* --- LIMIT WARNING BANNER --- */}
           {userPlan === 'free' && clips.length >= 450 && (
@@ -2884,7 +2901,9 @@ export default function Dashboard() {
           )}
 
           {/* --- CLIPS GRID --- */}
-          {sortedClips.length > 0 ? (
+          {dataLoading ? (
+            <ClipListSkeleton count={6} />
+          ) : sortedClips.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
               {sortedClips.map((clip) => {
                 const clipFolder = folders.find(f => f.id === clip.folder_id);
@@ -3270,31 +3289,48 @@ export default function Dashboard() {
             </div>
           ) : (
             /* Ambient Empty State design */
-            <div className="border border-white/5 border-dashed bg-neutral-900/10 rounded-2xl p-16 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden mt-6">
+            <div className="border border-white/5 border-dashed bg-neutral-900/10 rounded-2xl p-8 md:p-16 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden mt-6">
               <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-md">
-                <Clipboard className="w-7 h-7 animate-pulse" />
+                <Clipboard className="w-7 h-7" />
               </div>
               <div className="flex flex-col gap-1.5 max-w-sm">
-                <h4 className="text-sm font-semibold text-neutral-300">No dashboard clips found</h4>
+                <h4 className="text-sm font-semibold text-neutral-300">
+                  {searchQuery
+                    ? 'No matching clips'
+                    : activeFilter === 'pinned'
+                    ? 'No pinned clips yet'
+                    : activeFilter === 'folder'
+                    ? 'This folder is empty'
+                    : 'Save your first clip!'}
+                </h4>
                 <p className="text-xs text-neutral-500 leading-normal">
                   {searchQuery 
-                    ? `No clips matching "${searchQuery}" in this filter. Clear the query or try a different filter.`
+                    ? `No clips matching "${debouncedSearch}". Clear the query or try a different filter.`
                     : activeFilter === 'pinned'
-                    ? "You haven't pinned any clips yet! Click the star icon on any clip to pin it."
+                    ? "Click the star icon on any clip to pin it here for quick access."
                     : activeFilter === 'folder'
-                    ? "This folder doesn't contain any clips. Create a new clip inside this folder to populate it."
-                    : "Create a new clip to save files in this dashboard."}
+                    ? "Create a new clip inside this folder to populate it."
+                    : "Paste any text, code snippet, or link. It syncs across all your devices instantly."}
                 </p>
               </div>
               
               {!searchQuery && (
-                <Button
-                  onClick={() => handleOpenNewClipModal()}
-                  className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-5 py-4 gap-1.5 mt-3 transition-colors border-0"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Create First Clip
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2.5 mt-3">
+                  <Button
+                    onClick={() => handleOpenNewClipModal()}
+                    className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-5 py-4 gap-1.5 transition-colors border-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Create First Clip
+                  </Button>
+                  <Button
+                    onClick={() => window.open('https://chrome.google.com/webstore', '_blank')}
+                    className="bg-white/5 hover:bg-white/10 text-neutral-300 border border-white/10 font-bold text-xs px-5 py-4 gap-1.5 transition-colors"
+                  >
+                    <Puzzle className="w-3.5 h-3.5" />
+                    Get Chrome Extension
+                  </Button>
+                </div>
               )}
             </div>
           )}
@@ -4224,8 +4260,8 @@ export default function Dashboard() {
       {/* Upgrade Modal */}
       <UpgradeModal open={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
 
-      {/* 5. STACKABLE TOAST NOTIFICATION WINDOW */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2.5rem)] sm:w-[350px] pointer-events-none">
+      {/* Toast container with safe area for mobile nav */}
+      <div className="fixed bottom-16 md:bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2.5rem)] sm:w-[350px] pointer-events-none">
         {toasts.map(toast => (
           <div
             key={toast.id}
@@ -4247,6 +4283,9 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      <MobileBottomNav />
+      <OnboardingModal />
     </div>
   );
 }
