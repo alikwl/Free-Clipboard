@@ -3,11 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function DELETE(request: NextRequest) {
   try {
-<<<<<<< HEAD
-    const supabase = createClient();
-=======
     const supabase = await createClient();
->>>>>>> 7a2e13a (Initial commit from PC)
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

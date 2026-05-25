@@ -10,11 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
-<<<<<<< HEAD
-    const supabase = createClient();
-=======
     const supabase = await createClient();
->>>>>>> 7a2e13a (Initial commit from PC)
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {

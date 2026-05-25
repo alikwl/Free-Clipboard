@@ -11,11 +11,7 @@ export async function checkRateLimit(
   action: string,
   trialEndsAt?: string | null
 ): Promise<{ allowed: boolean; remaining: number; error?: string }> {
-<<<<<<< HEAD
-  const supabase = createClient()
-=======
   const supabase = await createClient()
->>>>>>> 7a2e13a (Initial commit from PC)
 
   // Trial users get pro limits
   const isTrial = trialEndsAt && new Date(trialEndsAt) > new Date();

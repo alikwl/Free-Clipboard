@@ -23,10 +23,7 @@ import {
   Crown,
   Download,
   Edit2,
-<<<<<<< HEAD
-=======
   Eye,
->>>>>>> 7a2e13a (Initial commit from PC)
   Folders as FoldersIcon, 
   Grid, 
   Home, 
@@ -108,15 +105,12 @@ const generateUUID = () => {
   });
 };
 
-<<<<<<< HEAD
-=======
 const getStoredUserPlan = (): 'free' | 'pro' | null => {
   if (typeof window === 'undefined') return null;
   const storedPlan = localStorage.getItem('fc_user_plan');
   return storedPlan === 'free' || storedPlan === 'pro' ? storedPlan : null;
 };
 
->>>>>>> 7a2e13a (Initial commit from PC)
 interface SyncQueueItem {
   id: string;
   table: 'clips' | 'folders';
@@ -187,11 +181,8 @@ export default function Dashboard() {
   // Edit Clip States
   const [isEditClipOpen, setIsEditClipOpen] = useState(false);
   const [editingClip, setEditingClip] = useState<Clip | null>(null);
-<<<<<<< HEAD
-=======
   const [isClipPreviewOpen, setIsClipPreviewOpen] = useState(false);
   const [previewingClip, setPreviewingClip] = useState<Clip | null>(null);
->>>>>>> 7a2e13a (Initial commit from PC)
   const [editClipContent, setEditClipContent] = useState('');
   const [editClipTitle, setEditClipTitle] = useState('');
   const [editClipTagsString, setEditClipTagsString] = useState('');
@@ -240,14 +231,8 @@ export default function Dashboard() {
   const [copiedColShareLink, setCopiedColShareLink] = useState(false);
   const [colShareClipCount, setColShareClipCount] = useState(0);
 
-<<<<<<< HEAD
-
-
-  const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
-=======
   const [userPlan, setUserPlan] = useState<'free' | 'pro'>(() => getStoredUserPlan() || 'free');
   const [isPlanResolved, setIsPlanResolved] = useState<boolean>(() => getStoredUserPlan() !== null);
->>>>>>> 7a2e13a (Initial commit from PC)
   const [userTrialEndsAt, setUserTrialEndsAt] = useState<string | null>(null);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -289,8 +274,6 @@ export default function Dashboard() {
     }, 3500);
   }, []);
 
-<<<<<<< HEAD
-=======
   const copyClipText = useCallback((id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedClipId(id);
@@ -308,7 +291,6 @@ export default function Dashboard() {
     }, 2000);
   }, [addToast]);
 
->>>>>>> 7a2e13a (Initial commit from PC)
   const snippetCache = useRef<Map<string, { id: string; trigger_key: string; content: string; use_count: number }>>(new Map());
 
   const loadSnippets = useCallback(async () => {
@@ -618,18 +600,12 @@ export default function Dashboard() {
           setUserPlan(profile.plan);
           localStorage.setItem('fc_user_plan', profile.plan);
         }
-<<<<<<< HEAD
-
-        if (profile?.trial_ends_at) {
-          setUserTrialEndsAt(profile.trial_ends_at);
-=======
         setIsPlanResolved(true);
 
         if (profile?.trial_ends_at) {
           setUserTrialEndsAt(profile.trial_ends_at);
         } else {
           setUserTrialEndsAt(null);
->>>>>>> 7a2e13a (Initial commit from PC)
         }
 
         // Send token to extension on page mount (for refresh button)
@@ -657,21 +633,14 @@ export default function Dashboard() {
         if (!migrationChecked.current) {
           migrationChecked.current = true;
           const migratedFlag = localStorage.getItem(`freeclipboard_migrated_${user.id}`);
-<<<<<<< HEAD
-=======
           const snoozedUntil = Number(localStorage.getItem(`freeclipboard_migration_snoozed_${user.id}`) || '0');
->>>>>>> 7a2e13a (Initial commit from PC)
           const storedClips = localStorage.getItem('freeclipboard_dashboard_clips');
           const storedFolders = localStorage.getItem('freeclipboard_dashboard_folders');
           
           const parsedClips: Clip[] = storedClips ? JSON.parse(storedClips) : [];
           const parsedFolders: Folder[] = storedFolders ? JSON.parse(storedFolders) : [];
 
-<<<<<<< HEAD
-          if (!migratedFlag && parsedClips.length > 0) {
-=======
           if (!migratedFlag && parsedClips.length > 0 && snoozedUntil < Date.now()) {
->>>>>>> 7a2e13a (Initial commit from PC)
             setLegacyClips(parsedClips);
             setLegacyFolders(parsedFolders);
             setIsMigrationModalOpen(true);
@@ -693,8 +662,6 @@ export default function Dashboard() {
     router.refresh();
   };
 
-<<<<<<< HEAD
-=======
   const dismissMigrationPrompt = useCallback((shouldSnooze = true) => {
     if (user && shouldSnooze) {
       const snoozeUntil = Date.now() + 12 * 60 * 60 * 1000;
@@ -710,7 +677,6 @@ export default function Dashboard() {
     }
   }, [user, fetchData, loadSnippets, addToast]);
 
->>>>>>> 7a2e13a (Initial commit from PC)
   // --- NETWORK STATUS TRACKING ---
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -924,10 +890,7 @@ export default function Dashboard() {
 
       addToast(`Successfully synced ${migratedClips.length} clips and ${migratedFolders.length} folders!`, 'success');
       localStorage.setItem(`freeclipboard_migrated_${currentUser.id}`, 'true');
-<<<<<<< HEAD
-=======
       localStorage.removeItem(`freeclipboard_migration_snoozed_${currentUser.id}`);
->>>>>>> 7a2e13a (Initial commit from PC)
       setIsMigrationModalOpen(false);
       
       confetti({
@@ -1155,22 +1118,13 @@ export default function Dashboard() {
   };
 
   // --- SHARE HANDLERS ---
-<<<<<<< HEAD
-  const handleOpenShareModal = async (clip: Clip, e: React.MouseEvent) => {
-    e.stopPropagation();
-=======
   const openShareModal = async (clip: Clip) => {
->>>>>>> 7a2e13a (Initial commit from PC)
     setSharingClip(clip);
     setIsShareModalOpen(true);
     setCopiedShareLink(false);
 
     if (!user) return;
 
-<<<<<<< HEAD
-    // If the clip already has a share_token in DB, fetch it; otherwise generate one
-=======
->>>>>>> 7a2e13a (Initial commit from PC)
     setIsGeneratingShare(true);
     try {
       const { data, error } = await supabase
@@ -1184,15 +1138,8 @@ export default function Dashboard() {
       let token = data?.share_token as string | null;
       let expiresAt = data?.share_expires_at as string | null;
 
-<<<<<<< HEAD
-      // For free users, auto-generate/refresh token with 7-day expiry
-      // For pro users, generate token with no expiry
-      const needsToken = !token;
-      const needsRefresh = expiresAt && new Date(expiresAt) < new Date(); // expired
-=======
       const needsToken = !token;
       const needsRefresh = expiresAt && new Date(expiresAt) < new Date();
->>>>>>> 7a2e13a (Initial commit from PC)
 
       if (needsToken || needsRefresh) {
         token = generateUUID();
@@ -1206,10 +1153,6 @@ export default function Dashboard() {
           .eq('id', clip.id);
         if (updateError) throw updateError;
 
-<<<<<<< HEAD
-        // Update local state
-=======
->>>>>>> 7a2e13a (Initial commit from PC)
         setClips(prev => prev.map(c =>
           c.id === clip.id ? { ...c } : c
         ));
@@ -1225,14 +1168,11 @@ export default function Dashboard() {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleOpenShareModal = async (clip: Clip, e: React.MouseEvent) => {
     e.stopPropagation();
     await openShareModal(clip);
   };
 
->>>>>>> 7a2e13a (Initial commit from PC)
   const handleCopyShareLink = () => {
     if (!shareToken) return;
     const url = `${window.location.origin}/s/${shareToken}`;
@@ -1702,13 +1642,7 @@ export default function Dashboard() {
     }
   };
 
-<<<<<<< HEAD
-  // Edit Clip Action Trigger
-  const handleOpenEditClip = (clip: Clip, e: React.MouseEvent) => {
-    e.stopPropagation();
-=======
   const openEditClipModal = (clip: Clip) => {
->>>>>>> 7a2e13a (Initial commit from PC)
     setEditingClip(clip);
     setEditClipTitle(clip.title || '');
     setEditClipContent(clip.content);
@@ -1718,8 +1652,6 @@ export default function Dashboard() {
     setIsEditClipOpen(true);
   };
 
-<<<<<<< HEAD
-=======
   const openClipPreview = (clip: Clip) => {
     setPreviewingClip(clip);
     setIsClipPreviewOpen(true);
@@ -1731,7 +1663,6 @@ export default function Dashboard() {
     openEditClipModal(clip);
   };
 
->>>>>>> 7a2e13a (Initial commit from PC)
   // Save Edit Clip Form Submission
   const handleSaveEditClip = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1878,25 +1809,7 @@ export default function Dashboard() {
   // Copy Clip Content
   const handleCopyContent = (id: string, text: string, e: React.MouseEvent) => {
     e.stopPropagation();
-<<<<<<< HEAD
-    navigator.clipboard.writeText(text);
-    setCopiedClipId(id);
-    addToast('Copied to clipboard!', 'success');
-    
-    // Tiny subtle confetti on copy
-    confetti({
-      particleCount: 15,
-      spread: 30,
-      origin: { y: 0.85 },
-      colors: ['#8b5cf6']
-    });
-
-    setTimeout(() => {
-      setCopiedClipId(null);
-    }, 2000);
-=======
     copyClipText(id, text);
->>>>>>> 7a2e13a (Initial commit from PC)
   };
 
   // Delete Clip
@@ -2413,27 +2326,13 @@ export default function Dashboard() {
                 const folderClipsCount = clips.filter(c => c.folder_id === folder.id).length;
 
                 return (
-<<<<<<< HEAD
-                  <button
-                    key={folder.id}
-                    onClick={() => {
-                      setActiveFilter('folder');
-                      setSelectedFolderId(folder.id);
-                      setIsSidebarOpen(false); // Auto-close on mobile selection
-                    }}
-=======
                   <div
                     key={folder.id}
->>>>>>> 7a2e13a (Initial commit from PC)
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, folder.id)}
                     onDragEnter={() => setDraggedOverFolderId(folder.id)}
                     onDragLeave={() => setDraggedOverFolderId(null)}
-<<<<<<< HEAD
-                    className={`group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${
-=======
                     className={`group flex items-center gap-1 rounded-lg border text-xs font-semibold transition-all ${
->>>>>>> 7a2e13a (Initial commit from PC)
                       isActive
                         ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
                         : 'text-neutral-400 hover:text-neutral-200 border-transparent hover:bg-white/5'
@@ -2443,21 +2342,6 @@ export default function Dashboard() {
                         : ''
                     }`}
                   >
-<<<<<<< HEAD
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <span 
-                        className="w-2 h-2 rounded-full shrink-0" 
-                        style={{ backgroundColor: folder.color }}
-                      />
-                      <span className="truncate">{folder.name}</span>
-                    </span>
-                    
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded font-bold border border-white/5 group-hover:hidden">
-                        {folderClipsCount}
-                      </span>
-                      
-=======
                     <button
                       onClick={() => {
                         setActiveFilter('folder');
@@ -2478,7 +2362,6 @@ export default function Dashboard() {
                         {folderClipsCount}
                       </span>
 
->>>>>>> 7a2e13a (Initial commit from PC)
                       <button
                         onClick={(e) => handleOpenRenameFolderModal(folder, e)}
                         className="hidden group-hover:flex items-center justify-center p-0.5 text-neutral-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-colors"
@@ -2495,11 +2378,7 @@ export default function Dashboard() {
                         <X className="w-3 h-3" />
                       </button>
                     </div>
-<<<<<<< HEAD
-                  </button>
-=======
                   </div>
->>>>>>> 7a2e13a (Initial commit from PC)
                 );
               })}
             </div>
@@ -2692,11 +2571,7 @@ export default function Dashboard() {
       <div className="flex-grow flex flex-col min-w-0 z-10">
         
         {/* --- TOP BAR --- */}
-<<<<<<< HEAD
-        <header className="h-auto min-h-[64px] border-b border-white/5 bg-neutral-950/40 backdrop-blur-md flex flex-wrap items-center justify-between px-3 md:px-8 py-2 gap-2 shrink-0">
-=======
         <header className="relative z-30 h-auto min-h-[64px] border-b border-white/5 bg-neutral-950/40 backdrop-blur-md flex flex-wrap items-center justify-between px-3 md:px-8 py-2 gap-2 shrink-0">
->>>>>>> 7a2e13a (Initial commit from PC)
           
           <div className="flex items-center flex-grow md:flex-initial gap-2">
             {/* Hamburger Button for mobile */}
@@ -2754,38 +2629,22 @@ export default function Dashboard() {
             {/* Header Clip Count Badge */}
             <button 
               onClick={() => {
-<<<<<<< HEAD
-=======
                 if (!isPlanResolved) {
                   return;
                 }
->>>>>>> 7a2e13a (Initial commit from PC)
                 if (userPlan !== 'pro') {
                   setIsUpgradeModalOpen(true);
                 }
               }}
-<<<<<<< HEAD
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all duration-300 cursor-pointer ${
-                userPlan === 'pro'
-=======
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all duration-300 ${
                 !isPlanResolved
                   ? 'cursor-default bg-white/5 border-white/10 text-neutral-500'
                   : userPlan === 'pro'
->>>>>>> 7a2e13a (Initial commit from PC)
                   ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
                   : clips.length >= 500
                     ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20'
                     : clips.length >= 480
                       ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse hover:bg-amber-500/20'
-<<<<<<< HEAD
-                      : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
-              }`} 
-              title={userPlan === 'pro' ? "Unlimited Pro workspace active" : `Workspace limit: ${clips.length} / 500 clips. Click to upgrade.`}
-            >
-              <Crown className={`w-3.5 h-3.5 ${userPlan === 'pro' ? 'text-amber-400' : 'text-neutral-400'}`} />
-              <span>{userPlan === 'pro' ? `${clips.length} Clips` : `${clips.length} / 500`}</span>
-=======
                       : 'cursor-pointer bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
               }`} 
               title={
@@ -2804,7 +2663,6 @@ export default function Dashboard() {
                     ? `${clips.length} Clips`
                     : `${clips.length} / 500`}
               </span>
->>>>>>> 7a2e13a (Initial commit from PC)
             </button>
 
             {/* Connection Status Badge */}
@@ -2845,11 +2703,7 @@ export default function Dashboard() {
 
             {/* Profile Dropdown */}
             {userEmail && (
-<<<<<<< HEAD
-              <div className="relative">
-=======
               <div className={`relative ${isProfileOpen ? 'z-[70]' : ''}`}>
->>>>>>> 7a2e13a (Initial commit from PC)
                 <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="flex items-center gap-2 p-1.5 rounded-xl border border-white/5 bg-black/40 hover:bg-black/60 transition-all duration-300 shrink-0"
@@ -2866,13 +2720,8 @@ export default function Dashboard() {
 
                 {isProfileOpen && (
                   <>
-<<<<<<< HEAD
-                    <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-48 rounded-xl border border-white/5 bg-neutral-950 p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-=======
                     <div className="fixed inset-0 z-[60]" onClick={() => setIsProfileOpen(false)} />
                     <div className="absolute right-0 z-[70] mt-2 w-48 rounded-xl border border-white/10 bg-neutral-950/95 p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-md">
->>>>>>> 7a2e13a (Initial commit from PC)
                       <div className="px-3 py-2 border-b border-white/5 text-left mb-1">
                         <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-0.5">Workspace</p>
                         <p className="text-xs text-neutral-200 font-medium truncate">{userEmail}</p>
@@ -2910,11 +2759,7 @@ export default function Dashboard() {
         <main className="flex-grow p-4 md:p-8 pb-20 md:pb-8 overflow-y-auto scrollbar-thin">
           
           {/* --- LIMIT WARNING BANNER --- */}
-<<<<<<< HEAD
-          {userPlan === 'free' && clips.length >= 450 && (
-=======
           {isPlanResolved && userPlan === 'free' && clips.length >= 450 && (
->>>>>>> 7a2e13a (Initial commit from PC)
             <div className={`mb-4 md:mb-6 p-3 md:p-4 rounded-xl border backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top duration-300 shadow-xl ${
               clips.length >= 500
                 ? 'border-rose-500/20 bg-rose-500/5 text-rose-300'
@@ -3062,8 +2907,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-<<<<<<< HEAD
-=======
           <div className="mb-4 grid grid-cols-2 xl:grid-cols-4 gap-3">
             <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">Visible Clips</p>
@@ -3087,7 +2930,6 @@ export default function Dashboard() {
             </div>
           </div>
 
->>>>>>> 7a2e13a (Initial commit from PC)
           {/* --- SELECTION ACTIONS TOOLBAR --- */}
           {isSelectionMode && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-indigo-500/[0.03] border border-indigo-500/10 backdrop-blur-md mt-4 animate-in slide-in-from-top-3 duration-200">
@@ -3130,11 +2972,7 @@ export default function Dashboard() {
           )}
 
           {/* Trial Banner */}
-<<<<<<< HEAD
-          {trialDaysLeft !== null && trialDaysLeft > 0 && userPlan === 'free' && (
-=======
           {isPlanResolved && trialDaysLeft !== null && trialDaysLeft > 0 && userPlan === 'free' && (
->>>>>>> 7a2e13a (Initial commit from PC)
             <div className="mb-4 md:mb-6 p-3 md:p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top duration-300 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400 shrink-0">
@@ -3166,14 +3004,11 @@ export default function Dashboard() {
                   : clip.content;
 
                 const isSelected = selectedClipIds.includes(clip.id);
-<<<<<<< HEAD
-=======
                 const hasAiOutput = Boolean(
                   clipSummaries[clip.id] ||
                   pendingRewrites[clip.id] ||
                   activeTranslations[clip.id]
                 );
->>>>>>> 7a2e13a (Initial commit from PC)
                 return (
                   <Card 
                     key={clip.id}
@@ -3182,26 +3017,16 @@ export default function Dashboard() {
                     onClick={() => {
                       if (isSelectionMode) {
                         handleToggleSelect(clip.id);
-<<<<<<< HEAD
-                      }
-                    }}
-                    className={`border bg-neutral-900/30 backdrop-blur-md shadow-xl relative overflow-hidden group flex flex-col min-h-[220px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
-=======
                       } else {
                         openClipPreview(clip);
                       }
                     }}
                     className={`border bg-neutral-900/35 backdrop-blur-md shadow-xl relative overflow-hidden group flex flex-col min-h-[198px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
->>>>>>> 7a2e13a (Initial commit from PC)
                       isSelectionMode 
                         ? isSelected
                           ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
                           : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
-<<<<<<< HEAD
-                        : 'border-white/5 hover:bg-neutral-900/50 hover:-translate-y-1 duration-300 cursor-grab active:cursor-grabbing'
-=======
                         : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-1 duration-300 cursor-pointer'
->>>>>>> 7a2e13a (Initial commit from PC)
                     }`}
                   >
                     {/* Checkbox overlay for selection mode */}
@@ -3223,21 +3048,12 @@ export default function Dashboard() {
                     {/* Hover spotlight blur */}
                     <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
-<<<<<<< HEAD
-                    <CardContent className="p-4 flex flex-col flex-grow gap-2.5">
-                      
-                      {/* Card Header & folder indicator */}
-                      <div className="flex flex-col gap-0.5 shrink-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={`text-[10px] text-neutral-500 font-bold uppercase tracking-wider font-mono transition-all duration-200 ${isSelectionMode ? 'pl-7' : ''}`}>
-=======
                     <CardContent className="p-4 flex flex-col flex-grow gap-3">
                       
                       {/* Card Header & folder indicator */}
                       <div className="flex flex-col gap-2 shrink-0">
                         <div className="flex items-start justify-between gap-2">
                           <span className={`text-[10px] text-neutral-500 font-bold uppercase tracking-[0.22em] font-mono transition-all duration-200 ${isSelectionMode ? 'pl-7' : ''}`}>
->>>>>>> 7a2e13a (Initial commit from PC)
                             {new Date(clip.created_at).toLocaleDateString(undefined, { 
                               month: 'short', 
                               day: 'numeric', 
@@ -3245,45 +3061,6 @@ export default function Dashboard() {
                             })}
                           </span>
 
-<<<<<<< HEAD
-                          {clipFolder && (
-                            <span 
-                              className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border flex items-center gap-1 bg-black/30"
-                              style={{ 
-                                borderColor: clipFolder.color + '20', 
-                                color: clipFolder.color 
-                              }}
-                            >
-                              <span 
-                                className="w-1.5 h-1.5 rounded-full shrink-0" 
-                                style={{ backgroundColor: clipFolder.color }}
-                              />
-                              {clipFolder.name}
-                            </span>
-                          )}
-                        </div>
-
-                        <h4 className="text-sm font-semibold text-neutral-200 line-clamp-1">
-                          {clip.title || 'Untitled Clip'}
-                        </h4>
-                      </div>
-
-                      {/* Content snippet */}
-                      <p className="text-xs text-neutral-400 leading-relaxed break-words font-mono line-clamp-3 bg-black/15 p-2 rounded border border-white/5 overflow-hidden select-text">
-                        {truncatedContent}
-                      </p>
-
-                      {/* Badges and tags */}
-                      <div className="flex flex-wrap gap-1 overflow-hidden max-h-6 shrink-0">
-                        {clip.tags.map((tag, idx) => (
-                          <span 
-                            key={idx}
-                            className="text-[9px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-=======
                           <div className="flex items-center gap-1.5 shrink-0">
                             {clipFolder && (
                               <span 
@@ -3351,7 +3128,6 @@ export default function Dashboard() {
                             +{clip.tags.length - 3}
                           </span>
                         )}
->>>>>>> 7a2e13a (Initial commit from PC)
                       </div>
 
                     </CardContent>
@@ -3455,11 +3231,7 @@ export default function Dashboard() {
                     )}
 
                     {/* Card Actions Panel */}
-<<<<<<< HEAD
-                    <div className="border-t border-white/5 bg-black/40 px-4 py-2 flex items-center justify-between shrink-0 relative gap-1">
-=======
                     <div className="border-t border-white/5 bg-black/40 px-4 py-2.5 flex items-center justify-between shrink-0 relative gap-2">
->>>>>>> 7a2e13a (Initial commit from PC)
                       {/* Rewrite Dropdown Menu */}
                       {showRewriteMenu === clip.id && (
                         <div 
@@ -3517,9 +3289,6 @@ export default function Dashboard() {
                         </div>
                       )}
 
-<<<<<<< HEAD
-                      <div className="flex gap-1 flex-wrap min-w-0 flex-1">
-=======
                       <div className="flex gap-1 flex-wrap min-w-0 flex-1 items-center">
                         <button
                           onClick={(e) => {
@@ -3533,7 +3302,6 @@ export default function Dashboard() {
                           View
                         </button>
 
->>>>>>> 7a2e13a (Initial commit from PC)
                         <button
                           onClick={(e) => handleTogglePin(clip.id, e)}
                           className={`p-1 rounded-md hover:bg-white/5 transition-colors border border-transparent ${
@@ -3647,15 +3415,6 @@ export default function Dashboard() {
                         </button>
                       </div>
 
-<<<<<<< HEAD
-                      <button
-                        onClick={(e) => handleDeleteClip(clip.id, e)}
-                        className="p-1 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors shrink-0"
-                        title="Delete clip"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-=======
                       <div className="flex items-center gap-1 shrink-0">
                         <div className="h-5 w-px bg-white/10" />
                         <button
@@ -3666,7 +3425,6 @@ export default function Dashboard() {
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
->>>>>>> 7a2e13a (Initial commit from PC)
                     </div>
 
                   </Card>
@@ -4244,8 +4002,6 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-<<<<<<< HEAD
-=======
       {/* 3. CLIP PREVIEW MODAL */}
       <Dialog
         open={isClipPreviewOpen}
@@ -4360,7 +4116,6 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
->>>>>>> 7a2e13a (Initial commit from PC)
       {/* 3. EDIT CLIP MODAL */}
       <Dialog open={isEditClipOpen} onOpenChange={setIsEditClipOpen}>
         <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-md w-[calc(100%-2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
@@ -4604,9 +4359,6 @@ export default function Dashboard() {
       </Dialog>
 
       {/* 7. CLOUD MIGRATION PROMPT MODAL */}
-<<<<<<< HEAD
-      <Dialog open={isMigrationModalOpen} onOpenChange={setIsMigrationModalOpen}>
-=======
       <Dialog
         open={isMigrationModalOpen}
         onOpenChange={(open) => {
@@ -4617,7 +4369,6 @@ export default function Dashboard() {
           setIsMigrationModalOpen(open);
         }}
       >
->>>>>>> 7a2e13a (Initial commit from PC)
         <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-md w-[calc(100%-2rem)] md:w-full rounded-2xl p-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -4630,11 +4381,7 @@ export default function Dashboard() {
               Sync Offline Clips to Cloud
             </DialogTitle>
             <DialogDescription className="text-xs text-neutral-400 mt-1">
-<<<<<<< HEAD
-              We found legacy data stored on this device. Would you like to sync it to the cloud?
-=======
               We found locally stored clips on this device. You can sync them now or review them later without losing anything.
->>>>>>> 7a2e13a (Initial commit from PC)
             </DialogDescription>
           </DialogHeader>
 
@@ -4645,8 +4392,6 @@ export default function Dashboard() {
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
-<<<<<<< HEAD
-=======
             <Button
               type="button"
               variant="ghost"
@@ -4656,7 +4401,6 @@ export default function Dashboard() {
             >
               Remind Me Later
             </Button>
->>>>>>> 7a2e13a (Initial commit from PC)
             <Button 
               type="button" 
               variant="ghost" 
@@ -4664,10 +4408,7 @@ export default function Dashboard() {
               onClick={() => {
                 if (user) {
                   localStorage.setItem(`freeclipboard_migrated_${user.id}`, 'true');
-<<<<<<< HEAD
-=======
                   localStorage.removeItem(`freeclipboard_migration_snoozed_${user.id}`);
->>>>>>> 7a2e13a (Initial commit from PC)
                   fetchData(user);
                 }
                 setIsMigrationModalOpen(false);
