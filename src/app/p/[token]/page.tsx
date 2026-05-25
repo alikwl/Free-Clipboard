@@ -1,21 +1,42 @@
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { notFound } from 'next/navigation';
 import CollectionShareClient from './CollectionShareClient';
 
 interface CollectionSharePageProps {
-  params: { token: string };
+  params: Promise<{ token: string }>;
+}
+
+interface CollectionShareRecord {
+  id: string;
+  user_id: string;
+  clip_ids: string[];
+  expires_at: string | null;
+  created_at: string;
+}
+
+interface SharedCollectionClipRecord {
+  id: string;
+  title: string | null;
+  content: string;
+  tags: string[] | null;
+  pinned: boolean;
+  created_at: string;
 }
 
 export default async function CollectionSharePage({ params }: CollectionSharePageProps) {
   const supabase = await createClient();
-  const { token } = params;
+  const adminSupabase = createAdminClient();
+  const { token } = await params;
 
   // Fetch collection share metadata
-  const { data: share, error: shareError } = await supabase
+  const shareResult = await adminSupabase
     .from('collection_shares')
     .select('id, user_id, clip_ids, expires_at, created_at')
     .eq('token', token)
     .single();
+  const share = shareResult.data as CollectionShareRecord | null;
+  const shareError = shareResult.error;
 
   if (shareError || !share) {
     notFound();
@@ -107,10 +128,12 @@ export default async function CollectionSharePage({ params }: CollectionSharePag
   }
 
   // Fetch the clips in the collection
-  const { data: clips, error: clipsError } = await supabase
+  const clipsResult = await adminSupabase
     .from('clips')
     .select('id, title, content, tags, pinned, created_at')
     .in('id', share.clip_ids);
+  const clips = (clipsResult.data as SharedCollectionClipRecord[] | null) ?? [];
+  const clipsError = clipsResult.error;
 
   if (clipsError || !clips || clips.length === 0) {
     notFound();
@@ -118,8 +141,12 @@ export default async function CollectionSharePage({ params }: CollectionSharePag
 
   // Preserve the user's custom clip order (clip_ids order) rather than default DB query order
   const orderedClips = share.clip_ids
-    .map((id: string) => clips.find(c => c.id === id))
-    .filter(Boolean);
+    .map((id: string) => clips.find((clip) => clip.id === id))
+    .filter((clip): clip is SharedCollectionClipRecord => Boolean(clip))
+    .map((clip) => ({
+      ...clip,
+      tags: clip.tags ?? [],
+    }));
 
   return (
     <CollectionShareClient

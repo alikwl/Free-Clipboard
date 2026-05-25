@@ -1,21 +1,35 @@
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { notFound } from 'next/navigation';
 import SharedClipClient from './SharedClipClient';
 
 interface SharedClipPageProps {
-  params: { token: string };
+  params: Promise<{ token: string }>;
+}
+
+interface SharedClipRecord {
+  id: string;
+  title: string | null;
+  content: string;
+  tags: string[] | null;
+  pinned: boolean;
+  created_at: string;
+  share_expires_at: string | null;
 }
 
 export default async function SharedClipPage({ params }: SharedClipPageProps) {
   const supabase = await createClient();
-  const { token } = params;
+  const adminSupabase = createAdminClient();
+  const { token } = await params;
 
   // Fetch the clip by share_token
-  const { data: clip, error } = await supabase
+  const clipResult = await adminSupabase
     .from('clips')
     .select('id, title, content, tags, pinned, created_at, share_expires_at')
     .eq('share_token', token)
     .single();
+  const clip = clipResult.data as SharedClipRecord | null;
+  const error = clipResult.error;
 
   if (error || !clip) {
     notFound();

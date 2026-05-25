@@ -213,6 +213,14 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  useEffect(() => {
+    const storedPlan = getStoredUserPlan();
+    if (storedPlan) {
+      setUserPlan(storedPlan);
+      setIsPlanResolved(true);
+    }
+  }, []);
+
   // Share Modal States
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [sharingClip, setSharingClip] = useState<Clip | null>(null);
@@ -231,8 +239,8 @@ export default function Dashboard() {
   const [copiedColShareLink, setCopiedColShareLink] = useState(false);
   const [colShareClipCount, setColShareClipCount] = useState(0);
 
-  const [userPlan, setUserPlan] = useState<'free' | 'pro'>(() => getStoredUserPlan() || 'free');
-  const [isPlanResolved, setIsPlanResolved] = useState<boolean>(() => getStoredUserPlan() !== null);
+  const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
+  const [isPlanResolved, setIsPlanResolved] = useState(false);
   const [userTrialEndsAt, setUserTrialEndsAt] = useState<string | null>(null);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -2242,7 +2250,9 @@ export default function Dashboard() {
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
               ClipMind AI
-              {userPlan === 'pro' ? (
+              {!isPlanResolved ? (
+                <span className="text-[9px] bg-white/5 text-neutral-500 px-1.5 py-0.5 rounded font-bold border border-white/10 ml-auto">...</span>
+              ) : userPlan === 'pro' ? (
                 <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded font-bold border border-emerald-500/20 ml-auto">Pro</span>
               ) : (
                 <span className="text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-bold border border-amber-500/20 ml-auto">Free</span>
@@ -2255,7 +2265,7 @@ export default function Dashboard() {
             >
               <Brain className="w-3.5 h-3.5 text-violet-400" />
               Knowledge Graph
-              {!isPro && (
+              {isPlanResolved && !isPro && (
                 <span className="text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-bold border border-amber-500/20 ml-auto">Pro</span>
               )}
             </button>
@@ -2266,7 +2276,7 @@ export default function Dashboard() {
             >
               <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
               Analytics
-              {!isPro && (
+              {isPlanResolved && !isPro && (
                 <span className="text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-bold border border-amber-500/20 ml-auto">Pro</span>
               )}
             </button>
