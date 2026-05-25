@@ -2366,12 +2366,16 @@ export default function Dashboard() {
       {isSidebarOpen && (
         <div 
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-200"
+          className={`fixed inset-0 z-30 md:hidden animate-in fade-in duration-200 ${
+            isDarkTheme
+              ? 'bg-black/60 backdrop-blur-sm'
+              : 'bg-slate-950/20 backdrop-blur-[2px]'
+          }`}
         />
       )}
 
       {/* --- SIDEBAR --- */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-72 border-r backdrop-blur-xl shrink-0 flex flex-col transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+      <aside className={`fixed left-3 top-3 bottom-[5.25rem] z-40 w-[calc(100vw-1.5rem)] max-w-[21rem] rounded-[28px] border backdrop-blur-xl shrink-0 flex flex-col shadow-[0_28px_70px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-in-out md:static md:inset-auto md:w-72 md:max-w-none md:rounded-none md:border-l-0 md:border-t-0 md:border-b-0 md:shadow-none md:translate-x-0 ${
         isDarkTheme
           ? 'border-white/6 bg-neutral-950/92 md:bg-neutral-950/78'
           : 'border-slate-200/80 bg-white/92 md:bg-white/80'
@@ -2380,7 +2384,7 @@ export default function Dashboard() {
       }`}>
         
         {/* Logo area */}
-        <div className={`p-6 flex items-center justify-between gap-2.5 border-b ${isDarkTheme ? 'border-white/6' : 'border-slate-200/80'}`}>
+        <div className={`p-5 md:p-6 flex items-center justify-between gap-2.5 border-b ${isDarkTheme ? 'border-white/6' : 'border-slate-200/80'}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
               <Clipboard className="w-4.5 h-4.5 text-white" />
@@ -2402,7 +2406,7 @@ export default function Dashboard() {
         </div>
 
         {/* Sidebar menu categories */}
-        <div className="p-4 flex flex-col gap-5 overflow-y-auto flex-grow scrollbar-thin">
+        <div className="p-4 pb-24 md:pb-6 flex flex-col gap-5 overflow-y-auto flex-grow scrollbar-thin">
           
           <div className="flex flex-col gap-1">
             <h3 className={`px-3 text-[10px] font-bold uppercase tracking-widest mb-1.5 ${subtleTextClass}`}>Overview</h3>
@@ -2983,7 +2987,7 @@ export default function Dashboard() {
                 {isProfileOpen && (
                   <>
                     <div className="fixed inset-0 z-[60]" onClick={() => setIsProfileOpen(false)} />
-                    <div className={`absolute right-0 z-[70] mt-2 w-56 rounded-2xl border p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 ${dropdownSurfaceClass}`}>
+                    <div className={`absolute right-0 z-[70] mt-2 w-[calc(100vw-2rem)] max-w-[18rem] rounded-2xl border p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 ${dropdownSurfaceClass}`}>
                       <div className={`px-3 py-2 border-b text-left mb-1 ${isDarkTheme ? 'border-white/5' : 'border-slate-200/80'}`}>
                         <p className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${subtleTextClass}`}>Workspace</p>
                         <p className={`text-xs font-medium truncate ${titleTextClass}`}>{userEmail}</p>
@@ -3026,7 +3030,7 @@ export default function Dashboard() {
         </header>
 
         {/* --- DASHBOARD WRAPPER --- */}
-        <main className="flex-grow p-4 md:p-6 xl:p-8 pb-20 md:pb-8 overflow-y-auto scrollbar-thin">
+        <main className="flex-grow p-3.5 md:p-6 xl:p-8 pb-28 md:pb-8 overflow-y-auto scrollbar-thin">
           
           {/* --- LIMIT WARNING BANNER --- */}
           {isPlanResolved && userPlan === 'free' && clips.length >= 450 && (
@@ -3133,60 +3137,68 @@ export default function Dashboard() {
               </div>
 
               <div className={`flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pt-1`}>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap w-full xl:w-auto">
               {/* View Mode Switcher */}
-              <div className={`flex items-center p-1 rounded-2xl shrink-0 shadow-lg ${mutedSurfaceClass}`}>
+              <div className={`grid grid-cols-4 w-full sm:w-auto sm:flex items-center p-1 rounded-2xl shrink-0 shadow-lg ${mutedSurfaceClass}`}>
                 <button
                   type="button"
                   onClick={() => handleSetViewMode('board')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     viewMode === 'board'
                       ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
-                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                      : isDarkTheme
+                        ? 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                        : 'text-slate-500 hover:text-slate-900 border border-transparent'
                   }`}
                   title="Kanban Board View (Drag-and-Drop)"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M11 3v18"/><path d="M15 3v18"/><path d="M7 3v18"/></svg>
-                  <span className="hidden sm:inline">Board</span>
+                  <span>Board</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSetViewMode('grid')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     viewMode === 'grid'
                       ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
-                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                      : isDarkTheme
+                        ? 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                        : 'text-slate-500 hover:text-slate-900 border border-transparent'
                   }`}
                   title="Grid Card View"
                 >
                   <Grid className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Grid</span>
+                  <span>Grid</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSetViewMode('list')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     viewMode === 'list'
                       ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
-                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                      : isDarkTheme
+                        ? 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                        : 'text-slate-500 hover:text-slate-900 border border-transparent'
                   }`}
                   title="List Row View"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                  <span className="hidden sm:inline">List</span>
+                  <span>List</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSetViewMode('table')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     viewMode === 'table'
                       ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
-                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                      : isDarkTheme
+                        ? 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                        : 'text-slate-500 hover:text-slate-900 border border-transparent'
                   }`}
                   title="Table List View"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 9v12"/></svg>
-                  <span className="hidden sm:inline">Table</span>
+                  <span>Table</span>
                 </button>
               </div>
 
@@ -3200,7 +3212,9 @@ export default function Dashboard() {
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 h-[34px] ${
                   isSelectionMode
                     ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300 font-bold'
-                    : 'bg-black/40 border-white/5 text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                    : isDarkTheme
+                      ? 'bg-black/40 border-white/5 text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                      : 'bg-white/80 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-white'
                 }`}
                 title="Select multiple clips to share as a page"
               >
@@ -3213,20 +3227,28 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => triggerFileInput()}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-all"
+                  className={`p-1.5 rounded-lg transition-all ${
+                    isDarkTheme
+                      ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                  }`}
                   title="Import backup file"
                 >
                   <Upload className="w-3.5 h-3.5" />
                 </button>
-                <div className="w-px h-3.5 bg-white/10" />
+                <div className={`w-px h-3.5 ${isDarkTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
                 <button
                   type="button"
                   onClick={() => handleExport('txt')}
-                  className="px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-all text-[11px] font-bold flex items-center gap-1"
+                  className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
+                    isDarkTheme
+                      ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                  }`}
                   title="Export backup as TXT"
                 >
-                  <Download className="w-3.5 h-3.5 text-neutral-500" />
-                  <span className="hidden sm:inline">TXT</span>
+                  <Download className={`w-3.5 h-3.5 ${isDarkTheme ? 'text-neutral-500' : 'text-slate-400'}`} />
+                  <span>TXT</span>
                 </button>
                 
                 <button
@@ -3244,7 +3266,7 @@ export default function Dashboard() {
                   ) : (
                     <Lock className="w-3 h-3 text-amber-500/70" />
                   )}
-                  <span className="hidden sm:inline">JSON</span>
+                  <span>JSON</span>
                 </button>
 
                 <button
@@ -3262,7 +3284,7 @@ export default function Dashboard() {
                   ) : (
                     <Lock className="w-3 h-3 text-amber-500/70" />
                   )}
-                  <span className="hidden sm:inline">MD</span>
+                  <span>MD</span>
                 </button>
               </div>
                 </div>
@@ -3817,7 +3839,7 @@ export default function Dashboard() {
                             openClipPreview(clip);
                           }
                         }}
-                        className={`border backdrop-blur-md relative overflow-hidden group flex flex-col p-4 gap-3 transition-all duration-300 ${
+                        className={`border backdrop-blur-md relative overflow-hidden group flex flex-col p-4 md:p-4.5 gap-3 transition-all duration-300 rounded-[24px] ${
                           isSelectionMode 
                             ? isSelected
                               ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
@@ -3847,7 +3869,7 @@ export default function Dashboard() {
 
                         <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 w-full ${isSelectionMode ? 'pl-7' : ''}`}>
                           {/* Title & Metadata */}
-                          <div className="flex flex-col gap-1 min-w-[200px] md:max-w-[280px]">
+                          <div className="flex flex-col gap-1 min-w-0 md:min-w-[200px] md:max-w-[280px]">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${subtleTextClass}`}>
                                 {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -3867,7 +3889,7 @@ export default function Dashboard() {
                                 </span>
                               )}
                             </div>
-                            <h4 className={`text-sm font-bold truncate leading-snug ${titleTextClass}`}>{clip.title || 'Untitled Clip'}</h4>
+                            <h4 className={`text-base md:text-sm font-bold leading-snug break-words ${titleTextClass}`}>{clip.title || 'Untitled Clip'}</h4>
                             <span className={`text-[10px] font-mono ${subtleTextClass}`}>
                               {clip.content.length} chars {clip.tags.length > 0 ? `| ${clip.tags.length} tags` : ''}
                             </span>
@@ -3876,21 +3898,25 @@ export default function Dashboard() {
                           {/* Content Snippet */}
                           <div 
                             onClick={(e) => { e.stopPropagation(); openClipPreview(clip); }}
-                            className={`flex-1 rounded-2xl border p-2.5 text-left transition-all hover:border-indigo-500/20 max-w-full md:max-w-2xl ${listSnippetClass}`}
+                            className={`w-full md:flex-1 rounded-2xl border p-3 text-left transition-all hover:border-indigo-500/20 max-w-full md:max-w-2xl ${listSnippetClass}`}
                           >
-                            <p className={`text-xs font-mono line-clamp-2 break-words leading-relaxed select-text ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
+                            <p className={`text-[13px] md:text-xs font-mono line-clamp-3 md:line-clamp-2 break-words leading-relaxed select-text ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
                               {truncatedContent}
                             </p>
                           </div>
 
                           {/* Tags & Action Buttons */}
-                          <div className="flex items-center gap-4 justify-between md:justify-end shrink-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between md:justify-end shrink-0 w-full md:w-auto">
                             {/* Tags column */}
-                            <div className="hidden lg:flex flex-wrap gap-1 max-w-[150px] justify-end">
+                            <div className="flex flex-wrap gap-1 max-w-full sm:max-w-[180px] md:max-w-[150px] justify-start sm:justify-end">
                               {clip.tags.slice(0, 2).map((tag, idx) => (
                                 <span 
                                   key={idx}
-                                  className="text-[9px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase"
+                                  className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase border ${
+                                    isDarkTheme
+                                      ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                                      : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                  }`}
                                 >
                                   {tag}
                                 </span>
@@ -3903,7 +3929,7 @@ export default function Dashboard() {
                             </div>
 
                             {/* Row Action Toolbar */}
-                            <div className={`flex items-center gap-1 p-1.5 border rounded-xl relative ${actionRailClass}`} onClick={(e) => e.stopPropagation()}>
+                            <div className={`flex flex-wrap items-center justify-between sm:justify-start gap-1 p-1.5 border rounded-xl relative w-full sm:w-auto ${actionRailClass}`} onClick={(e) => e.stopPropagation()}>
                               {/* Rewrite Dropdown Menu */}
                               {showRewriteMenu === clip.id && (
                                 <div 
@@ -4060,7 +4086,95 @@ export default function Dashboard() {
 
               {/* TABLE VIEW RENDERING */}
               {viewMode === 'table' && (
-                <div className={`overflow-x-auto rounded-[24px] border backdrop-blur-md shadow-2xl ${isDarkTheme ? 'border-white/5 bg-[#0b0c10]/45' : 'border-slate-200/80 bg-gradient-to-b from-white/95 to-slate-50/85'}`}>
+                <>
+                  <div className="md:hidden flex flex-col gap-3">
+                    {sortedClips.map((clip) => {
+                      const clipFolder = folders.find(f => f.id === clip.folder_id);
+                      const isSelected = selectedClipIds.includes(clip.id);
+                      return (
+                        <Card
+                          key={clip.id}
+                          onClick={() => {
+                            if (isSelectionMode) {
+                              handleToggleSelect(clip.id);
+                            } else {
+                              openClipPreview(clip);
+                            }
+                          }}
+                          className={`rounded-[24px] border p-4 backdrop-blur-md transition-all ${
+                            isSelected
+                              ? 'border-indigo-500/40 bg-indigo-500/10'
+                              : isDarkTheme
+                                ? 'border-white/5 bg-neutral-900/35'
+                                : 'border-slate-200/80 bg-white/92 shadow-[0_12px_34px_rgba(148,163,184,0.14)]'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${subtleTextClass}`}>
+                                {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                              <h4 className={`mt-2 text-base font-bold leading-snug break-words ${titleTextClass}`}>
+                                {clip.title || 'Untitled Clip'}
+                              </h4>
+                            </div>
+                            {clipFolder && (
+                              <span
+                                className={`shrink-0 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full border ${
+                                  isDarkTheme ? 'bg-black/30' : 'bg-white/90'
+                                }`}
+                                style={{ borderColor: clipFolder.color + '20', color: clipFolder.color }}
+                              >
+                                {clipFolder.name}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className={`mt-3 rounded-2xl border p-3 ${listSnippetClass}`}>
+                            <p className={`text-[13px] font-mono leading-relaxed line-clamp-3 ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
+                              {clip.content}
+                            </p>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <div className="flex flex-wrap gap-1">
+                              {clip.tags.length > 0 ? clip.tags.slice(0, 2).map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase border ${
+                                    isDarkTheme
+                                      ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                                      : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                  }`}
+                                >
+                                  {tag}
+                                </span>
+                              )) : (
+                                <span className={`text-[10px] ${subtleTextClass}`}>No tags</span>
+                              )}
+                            </div>
+
+                            <div className={`flex items-center gap-1 p-1.5 border rounded-xl ${actionRailClass}`} onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => openClipPreview(clip)} className="p-1 rounded text-indigo-400" title="View details">
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => handleCopyContent(clip.id, clip.content, e)} className={`p-1 rounded ${listActionButtonClass}`} title="Copy content">
+                                <Clipboard className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => handleOpenEditClip(clip, e)} className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-indigo-400 hover:bg-white/5' : 'text-slate-500 hover:text-indigo-600 hover:bg-white'}`} title="Edit details">
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => handleDeleteClip(clip.id, e)} className="p-1 rounded text-rose-500 hover:text-rose-400" title="Delete">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  <div className={`hidden md:block overflow-x-auto rounded-[24px] border backdrop-blur-md shadow-2xl ${isDarkTheme ? 'border-white/5 bg-[#0b0c10]/45' : 'border-slate-200/80 bg-gradient-to-b from-white/95 to-slate-50/85'}`}>
                   <table className={`w-full border-collapse text-left text-xs ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
                     <thead>
                       <tr className={`border-b text-[10px] font-bold uppercase tracking-wider ${isDarkTheme ? 'border-white/5 bg-black/40 text-neutral-500' : 'border-slate-200/80 bg-slate-50/90 text-slate-500'}`}>
@@ -4178,12 +4292,13 @@ export default function Dashboard() {
                       })}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               )}
 
               {/* KANBAN BOARD VIEW RENDERING */}
               {viewMode === 'board' && (
-                <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent snap-x snap-mandatory min-h-[550px] items-stretch">
+                <div className="flex gap-3 md:gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent snap-x snap-mandatory min-h-[550px] items-stretch">
                   {getKanbanColumns().map((column) => {
                     return (
                       <div
@@ -4192,7 +4307,7 @@ export default function Dashboard() {
                         onDrop={(e) => handleDrop(e, column.id)}
                         onDragEnter={() => setDraggedOverFolderId(column.id)}
                         onDragLeave={() => setDraggedOverFolderId(null)}
-                        className={`flex-1 min-w-[290px] max-w-[340px] rounded-[28px] border p-4 flex flex-col gap-3 snap-align-start shrink-0 transition-all duration-300 ${
+                        className={`flex-1 min-w-[84vw] max-w-[84vw] sm:min-w-[290px] sm:max-w-[340px] rounded-[28px] border p-4 flex flex-col gap-3 snap-align-start shrink-0 transition-all duration-300 ${
                           draggedOverFolderId === column.id
                             ? isDarkTheme
                               ? 'border-indigo-500/40 bg-indigo-500/8 scale-[1.01] shadow-lg shadow-indigo-500/5'
@@ -5468,7 +5583,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <MobileBottomNav />
+      <MobileBottomNav themeMode={themeMode} />
       <OnboardingModal />
     </div>
   );
