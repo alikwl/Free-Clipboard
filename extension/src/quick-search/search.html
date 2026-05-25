@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreeClipboard - Quick Search</title>
+  <link rel="stylesheet" href="search.css">
+</head>
+<body>
+  <div class="search-container">
+    <div class="search-header">
+      <span class="search-logo">📋 FreeClipboard</span>
+      <span class="search-hint">Press ESC to close</span>
+    </div>
+
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input 
+        type="text" 
+        id="search-input" 
+        placeholder="Search anything..."
+        autocomplete="off"
+        autofocus
+      >
+    </div>
+
+    <div class="search-filters">
+      <button class="filter-btn active" data-type="all">All</button>
+      <button class="filter-btn" data-type="text">Text</button>
+      <button class="filter-btn" data-type="code">Code</button>
+      <button class="filter-btn" data-type="link">Links</button>
+      <button class="filter-btn" data-type="recent">Recent</button>
+    </div>
+
+    <div class="results-container" id="results">
+      <div class="results-empty">
+        <span>Start typing to search your clips...</span>
+      </div>
+    </div>
+
+    <div class="search-footer">
+      <span class="shortcut-hint">
+        <kbd>↑</kbd><kbd>↓</kbd> Navigate
+        <kbd>Enter</kbd> Copy
+        <kbd>⌘</kbd><kbd>K</kbd> More
+      </span>
+    </div>
+  </div>
+
+  <script src="search.js" type="module"></script>
+</body>
+</html>

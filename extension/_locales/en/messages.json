@@ -1,0 +1,19 @@
+{
+  "extName": {
+    "message": "FreeClipboard",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Your intelligent second brain. Auto-save, organize, and sync everything you copy.",
+    "description": "Extension description"
+  },
+  "cmdQuickSearch": {
+    "message": "Quick search all clips"
+  },
+  "cmdSaveSelection": {
+    "message": "Save selected text to FreeClipboard"
+  },
+  "cmdAIAssistant": {
+    "message": "Open AI assistant"
+  }
+}

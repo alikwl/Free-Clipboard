@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreeClipboard</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Loading View -->
+  <div id="view-loading" class="view">
+    <div class="spinner"></div>
+    <span class="loading-text">Connecting to FreeClipboard...</span>
+  </div>
+
+  <!-- Login View -->
+  <div id="view-login" class="view hidden">
+    <div class="logo">
+      <span class="logo-icon">📋</span>
+      <span class="logo-text">FreeClipboard</span>
+    </div>
+    <p class="tagline">Your intelligent second brain</p>
+    
+    <div class="features">
+      <div class="feature">
+        <span class="feature-icon">⚡</span>
+        <span>Auto-save everything you copy</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">🤖</span>
+        <span>AI-powered organization</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">🔄</span>
+        <span>Sync across all devices</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">🔍</span>
+        <span>Instant search anything</span>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btn-signin">
+      <span class="btn-icon">🔐</span>
+      Sign in with Google
+    </button>
+    
+    <button class="btn btn-secondary" id="btn-refresh">
+      Already signed in? Refresh
+    </button>
+    
+    <p class="login-error" id="login-error"></p>
+  </div>
+
+  <!-- Dashboard View -->
+  <div id="view-dashboard" class="view hidden">
+    <!-- Header -->
+    <header class="dash-header">
+      <div class="user-info">
+        <span class="user-email" id="user-email">user@example.com</span>
+        <span class="plan-badge" id="plan-badge">Free</span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="btn-sync" title="Sync now">
+          <span id="sync-icon">🔄</span>
+        </button>
+        <button class="icon-btn" id="btn-settings" title="Settings">
+          ⚙️
+        </button>
+        <button class="icon-btn" id="btn-logout" title="Sign out">
+          🚪
+        </button>
+      </div>
+    </header>
+
+    <!-- Quick Add -->
+    <section class="quick-add">
+      <textarea 
+        id="quick-input" 
+        placeholder="Paste or type to save..."
+        rows="2"
+      ></textarea>
+      <button class="btn btn-primary" id="btn-save">Save</button>
+    </section>
+
+    <!-- Search -->
+    <section class="search-section">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          id="search-input" 
+          placeholder="Search clips..."
+          autocomplete="off"
+        >
+        <button class="search-clear hidden" id="search-clear">✕</button>
+      </div>
+      <div class="filter-tags" id="filter-tags">
+        <button class="filter-tag active" data-filter="all">All</button>
+        <button class="filter-tag" data-filter="text">Text</button>
+        <button class="filter-tag" data-filter="code">Code</button>
+        <button class="filter-tag" data-filter="link">Links</button>
+        <button class="filter-tag" data-filter="favorite">⭐</button>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="stats-bar">
+      <span id="stats-text">Loading clips...</span>
+    </div>
+
+    <!-- Clips List -->
+    <section class="clips-section" id="clips-section">
+      <div class="clips-list" id="clips-list">
+        <div class="loading-state">
+          <div class="spinner small"></div>
+          <span>Loading your clips...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Empty State -->
+    <div class="empty-state hidden" id="empty-state">
+      <div class="empty-icon">📭</div>
+      <p>No clips yet</p>
+      <small>Copy anything on the web, we'll save it automatically</small>
+    </div>
+
+    <!-- Footer -->
+    <footer class="dash-footer">
+      <button class="footer-btn" id="btn-open-web">
+        🌐 Open Dashboard
+      </button>
+      <button class="footer-btn" id="btn-quick-search">
+        ⌨️ Quick Search
+      </button>
+    </footer>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal hidden" id="settings-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Settings</h3>
+        <button class="modal-close" id="settings-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-item">
+          <label class="setting-label">
+            <span>Auto-capture copies</span>
+            <input type="checkbox" id="setting-auto-capture" checked>
+          </label>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">
+            <span>Show smart tooltip</span>
+            <input type="checkbox" id="setting-tooltip" checked>
+          </label>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">
+            <span>AI auto-tagging</span>
+            <input type="checkbox" id="setting-ai-tags" checked>
+          </label>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">
+            <span>Sync on mobile data</span>
+            <input type="checkbox" id="setting-mobile-sync">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="confirm-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content confirm-modal-content">
+      <div class="modal-header">
+        <h3 id="confirm-title">Delete Clip</h3>
+        <button class="modal-close" id="confirm-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-text" id="confirm-text">Delete this clip?</p>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+          <button class="btn btn-danger" id="confirm-ok">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

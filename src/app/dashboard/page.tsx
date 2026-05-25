@@ -130,6 +130,180 @@ interface SyncQueueItem {
   };
 }
 
+type PreviewRenderMode = 'raw' | 'formatted' | 'markdown';
+type DetectedClipContentType = 'markdown' | 'json' | 'html' | 'code' | 'list' | 'plain';
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const renderInlineMarkdownToHtml = (value: string) => {
+  let html = escapeHtml(value);
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  return html;
+};
+
+const markdownToHtml = (markdown: string) => {
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n');
+  const htmlParts: string[] = [];
+  let paragraph: string[] = [];
+  let listItems: string[] = [];
+  let listType: 'ul' | 'ol' | null = null;
+  let inCodeBlock = false;
+  let codeBlockLines: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length > 0) {
+      htmlParts.push(`<p>${renderInlineMarkdownToHtml(paragraph.join(' '))}</p>`);
+      paragraph = [];
+    }
+  };
+
+  const flushList = () => {
+    if (listType && listItems.length > 0) {
+      htmlParts.push(`<${listType}>${listItems.map(item => `<li>${renderInlineMarkdownToHtml(item)}</li>`).join('')}</${listType}>`);
+      listItems = [];
+      listType = null;
+    }
+  };
+
+  const flushCodeBlock = () => {
+    if (codeBlockLines.length > 0) {
+      htmlParts.push(`<pre><code>${escapeHtml(codeBlockLines.join('\n'))}</code></pre>`);
+      codeBlockLines = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('```')) {
+      flushParagraph();
+      flushList();
+      if (inCodeBlock) {
+        flushCodeBlock();
+      }
+      inCodeBlock = !inCodeBlock;
+      return;
+    }
+
+    if (inCodeBlock) {
+      codeBlockLines.push(line);
+      return;
+    }
+
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+
+    if (/^#{1,4}\s/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      const level = trimmed.match(/^#+/)?.[0].length || 1;
+      htmlParts.push(`<h${level}>${renderInlineMarkdownToHtml(trimmed.replace(/^#{1,4}\s*/, ''))}</h${level}>`);
+      return;
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      htmlParts.push(`<blockquote>${renderInlineMarkdownToHtml(trimmed.replace(/^>\s?/, ''))}</blockquote>`);
+      return;
+    }
+
+    if (/^(-|\*)\s+/.test(trimmed)) {
+      flushParagraph();
+      if (listType !== 'ul') {
+        flushList();
+        listType = 'ul';
+      }
+      listItems.push(trimmed.replace(/^(-|\*)\s+/, ''));
+      return;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      flushParagraph();
+      if (listType !== 'ol') {
+        flushList();
+        listType = 'ol';
+      }
+      listItems.push(trimmed.replace(/^\d+\.\s+/, ''));
+      return;
+    }
+
+    paragraph.push(trimmed);
+  });
+
+  flushParagraph();
+  flushList();
+  flushCodeBlock();
+
+  return htmlParts.join('');
+};
+
+const isValidJson = (value: string) => {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const detectClipContentType = (content: string): DetectedClipContentType => {
+  const trimmed = content.trim();
+
+  if (!trimmed) return 'plain';
+  if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && isValidJson(trimmed)) return 'json';
+  if (/^#{1,4}\s|\[.+\]\(.+\)|```|^- |\* |^\d+\.\s|^>/m.test(trimmed)) return 'markdown';
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) return 'html';
+  if (/(```|const |let |var |function |=>|import |export |<\/?[A-Za-z]|;|\{[\s\S]*\})/.test(trimmed)) return 'code';
+  if (/^\d+\.\s|^- |\* /m.test(trimmed)) return 'list';
+  return 'plain';
+};
+
+const smartFormatContent = (content: string, type: DetectedClipContentType) => {
+  const normalized = content.replace(/\r\n/g, '\n').trim();
+
+  if (type === 'json') {
+    try {
+      return JSON.stringify(JSON.parse(normalized), null, 2);
+    } catch {
+      return normalized;
+    }
+  }
+
+  if (type === 'html') {
+    return normalized
+      .replace(/>\s+</g, '>\n<')
+      .replace(/(<\/(div|section|article|main|header|footer|p|ul|ol|li|pre|code|table|tr|td|th)>)/g, '$1\n');
+  }
+
+  if (type === 'markdown' || type === 'code') {
+    return normalized;
+  }
+
+  if (type === 'list') {
+    return normalized.replace(/(?<!\n)(\d+\.\s)/g, '\n$1').replace(/(?<!\n)([-*]\s)/g, '\n$1').trim();
+  }
+
+  return normalized
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/(?<!\n)(\d+\.\s)/g, '\n\n$1')
+    .replace(/([.!?])\s+(?=[A-Z0-9])/g, '$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const supabase = createClient();
@@ -185,6 +359,7 @@ export default function Dashboard() {
   const [editingClip, setEditingClip] = useState<Clip | null>(null);
   const [isClipPreviewOpen, setIsClipPreviewOpen] = useState(false);
   const [previewingClip, setPreviewingClip] = useState<Clip | null>(null);
+  const [previewRenderMode, setPreviewRenderMode] = useState<PreviewRenderMode>('raw');
   const [editClipContent, setEditClipContent] = useState('');
   const [editClipTitle, setEditClipTitle] = useState('');
   const [editClipTagsString, setEditClipTagsString] = useState('');
@@ -1730,6 +1905,7 @@ export default function Dashboard() {
 
   const openClipPreview = (clip: Clip) => {
     setPreviewingClip(clip);
+    setPreviewRenderMode('raw');
     setIsClipPreviewOpen(true);
   };
 
@@ -2272,6 +2448,9 @@ export default function Dashboard() {
   const appBgClass = isDarkTheme
     ? 'bg-[#07070a] text-neutral-100 selection:bg-indigo-500/30 selection:text-indigo-200'
     : 'bg-[radial-gradient(circle_at_top_left,_#ffffff,_#eef2ff_28%,_#f8fafc_60%,_#eef2ff_100%)] text-slate-900 selection:bg-indigo-200 selection:text-indigo-950';
+  const previewContentType = previewingClip ? detectClipContentType(previewingClip.content) : 'plain';
+  const previewFormattedContent = previewingClip ? smartFormatContent(previewingClip.content, previewContentType) : '';
+  const previewMarkdownHtml = previewingClip ? markdownToHtml(previewingClip.content) : '';
 
   // Kanban columns partitioning
   const getKanbanColumns = () => {
@@ -3631,7 +3810,11 @@ export default function Dashboard() {
                                     setShowRewriteMenu(null);
                                     handleRewrite(clip.id, clip.content, tone);
                                   }}
-                                  className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                                  className={`w-full text-left text-[11px] font-semibold px-2 py-1.5 rounded-lg transition-colors ${
+                                    isDarkTheme
+                                      ? 'text-neutral-300 hover:text-white hover:bg-white/5'
+                                      : 'text-slate-700 hover:text-slate-950 hover:bg-indigo-50'
+                                  }`}
                                 >
                                   {label}
                                 </button>
@@ -3646,25 +3829,29 @@ export default function Dashboard() {
                               className={`absolute bottom-12 left-24 z-30 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 animate-in fade-in slide-in-from-bottom-2 duration-150 ${dropdownSurfaceClass}`}
                             >
                               <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-b mb-0.5 font-mono ${subtleTextClass} ${isDarkTheme ? 'border-white/5' : 'border-slate-200'}`}>Select Lang</div>
-                              {[
-                                { code: 'Spanish', label: 'Spanish' },
-                                { code: 'French', label: 'French' },
-                                { code: 'German', label: 'German' },
-                                { code: 'Chinese', label: 'Chinese' },
-                                { code: 'Japanese', label: 'Japanese' }
-                              ].map(({ code, label }) => (
-                                <button
-                                  key={code}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowTranslateMenu(null);
-                                    handleTranslate(clip.id, clip.content, code);
-                                  }}
-                                  className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
-                                >
-                                  {label}
-                                </button>
-                              ))}
+                                  {[
+                                    { code: 'Spanish', label: 'Spanish' },
+                                    { code: 'French', label: 'French' },
+                                    { code: 'German', label: 'German' },
+                                    { code: 'Chinese', label: 'Chinese' },
+                                    { code: 'Japanese', label: 'Japanese' }
+                                  ].map(({ code, label }) => (
+                                    <button
+                                      key={code}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowTranslateMenu(null);
+                                        handleTranslate(clip.id, clip.content, code);
+                                      }}
+                                      className={`w-full text-left text-[11px] font-semibold px-2 py-1.5 rounded-lg transition-colors ${
+                                        isDarkTheme
+                                          ? 'text-neutral-300 hover:text-white hover:bg-white/5'
+                                          : 'text-slate-700 hover:text-slate-950 hover:bg-violet-50'
+                                      }`}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
                             </div>
                           )}
 
@@ -5031,6 +5218,7 @@ export default function Dashboard() {
           setIsClipPreviewOpen(open);
           if (!open) {
             setPreviewingClip(null);
+            setPreviewRenderMode('raw');
           }
         }}
       >
@@ -5071,7 +5259,7 @@ export default function Dashboard() {
                       {previewingClip.title || 'Untitled Clip'}
                     </DialogTitle>
                     <DialogDescription className="text-sm text-neutral-500">
-                      Full clip preview with quick actions for copy, edit, and sharing.
+                      Full clip preview with quick actions for copy, edit, sharing, and better formatting.
                     </DialogDescription>
                   </div>
 
@@ -5114,6 +5302,47 @@ export default function Dashboard() {
               </DialogHeader>
 
               <div className="px-6 py-5 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">
+                    {previewContentType}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewRenderMode('raw')}
+                    className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-all ${
+                      previewRenderMode === 'raw'
+                        ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300'
+                        : 'border-white/10 bg-white/[0.02] text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                    }`}
+                  >
+                    Raw
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewRenderMode('formatted')}
+                    className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-all ${
+                      previewRenderMode === 'formatted'
+                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                        : 'border-white/10 bg-white/[0.02] text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                    }`}
+                  >
+                    Smart Format
+                  </button>
+                  {previewContentType === 'markdown' && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewRenderMode('markdown')}
+                      className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-all ${
+                        previewRenderMode === 'markdown'
+                          ? 'border-violet-500/20 bg-violet-500/10 text-violet-300'
+                          : 'border-white/10 bg-white/[0.02] text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                      }`}
+                    >
+                      Markdown Preview
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   {previewingClip.tags.length > 0 ? previewingClip.tags.map((tag, idx) => (
                     <span
@@ -5128,9 +5357,16 @@ export default function Dashboard() {
                 </div>
 
                 <div className="rounded-2xl border border-white/5 bg-black/25 p-4">
-                  <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words text-sm leading-7 text-neutral-200 font-mono scrollbar-thin">
-                    {previewingClip.content}
-                  </pre>
+                  {previewRenderMode === 'markdown' && previewContentType === 'markdown' ? (
+                    <div
+                      className="max-h-[55vh] overflow-auto text-sm text-neutral-200 scrollbar-thin [&_a]:text-indigo-300 [&_blockquote]:border-l-[3px] [&_blockquote]:border-violet-500/30 [&_blockquote]:pl-4 [&_blockquote]:text-neutral-300 [&_code]:rounded-md [&_code]:bg-white/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-black [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:mb-3 [&_p]:leading-7 [&_pre]:mb-3 [&_pre]:overflow-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-white/5 [&_pre]:bg-black/35 [&_pre]:p-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
+                      dangerouslySetInnerHTML={{ __html: previewMarkdownHtml }}
+                    />
+                  ) : (
+                    <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words text-sm leading-7 text-neutral-200 font-mono scrollbar-thin">
+                      {previewRenderMode === 'formatted' ? previewFormattedContent : previewingClip.content}
+                    </pre>
+                  )}
                 </div>
               </div>
             </div>

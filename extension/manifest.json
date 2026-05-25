@@ -1,49 +1,103 @@
 {
   "manifest_version": 3,
-  "name": "FreeClipboard",
-  "version": "1.0.1",
-  "description": "Save anything to your clipboard, anywhere",
+  "name": "__MSG_extName__",
+  "version": "2.0.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  
   "permissions": [
     "storage",
     "activeTab",
     "contextMenus",
     "scripting",
-    "notifications",
-    "clipboardWrite"
+    "alarms",
+    "offscreen",
+    "clipboardWrite",
+    "identity"
   ],
+  
+  "optional_permissions": [
+    "clipboardRead",
+    "tabs",
+    "history"
+  ],
+  
   "host_permissions": [
-    "https://freeclipboard.com/*"
+    "https://*.supabase.co/*",
+    "https://freeclipboard.com/*",
+    "<all_urls>"
   ],
+  
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "src/background/service-worker.js",
     "type": "module"
   },
+  
   "content_scripts": [
     {
-      "matches": ["https://freeclipboard.com/*", "<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "matches": ["<all_urls>"],
+      "js": [
+        "src/lib/constants.js",
+        "src/content/capture-engine.js",
+        "src/content/smart-tooltip.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
+  
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup/popup.html",
     "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
-    }
+      "16": "src/assets/icons/icon16.png",
+      "48": "src/assets/icons/icon48.png",
+      "128": "src/assets/icons/icon128.png"
+    },
+    "default_title": "__MSG_extName__"
   },
+  
   "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "src/assets/icons/icon16.png",
+    "48": "src/assets/icons/icon48.png",
+    "128": "src/assets/icons/icon128.png"
   },
+  
   "commands": {
-    "save-clip": {
+    "quick-search": {
       "suggested_key": {
-        "default": "Ctrl+Shift+C"
+        "default": "Ctrl+Shift+V",
+        "mac": "Command+Shift+V"
       },
-      "description": "Save selected text to FreeClipboard"
+      "description": "__MSG_cmdQuickSearch__"
+    },
+    "save-selection": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C",
+        "mac": "Command+Shift+C"
+      },
+      "description": "__MSG_cmdSaveSelection__"
+    },
+    "ai-assistant": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      },
+      "description": "__MSG_cmdAIAssistant__"
     }
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/ai-sidebar.js",
+        "src/lib/*.js",
+        "offscreen/clipboard-monitor.html"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src https://*.supabase.co https://freeclipboard.com wss://*.supabase.co"
   }
 }

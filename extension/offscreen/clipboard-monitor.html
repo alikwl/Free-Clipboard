@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FreeClipboard - Clipboard Monitor</title>
+</head>
+<body>
+  <script>
+    // Offscreen document for clipboard access in Manifest V3
+    
+    let lastClipboardText = '';
+
+    async function checkClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text !== lastClipboardText) {
+          lastClipboardText = text;
+          
+          // Send to service worker
+          chrome.runtime.sendMessage({
+            type: 'CLIPBOARD_CHANGE',
+            data: {
+              content: text,
+              timestamp: Date.now()
+            }
+          });
+        }
+      } catch (err) {
+        // Clipboard access denied or empty
+      }
+    }
+
+    // Check every second
+    setInterval(checkClipboard, 1000);
+
+    // Keep alive
+    setInterval(() => {
+      chrome.runtime.sendMessage({ type: 'OFFSCREEN_KEEPALIVE' });
+    }, 20000);
+  </script>
+</body>
+</html>
