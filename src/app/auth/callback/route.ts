@@ -7,7 +7,11 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/dashboard';
 
   if (code) {
+<<<<<<< HEAD
     const supabase = createClient();
+=======
+    const supabase = await createClient();
+>>>>>>> 7a2e13a (Initial commit from PC)
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     
     if (!error && data.session) {

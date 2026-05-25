@@ -67,7 +67,11 @@ async function saveConversationMessage(
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate user and verify plan status from database
+<<<<<<< HEAD
     const supabase = createClient();
+=======
+    const supabase = await createClient();
+>>>>>>> 7a2e13a (Initial commit from PC)
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {

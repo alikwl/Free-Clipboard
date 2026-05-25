@@ -3,7 +3,11 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function GET() {
   try {
+<<<<<<< HEAD
     const supabase = createClient();
+=======
+    const supabase = await createClient();
+>>>>>>> 7a2e13a (Initial commit from PC)
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -27,7 +31,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+<<<<<<< HEAD
     const supabase = createClient();
+=======
+    const supabase = await createClient();
+>>>>>>> 7a2e13a (Initial commit from PC)
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

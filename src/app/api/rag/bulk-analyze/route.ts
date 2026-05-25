@@ -4,7 +4,11 @@ import { callAI } from '@/lib/openrouter';
 
 export async function POST() {
   try {
+<<<<<<< HEAD
     const supabase = createClient();
+=======
+    const supabase = await createClient();
+>>>>>>> 7a2e13a (Initial commit from PC)
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

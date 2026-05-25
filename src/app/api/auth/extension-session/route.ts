@@ -3,7 +3,11 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function GET() {
   try {
+<<<<<<< HEAD
     const supabase = createClient();
+=======
+    const supabase = await createClient();
+>>>>>>> 7a2e13a (Initial commit from PC)
     const { data: { session }, error } = await supabase.auth.getSession();
 
     if (error || !session) {
