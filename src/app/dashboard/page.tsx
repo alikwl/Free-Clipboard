@@ -39,6 +39,8 @@ import {
   Share2,
   Sparkles,
   Star, 
+  SunMedium,
+  Moon,
   Loader2,
   ChevronDown,
   ChevronUp,
@@ -206,6 +208,39 @@ export default function Dashboard() {
 
   // Mobile sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'board' | 'grid' | 'list' | 'table'>('grid');
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fc_view_mode');
+      if (saved === 'board' || saved === 'grid' || saved === 'list' || saved === 'table') {
+        setViewMode(saved);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedTheme = localStorage.getItem('fc_dashboard_theme');
+    const nextTheme = storedTheme === 'light' ? 'light' : 'dark';
+    setThemeMode(nextTheme);
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+    document.documentElement.style.colorScheme = nextTheme;
+  }, []);
+
+  const handleSetViewMode = (mode: 'board' | 'grid' | 'list' | 'table') => {
+    setViewMode(mode);
+    localStorage.setItem('fc_view_mode', mode);
+  };
+
+  const handleToggleTheme = () => {
+    const nextTheme = themeMode === 'dark' ? 'light' : 'dark';
+    setThemeMode(nextTheme);
+    localStorage.setItem('fc_dashboard_theme', nextTheme);
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+    document.documentElement.style.colorScheme = nextTheme;
+  };
 
   // Debounce search
   useEffect(() => {
@@ -1080,7 +1115,7 @@ export default function Dashboard() {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = async (e: React.DragEvent, targetFolderId: string | null) => {
+  const handleDrop = async (e: React.DragEvent, targetColId: string | null) => {
     e.preventDefault();
     setDraggedOverFolderId(null);
     const clipId = e.dataTransfer.getData('text/plain');
@@ -1090,39 +1125,72 @@ export default function Dashboard() {
     const clip = clips.find(c => c.id === clipId);
     if (!clip) return;
 
-    // If the destination is "uncategorized", set folder_id to undefined
-    const destFolderId = targetFolderId === 'uncategorized' ? undefined : (targetFolderId || undefined);
-    if (clip.folder_id === destFolderId) return;
+    if (activeFilter === 'folder' && (targetColId === 'pinned' || targetColId === 'other')) {
+      // Pin/unpin drop in folder-specific board view
+      const shouldPin = targetColId === 'pinned';
+      if (clip.pinned === shouldPin) return;
 
-    // Optimistic update
-    const updatedClips = clips.map((c) =>
-      c.id === clipId ? { ...c, folder_id: destFolderId } : c
-    );
-    setClips(updatedClips);
-    localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updatedClips));
+      // Optimistic update
+      const updatedClips = clips.map((c) =>
+        c.id === clipId ? { ...c, pinned: shouldPin } : c
+      );
+      setClips(updatedClips);
+      localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updatedClips));
 
-    // Supabase update
-    if (navigator.onLine && user) {
-      try {
-        const { error } = await supabase
-          .from('clips')
-          .update({ folder_id: destFolderId || null })
-          .eq('id', clipId);
-        if (error) throw error;
-      } catch (err) {
-        console.error('Failed to update clip folder on cloud:', err);
+      // Supabase update
+      if (navigator.onLine && user) {
+        try {
+          const { error } = await supabase
+            .from('clips')
+            .update({ pinned: shouldPin })
+            .eq('id', clipId);
+          if (error) throw error;
+        } catch (err) {
+          console.error('Failed to update pin status on cloud:', err);
+          enqueueAction('clips', 'update', { id: clipId, pinned: shouldPin });
+          addToast('Saved locally. Will sync when online.', 'info');
+        }
+      } else {
+        enqueueAction('clips', 'update', { id: clipId, pinned: shouldPin });
+        addToast('Saved locally. Will sync when online.', 'info');
+      }
+
+      addToast(shouldPin ? 'Pinned clip!' : 'Unpinned clip!', 'success');
+    } else {
+      // Folder move drop
+      const destFolderId = targetColId === 'uncategorized' ? undefined : (targetColId || undefined);
+      if (clip.folder_id === destFolderId) return;
+
+      // Optimistic update
+      const updatedClips = clips.map((c) =>
+        c.id === clipId ? { ...c, folder_id: destFolderId } : c
+      );
+      setClips(updatedClips);
+      localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updatedClips));
+
+      // Supabase update
+      if (navigator.onLine && user) {
+        try {
+          const { error } = await supabase
+            .from('clips')
+            .update({ folder_id: destFolderId || null })
+            .eq('id', clipId);
+          if (error) throw error;
+        } catch (err) {
+          console.error('Failed to update clip folder on cloud:', err);
+          enqueueAction('clips', 'update', { id: clipId, folder_id: destFolderId || null });
+          addToast('Saved locally. Will sync when online.', 'info');
+        }
+      } else {
         enqueueAction('clips', 'update', { id: clipId, folder_id: destFolderId || null });
         addToast('Saved locally. Will sync when online.', 'info');
       }
-    } else {
-      enqueueAction('clips', 'update', { id: clipId, folder_id: destFolderId || null });
-      addToast('Saved locally. Will sync when online.', 'info');
-    }
 
-    const folderName = targetFolderId === 'uncategorized'
-      ? 'Uncategorized'
-      : (folders.find(f => f.id === targetFolderId)?.name || 'Uncategorized');
-    addToast(`Moved clip to "${folderName}"`, 'success');
+      const folderName = targetColId === 'uncategorized'
+        ? 'Uncategorized'
+        : (folders.find(f => f.id === targetColId)?.name || 'Uncategorized');
+      addToast(`Moved clip to "${folderName}"`, 'success');
+    }
   };
 
   // --- SHARE HANDLERS ---
@@ -2152,6 +2220,86 @@ export default function Dashboard() {
 
   const isPro = isProUser(userPlan, userTrialEndsAt);
 
+  // Kanban columns partitioning
+  const getKanbanColumns = () => {
+    if (activeFilter === 'folder') {
+      const folderId = selectedFolderId;
+      const folderClips = clips.filter(c => folderId === 'uncategorized' ? !c.folder_id : c.folder_id === folderId);
+      
+      const searchedFolderClips = folderClips.filter(clip => {
+        if (debouncedSearch.trim().length > 0) {
+          const query = debouncedSearch.toLowerCase();
+          return clip.content.toLowerCase().includes(query) || clip.title?.toLowerCase().includes(query) || clip.tags.some(t => t.toLowerCase().includes(query));
+        }
+        return true;
+      });
+
+      return [
+        {
+          id: 'pinned',
+          name: 'Pinned',
+          color: '#fbbf24',
+          clips: searchedFolderClips.filter(c => c.pinned)
+        },
+        {
+          id: 'other',
+          name: 'All Clips',
+          color: activeFolder?.color || '#6366f1',
+          clips: searchedFolderClips.filter(c => !c.pinned)
+        }
+      ];
+    } else if (activeFilter === 'pinned') {
+      const pinnedClips = clips.filter(c => c.pinned);
+      
+      const searchedPinnedClips = pinnedClips.filter(clip => {
+        if (debouncedSearch.trim().length > 0) {
+          const query = debouncedSearch.toLowerCase();
+          return clip.content.toLowerCase().includes(query) || clip.title?.toLowerCase().includes(query) || clip.tags.some(t => t.toLowerCase().includes(query));
+        }
+        return true;
+      });
+
+      const cols = [
+        {
+          id: 'uncategorized',
+          name: 'Uncategorized',
+          color: '#737373',
+          clips: searchedPinnedClips.filter(c => !c.folder_id)
+        },
+        ...folders.map(f => ({
+          id: f.id,
+          name: f.name,
+          color: f.color,
+          clips: searchedPinnedClips.filter(c => c.folder_id === f.id)
+        }))
+      ];
+      return cols.filter(col => col.clips.length > 0 || col.id === 'uncategorized');
+    } else {
+      const searchedClips = clips.filter(clip => {
+        if (debouncedSearch.trim().length > 0) {
+          const query = debouncedSearch.toLowerCase();
+          return clip.content.toLowerCase().includes(query) || clip.title?.toLowerCase().includes(query) || clip.tags.some(t => t.toLowerCase().includes(query));
+        }
+        return true;
+      });
+
+      return [
+        {
+          id: 'uncategorized',
+          name: 'Uncategorized',
+          color: '#737373',
+          clips: searchedClips.filter(c => !c.folder_id)
+        },
+        ...folders.map(f => ({
+          id: f.id,
+          name: f.name,
+          color: f.color,
+          clips: searchedClips.filter(c => c.folder_id === f.id)
+        }))
+      ];
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#07070a] text-neutral-100 flex font-sans selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-hidden">
       
@@ -2822,31 +2970,92 @@ export default function Dashboard() {
           )}
            
           {/* Page Section Heading */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-6 gap-3 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 md:mb-6 gap-4 shrink-0 border-b border-white/5 pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <Grid className="w-4 h-4 text-indigo-400" />
-                <h2 className="text-lg font-black tracking-wide text-neutral-200">
-                  {activeFilter === 'all' && 'All Synced Clips'}
-                  {activeFilter === 'pinned' && 'Pinned Clips'}
-                  {activeFilter === 'folder' && `Folder: ${activeFolder?.name || 'Clips'}`}
-                </h2>
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                  <Grid className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-base md:text-lg font-black tracking-wide text-neutral-200 leading-tight">
+                    {activeFilter === 'all' && 'All Synced Clips'}
+                    {activeFilter === 'pinned' && 'Pinned Clips'}
+                    {activeFilter === 'folder' && `Folder: ${activeFolder?.name || 'Clips'}`}
+                  </h2>
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                    {activeFilter === 'folder' 
+                      ? `Viewing workspace clips filed under ${activeFolder?.name}`
+                      : 'Manage, copy, and pin your cross-device synced items.'}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                {activeFilter === 'folder' 
-                  ? `Viewing workspace clips filed under ${activeFolder?.name}`
-                  : 'Manage, copy, and pin your cross-device synced items.'}
-              </p>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* View Mode Switcher */}
+              <div className="flex items-center bg-black/40 border border-white/5 p-1 rounded-xl shrink-0 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode('board')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    viewMode === 'board'
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                  }`}
+                  title="Kanban Board View (Drag-and-Drop)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M11 3v18"/><path d="M15 3v18"/><path d="M7 3v18"/></svg>
+                  <span className="hidden sm:inline">Board</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode('grid')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    viewMode === 'grid'
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                  }`}
+                  title="Grid Card View"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode('list')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    viewMode === 'list'
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                  }`}
+                  title="List Row View"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode('table')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    viewMode === 'table'
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm'
+                      : 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                  }`}
+                  title="Table List View"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 9v12"/></svg>
+                  <span className="hidden sm:inline">Table</span>
+                </button>
+              </div>
+
               {/* Select Mode Toggle */}
               <button
+                type="button"
                 onClick={() => {
                   setIsSelectionMode(!isSelectionMode);
                   setSelectedClipIds([]);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 h-[34px] ${
                   isSelectionMode
                     ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300 font-bold'
                     : 'bg-black/40 border-white/5 text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
@@ -2858,16 +3067,18 @@ export default function Dashboard() {
               </button>
 
               {/* Import/Export buttons in toolbar */}
-              <div className="flex items-center gap-1 bg-black/40 border border-white/5 px-2 py-1.5 rounded-xl">
+              <div className="flex items-center gap-1 bg-black/40 border border-white/5 px-2 py-1 rounded-xl h-[34px]">
                 <button
+                  type="button"
                   onClick={() => triggerFileInput()}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-all animate-in fade-in duration-300"
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-all"
                   title="Import backup file"
                 >
                   <Upload className="w-3.5 h-3.5" />
                 </button>
                 <div className="w-px h-3.5 bg-white/10" />
                 <button
+                  type="button"
                   onClick={() => handleExport('txt')}
                   className="px-2 py-1 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-all text-[11px] font-bold flex items-center gap-1"
                   title="Export backup as TXT"
@@ -2877,6 +3088,7 @@ export default function Dashboard() {
                 </button>
                 
                 <button
+                  type="button"
                   onClick={() => handleExport('json')}
                   className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
                     userPlan === 'pro'
@@ -2894,6 +3106,7 @@ export default function Dashboard() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => handleExport('md')}
                   className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
                     userPlan === 'pro'
@@ -2911,32 +3124,64 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              <span className="text-xs text-neutral-500 font-semibold bg-black/40 border border-white/5 px-2.5 py-2.5 rounded-xl font-mono">
+              <span className="text-xs text-neutral-500 font-semibold bg-black/40 border border-white/5 px-2.5 py-1.5 rounded-xl font-mono h-[34px] flex items-center">
                 Showing {filteredClips.length} {filteredClips.length === 1 ? 'clip' : 'clips'}
               </span>
             </div>
           </div>
 
-          <div className="mb-4 grid grid-cols-2 xl:grid-cols-4 gap-3">
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">Visible Clips</p>
-              <p className="mt-2 text-xl font-black text-neutral-100">{filteredClips.length}</p>
-              <p className="text-[11px] text-neutral-500 mt-1">Based on current search and filter state.</p>
-            </div>
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">Pinned</p>
-              <p className="mt-2 text-xl font-black text-neutral-100">{clips.filter(c => c.pinned).length}</p>
-              <p className="text-[11px] text-neutral-500 mt-1">Your fastest-access saved highlights.</p>
-            </div>
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">Folders</p>
-              <p className="mt-2 text-xl font-black text-neutral-100">{folders.length}</p>
-              <p className="text-[11px] text-neutral-500 mt-1">Organized buckets for projects and topics.</p>
-            </div>
-            <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-500">AI Enhanced</p>
-              <p className="mt-2 text-xl font-black text-neutral-100">{Object.keys(clipSummaries).length + Object.keys(pendingRewrites).length + Object.keys(activeTranslations).length}</p>
-              <p className="text-[11px] text-neutral-500 mt-1">Summaries, rewrites, and translations in progress.</p>
+          {/* --- WORKSPACE STATS GLOW BANNER --- */}
+          <div className="mb-6 rounded-3xl border border-white/5 bg-gradient-to-tr from-neutral-950/90 to-neutral-900/40 p-5 md:p-6 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+            {/* Decorative subtle ambient glows inside banner */}
+            <div className="absolute top-0 right-0 w-[180px] h-[180px] bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+            <div className="absolute bottom-0 left-1/3 w-[150px] h-[150px] bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y divide-white/5 lg:divide-y-0 lg:divide-x divide-solid">
+              <div className="flex items-center gap-3.5 pt-0">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-md">
+                  <Clipboard className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">Visible Clips</p>
+                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">{filteredClips.length}</p>
+                  <p className="text-[10px] text-neutral-500 truncate mt-1">Based on active filters</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-4 lg:pt-0 lg:pl-6">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 shadow-md">
+                  <Star className="w-5 h-5 fill-amber-500/10" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">Pinned Clips</p>
+                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">{clips.filter(c => c.pinned).length}</p>
+                  <p className="text-[10px] text-neutral-500 truncate mt-1">Starred for fast access</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-4 lg:pt-0 lg:pl-6">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 shadow-md">
+                  <FoldersIcon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">Folders</p>
+                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">{folders.length}</p>
+                  <p className="text-[10px] text-neutral-500 truncate mt-1">Organized clip buckets</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3.5 pt-4 lg:pt-0 lg:pl-6">
+                <div className="w-10 h-10 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 shadow-md">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">AI Enhanced</p>
+                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">
+                    {Object.keys(clipSummaries).length + Object.keys(pendingRewrites).length + Object.keys(activeTranslations).length}
+                  </p>
+                  <p className="text-[10px] text-neutral-500 truncate mt-1">Summaries & translations</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -3002,445 +3247,978 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* --- CLIPS GRID --- */}
+          {/* --- CLIPS DYNAMIC VIEWS --- */}
           {dataLoading ? (
             <ClipListSkeleton count={6} />
           ) : sortedClips.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-              {sortedClips.map((clip) => {
-                const clipFolder = folders.find(f => f.id === clip.folder_id);
-                const truncatedContent = clip.content.length > 100 
-                  ? clip.content.substring(0, 100) + '...'
-                  : clip.content;
+            <>
+              {/* GRID VIEW RENDERING */}
+              {viewMode === 'grid' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                  {sortedClips.map((clip) => {
+                    const clipFolder = folders.find(f => f.id === clip.folder_id);
+                    const truncatedContent = clip.content.length > 100 
+                      ? clip.content.substring(0, 100) + '...'
+                      : clip.content;
 
-                const isSelected = selectedClipIds.includes(clip.id);
-                const hasAiOutput = Boolean(
-                  clipSummaries[clip.id] ||
-                  pendingRewrites[clip.id] ||
-                  activeTranslations[clip.id]
-                );
-                return (
-                  <Card 
-                    key={clip.id}
-                    draggable={!isSelectionMode}
-                    onDragStart={(e) => handleDragStart(e, clip.id)}
-                    onClick={() => {
-                      if (isSelectionMode) {
-                        handleToggleSelect(clip.id);
-                      } else {
-                        openClipPreview(clip);
-                      }
-                    }}
-                    className={`border bg-neutral-900/35 backdrop-blur-md shadow-xl relative overflow-hidden group flex flex-col min-h-[198px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
-                      isSelectionMode 
-                        ? isSelected
-                          ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
-                          : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
-                        : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-1 duration-300 cursor-pointer'
-                    }`}
-                  >
-                    {/* Checkbox overlay for selection mode */}
-                    {isSelectionMode && (
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); handleToggleSelect(clip.id); }}
-                        className={`absolute top-4 left-4 z-20 flex items-center justify-center w-5 h-5 rounded-full border transition-all cursor-pointer ${
-                          isSelected 
-                            ? 'border-indigo-400 bg-indigo-500 text-white' 
-                            : 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                    const isSelected = selectedClipIds.includes(clip.id);
+                    const hasAiOutput = Boolean(
+                      clipSummaries[clip.id] ||
+                      pendingRewrites[clip.id] ||
+                      activeTranslations[clip.id]
+                    );
+                    return (
+                      <Card 
+                        key={clip.id}
+                        draggable={!isSelectionMode}
+                        onDragStart={(e) => handleDragStart(e, clip.id)}
+                        onClick={() => {
+                          if (isSelectionMode) {
+                            handleToggleSelect(clip.id);
+                          } else {
+                            openClipPreview(clip);
+                          }
+                        }}
+                        className={`border bg-neutral-900/35 backdrop-blur-md shadow-xl relative overflow-hidden group flex flex-col min-h-[198px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
+                          isSelectionMode 
+                            ? isSelected
+                              ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
+                              : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
+                            : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-1 duration-300 cursor-pointer'
                         }`}
                       >
-                        {isSelected && (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Hover spotlight blur */}
-                    <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-                    <CardContent className="p-4 flex flex-col flex-grow gap-3">
-                      
-                      {/* Card Header & folder indicator */}
-                      <div className="flex flex-col gap-2 shrink-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <span className={`text-[10px] text-neutral-500 font-bold uppercase tracking-[0.22em] font-mono transition-all duration-200 ${isSelectionMode ? 'pl-7' : ''}`}>
-                            {new Date(clip.created_at).toLocaleDateString(undefined, { 
-                              month: 'short', 
-                              day: 'numeric', 
-                              year: 'numeric' 
-                            })}
-                          </span>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {clipFolder && (
-                              <span 
-                                className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 bg-black/30"
-                                style={{ 
-                                  borderColor: clipFolder.color + '20', 
-                                  color: clipFolder.color 
-                                }}
-                              >
-                                <span 
-                                  className="w-1.5 h-1.5 rounded-full shrink-0" 
-                                  style={{ backgroundColor: clipFolder.color }}
-                                />
-                                {clipFolder.name}
-                              </span>
-                            )}
-                            {clip.pinned && (
-                              <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-300">
-                                Pinned
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-semibold text-neutral-100 line-clamp-2 leading-snug">
-                            {clip.title || 'Untitled Clip'}
-                          </h4>
-                          <p className="text-[11px] text-neutral-500">
-                            {clip.content.length} characters
-                            {clip.tags.length > 0 ? ` | ${clip.tags.length} tag${clip.tags.length === 1 ? '' : 's'}` : ''}
-                            {hasAiOutput ? ' | AI enhanced' : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Content snippet */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openClipPreview(clip);
-                        }}
-                        className="rounded-xl border border-white/5 bg-black/20 p-3 text-left transition-all hover:border-indigo-500/20 hover:bg-black/30"
-                        title="Open full clip preview"
-                      >
-                        <p className="text-xs text-neutral-300 leading-relaxed break-words font-mono line-clamp-4 min-h-[72px]">
-                          {truncatedContent}
-                        </p>
-                      </button>
-
-                      {/* Badges and tags */}
-                      <div className="flex flex-wrap gap-1.5 overflow-hidden min-h-[24px] shrink-0">
-                        {clip.tags.length > 0 ? clip.tags.slice(0, 3).map((tag, idx) => (
-                          <span 
-                            key={idx}
-                            className="text-[9px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider"
+                        {/* Checkbox overlay for selection mode */}
+                        {isSelectionMode && (
+                          <div 
+                            onClick={(e) => { e.stopPropagation(); handleToggleSelect(clip.id); }}
+                            className={`absolute top-4 left-4 z-20 flex items-center justify-center w-5 h-5 rounded-full border transition-all cursor-pointer ${
+                              isSelected 
+                                ? 'border-indigo-400 bg-indigo-500 text-white' 
+                                : 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                            }`}
                           >
-                            {tag}
-                          </span>
-                        )) : (
-                          <span className="text-[10px] text-neutral-600 font-medium">No tags yet</span>
-                        )}
-                        {clip.tags.length > 3 && (
-                          <span className="text-[9px] bg-white/5 text-neutral-400 border border-white/5 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                            +{clip.tags.length - 3}
-                          </span>
-                        )}
-                      </div>
-
-                    </CardContent>
-                    
-                    {/* Collapsible AI Summary Section */}
-                    {clipSummaries[clip.id] && (
-                      <div className="border-t border-white/5 bg-emerald-500/5 px-5 py-3 transition-all duration-300">
-                        <div 
-                          onClick={(e) => toggleSummaryCollapse(clip.id, e)}
-                          className="flex items-center justify-between cursor-pointer group/summary"
-                        >
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider font-mono">
-                            <Sparkles className="w-3 h-3 text-emerald-400" />
-                            <span>AI Summary</span>
-                          </div>
-                          <button className="text-neutral-500 group-hover/summary:text-neutral-300 transition-colors">
-                            {collapsedSummaries[clip.id] ? (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronUp className="w-3.5 h-3.5" />
+                            {isSelected && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             )}
-                          </button>
-                        </div>
-                        
-                        {!collapsedSummaries[clip.id] && (
-                          <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-emerald-500/10 select-text">
-                              {clipSummaries[clip.id]?.summary}
+                          </div>
+                        )}
+
+                        {/* Hover spotlight blur */}
+                        <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                        <CardContent className="p-4 flex flex-col flex-grow gap-3">
+                          
+                          {/* Card Header & folder indicator */}
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className={`text-[10px] text-neutral-500 font-bold uppercase tracking-[0.22em] font-mono transition-all duration-200 ${isSelectionMode ? 'pl-7' : ''}`}>
+                                {new Date(clip.created_at).toLocaleDateString(undefined, { 
+                                  month: 'short', 
+                                  day: 'numeric', 
+                                  year: 'numeric' 
+                                })}
+                              </span>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {clipFolder && (
+                                  <span 
+                                    className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 bg-black/30"
+                                    style={{ 
+                                      borderColor: clipFolder.color + '20', 
+                                      color: clipFolder.color 
+                                    }}
+                                  >
+                                    <span 
+                                      className="w-1.5 h-1.5 rounded-full shrink-0" 
+                                      style={{ backgroundColor: clipFolder.color }}
+                                    />
+                                    {clipFolder.name}
+                                  </span>
+                                )}
+                                {clip.pinned && (
+                                  <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-300">
+                                    Pinned
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-semibold text-neutral-100 line-clamp-2 leading-snug">
+                                {clip.title || 'Untitled Clip'}
+                              </h4>
+                              <p className="text-[11px] text-neutral-500">
+                                {clip.content.length} characters
+                                {clip.tags.length > 0 ? ` | ${clip.tags.length} tag${clip.tags.length === 1 ? '' : 's'}` : ''}
+                                {hasAiOutput ? ' | AI enhanced' : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Content snippet */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openClipPreview(clip);
+                            }}
+                            className="rounded-xl border border-white/5 bg-black/20 p-3 text-left transition-all hover:border-indigo-500/20 hover:bg-black/30"
+                            title="Open full clip preview"
+                          >
+                            <p className="text-xs text-neutral-300 leading-relaxed break-words font-mono line-clamp-4 min-h-[72px]">
+                              {truncatedContent}
                             </p>
-                            {clipSummaries[clip.id]?.isFallback && (
-                              <div className="text-[9px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded leading-normal flex items-start gap-1 font-sans">
-                                <span className="font-bold shrink-0">⚠️ Local Fallback:</span>
-                                <span>{clipSummaries[clip.id]?.warning || 'Unable to reach the OpenRouter API. Displaying a high-quality local smart summary.'}</span>
+                          </button>
+
+                          {/* Badges and tags */}
+                          <div className="flex flex-wrap gap-1.5 overflow-hidden min-h-[24px] shrink-0">
+                            {clip.tags.length > 0 ? clip.tags.slice(0, 3).map((tag, idx) => (
+                              <span 
+                                key={idx}
+                                className="text-[9px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider"
+                              >
+                                {tag}
+                              </span>
+                            )) : (
+                              <span className="text-[10px] text-neutral-600 font-medium">No tags yet</span>
+                            )}
+                            {clip.tags.length > 3 && (
+                              <span className="text-[9px] bg-white/5 text-neutral-400 border border-white/5 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                +{clip.tags.length - 3}
+                              </span>
+                            )}
+                          </div>
+
+                        </CardContent>
+                        
+                        {/* Collapsible AI Summary Section */}
+                        {clipSummaries[clip.id] && (
+                          <div className="border-t border-white/5 bg-emerald-500/5 px-5 py-3 transition-all duration-300">
+                            <div 
+                              onClick={(e) => toggleSummaryCollapse(clip.id, e)}
+                              className="flex items-center justify-between cursor-pointer group/summary"
+                            >
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider font-mono">
+                                <Sparkles className="w-3 h-3 text-emerald-400" />
+                                <span>AI Summary</span>
+                              </div>
+                              <button className="text-neutral-500 group-hover/summary:text-neutral-300 transition-colors">
+                                {collapsedSummaries[clip.id] ? (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                            
+                            {!collapsedSummaries[clip.id] && (
+                              <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-emerald-500/10 select-text">
+                                  {clipSummaries[clip.id]?.summary}
+                                </p>
+                                {clipSummaries[clip.id]?.isFallback && (
+                                  <div className="text-[9px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded leading-normal flex items-start gap-1 font-sans">
+                                    <span className="font-bold shrink-0">⚠️ Local Fallback:</span>
+                                    <span>{clipSummaries[clip.id]?.warning || 'Unable to reach the OpenRouter API. Displaying a high-quality local smart summary.'}</span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
                         )}
-                      </div>
-                    )}
 
-                    {/* Collapsible Rewrite Panel */}
-                    {pendingRewrites[clip.id] && (
-                      <div className="border-t border-white/5 bg-indigo-500/5 px-5 py-3 transition-all duration-300">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 uppercase tracking-wider font-mono">
-                            <RefreshCw className="w-3 h-3 text-indigo-400" />
-                            <span>AI Rewrite Suggestion</span>
+                        {/* Collapsible Rewrite Panel */}
+                        {pendingRewrites[clip.id] && (
+                          <div className="border-t border-white/5 bg-indigo-500/5 px-5 py-3 transition-all duration-300">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 uppercase tracking-wider font-mono">
+                                <RefreshCw className="w-3 h-3 text-indigo-400" />
+                                <span>AI Rewrite Suggestion</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                              <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-indigo-500/10 select-text">
+                                {pendingRewrites[clip.id]}
+                              </p>
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={(e) => handleDismissRewrite(clip.id, e)}
+                                  className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-colors uppercase font-mono border border-white/5 bg-black/20 px-2 py-1 rounded"
+                                >
+                                  Dismiss
+                                </button>
+                                <button
+                                  onClick={(e) => handleApplyRewrite(clip.id, e)}
+                                  className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors uppercase font-mono border border-indigo-500/20 bg-indigo-500/5 px-2 py-1 rounded"
+                                >
+                                  Apply
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-indigo-500/10 select-text">
-                            {pendingRewrites[clip.id]}
-                          </p>
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={(e) => handleDismissRewrite(clip.id, e)}
-                              className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-colors uppercase font-mono border border-white/5 bg-black/20 px-2 py-1 rounded"
-                            >
-                              Dismiss
-                            </button>
-                            <button
-                              onClick={(e) => handleApplyRewrite(clip.id, e)}
-                              className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors uppercase font-mono border border-indigo-500/20 bg-indigo-500/5 px-2 py-1 rounded"
-                            >
-                              Apply
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                        )}
 
-                    {/* Collapsible Translate Panel */}
-                    {activeTranslations[clip.id] && (
-                      <div className="border-t border-white/5 bg-violet-500/5 px-5 py-3 transition-all duration-300">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-violet-400 uppercase tracking-wider font-mono">
-                            <Languages className="w-3 h-3 text-violet-400" />
-                            <span>Translated to {activeTranslations[clip.id].lang}</span>
+                        {/* Collapsible Translate Panel */}
+                        {activeTranslations[clip.id] && (
+                          <div className="border-t border-white/5 bg-violet-500/5 px-5 py-3 transition-all duration-300">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-violet-400 uppercase tracking-wider font-mono">
+                                <Languages className="w-3 h-3 text-violet-400" />
+                                <span>Translated to {activeTranslations[clip.id].lang}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                              <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-violet-500/10 select-text">
+                                {activeTranslations[clip.id].text}
+                              </p>
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={(e) => handleDismissTranslate(clip.id, e)}
+                                  className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-colors uppercase font-mono border border-white/5 bg-black/20 px-2 py-1 rounded"
+                                >
+                                  Dismiss
+                                </button>
+                                <button
+                                  onClick={(e) => handleCopyTranslation(clip.id, activeTranslations[clip.id].text, e)}
+                                  className="text-[10px] font-bold text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 transition-colors uppercase font-mono border border-violet-500/20 bg-violet-500/5 px-2 py-1 rounded"
+                                >
+                                  {copiedTranslationId === clip.id ? 'Copied!' : 'Copy'}
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-violet-500/10 select-text">
-                            {activeTranslations[clip.id].text}
-                          </p>
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={(e) => handleDismissTranslate(clip.id, e)}
-                              className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition-colors uppercase font-mono border border-white/5 bg-black/20 px-2 py-1 rounded"
-                            >
-                              Dismiss
-                            </button>
-                            <button
-                              onClick={(e) => handleCopyTranslation(clip.id, activeTranslations[clip.id].text, e)}
-                              className="text-[10px] font-bold text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 transition-colors uppercase font-mono border border-violet-500/20 bg-violet-500/5 px-2 py-1 rounded"
-                            >
-                              {copiedTranslationId === clip.id ? 'Copied!' : 'Copy'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                        )}
 
-                    {/* Card Actions Panel */}
-                    <div className="border-t border-white/5 bg-black/40 px-4 py-2.5 flex items-center justify-between shrink-0 relative gap-2">
-                      {/* Rewrite Dropdown Menu */}
-                      {showRewriteMenu === clip.id && (
-                        <div 
-                          onMouseLeave={() => setShowRewriteMenu(null)}
-                          className="absolute bottom-12 left-16 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-28 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md"
-                        >
-                          <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Select Tone</div>
-                          {[
-                            { tone: 'formal', label: 'Formal' },
-                            { tone: 'casual', label: 'Casual' },
-                            { tone: 'shorter', label: 'Shorter' },
-                            { tone: 'expand', label: 'Expand' }
-                          ].map(({ tone, label }) => (
+                        {/* Card Actions Panel */}
+                        <div className="border-t border-white/5 bg-black/40 px-4 py-2.5 flex items-center justify-between shrink-0 relative gap-2">
+                          {/* Rewrite Dropdown Menu */}
+                          {showRewriteMenu === clip.id && (
+                            <div 
+                              onMouseLeave={() => setShowRewriteMenu(null)}
+                              className="absolute bottom-12 left-16 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-28 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md"
+                            >
+                              <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Select Tone</div>
+                              {[
+                                { tone: 'formal', label: 'Formal' },
+                                { tone: 'casual', label: 'Casual' },
+                                { tone: 'shorter', label: 'Shorter' },
+                                { tone: 'expand', label: 'Expand' }
+                              ].map(({ tone, label }) => (
+                                <button
+                                  key={tone}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowRewriteMenu(null);
+                                    handleRewrite(clip.id, clip.content, tone);
+                                  }}
+                                  className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Translate Dropdown Menu */}
+                          {showTranslateMenu === clip.id && (
+                            <div 
+                              onMouseLeave={() => setShowTranslateMenu(null)}
+                              className="absolute bottom-12 left-24 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md"
+                            >
+                              <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Select Lang</div>
+                              {[
+                                { code: 'Spanish', label: 'Spanish' },
+                                { code: 'French', label: 'French' },
+                                { code: 'German', label: 'German' },
+                                { code: 'Chinese', label: 'Chinese' },
+                                { code: 'Japanese', label: 'Japanese' }
+                              ].map(({ code, label }) => (
+                                <button
+                                  key={code}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowTranslateMenu(null);
+                                    handleTranslate(clip.id, clip.content, code);
+                                  }}
+                                  className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex gap-1 flex-wrap min-w-0 flex-1 items-center">
                             <button
-                              key={tone}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setShowRewriteMenu(null);
-                                handleRewrite(clip.id, clip.content, tone);
+                                openClipPreview(clip);
                               }}
-                              className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                              className="inline-flex items-center gap-1 rounded-md border border-indigo-500/15 bg-indigo-500/8 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300 hover:bg-indigo-500/15 transition-colors"
+                              title="View clip"
                             >
-                              {label}
+                              <Eye className="w-3.5 h-3.5" />
+                              View
                             </button>
-                          ))}
-                        </div>
-                      )}
 
-                      {/* Translate Dropdown Menu */}
-                      {showTranslateMenu === clip.id && (
-                        <div 
-                          onMouseLeave={() => setShowTranslateMenu(null)}
-                          className="absolute bottom-12 left-24 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md"
-                        >
-                          <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Select Lang</div>
-                          {[
-                            { code: 'Spanish', label: 'Spanish' },
-                            { code: 'French', label: 'French' },
-                            { code: 'German', label: 'German' },
-                            { code: 'Chinese', label: 'Chinese' },
-                            { code: 'Japanese', label: 'Japanese' }
-                          ].map(({ code, label }) => (
                             <button
-                              key={code}
+                              onClick={(e) => handleTogglePin(clip.id, e)}
+                              className={`p-1 rounded-md hover:bg-white/5 transition-colors border border-transparent ${
+                                clip.pinned 
+                                  ? 'text-yellow-400 border-yellow-500/10 bg-yellow-500/5' 
+                                  : 'text-neutral-500 hover:text-neutral-300'
+                              }`}
+                              title={clip.pinned ? 'Unpin clip' : 'Pin clip'}
+                            >
+                              <Star className={`w-3.5 h-3.5 ${clip.pinned ? 'fill-current' : ''}`} />
+                            </button>
+
+                            <button
+                              onClick={(e) => handleCopyContent(clip.id, clip.content, e)}
+                              className={`p-1 rounded-md hover:bg-white/5 transition-colors border border-transparent flex items-center justify-center text-xs font-semibold ${
+                                copiedClipId === clip.id 
+                                  ? 'text-emerald-400 border-emerald-500/10 bg-emerald-500/5' 
+                                  : 'text-neutral-500 hover:text-neutral-300'
+                              }`}
+                              title="Copy full content"
+                            >
+                              {copiedClipId === clip.id ? (
+                                <span className="text-[10px] font-black uppercase">Copied!</span>
+                              ) : (
+                                <Clipboard className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+
+                            <button
+                              onClick={(e) => handleOpenEditClip(clip, e)}
+                              className="p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-indigo-400 transition-colors border border-transparent flex items-center justify-center"
+                              title="Edit clip details"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={(e) => handleOpenShareModal(clip, e)}
+                              className="p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-violet-400 transition-colors border border-transparent flex items-center justify-center"
+                              title="Share clip"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (!isPro) {
+                                  setShowUpgradeModal(true);
+                                  return;
+                                }
+                                handleSummarize(clip.id, clip.content, e);
+                              }}
+                              disabled={summarizingClipId === clip.id}
+                              className={`p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-emerald-400 transition-colors border border-transparent flex items-center justify-center ${
+                                summarizingClipId === clip.id ? 'bg-emerald-500/10 text-emerald-400 animate-pulse' : ''
+                              }`}
+                              title="✨ Summarize with AI"
+                            >
+                              {summarizingClipId === clip.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                              ) : (
+                                <Sparkles className={`w-3.5 h-3.5 ${clipSummaries[clip.id] ? 'text-emerald-400 fill-emerald-400/20' : ''}`} />
+                              )}
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isPro) {
+                                  setShowUpgradeModal(true);
+                                  return;
+                                }
+                                setShowRewriteMenu(showRewriteMenu === clip.id ? null : clip.id);
                                 setShowTranslateMenu(null);
-                                handleTranslate(clip.id, clip.content, code);
                               }}
-                              className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                              disabled={rewritingClipId === clip.id}
+                              className={`p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-indigo-400 transition-colors border border-transparent flex items-center justify-center ${
+                                rewritingClipId === clip.id ? 'bg-indigo-500/10 text-indigo-400 animate-pulse' : ''
+                              }`}
+                              title="🪄 Rewrite with AI"
                             >
-                              {label}
+                              {rewritingClipId === clip.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                              ) : (
+                                <RefreshCw className={`w-3.5 h-3.5 ${pendingRewrites[clip.id] ? 'text-indigo-400' : ''}`} />
+                              )}
                             </button>
-                          ))}
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isPro) {
+                                  setShowUpgradeModal(true);
+                                  return;
+                                }
+                                setShowTranslateMenu(showTranslateMenu === clip.id ? null : clip.id);
+                                setShowRewriteMenu(null);
+                              }}
+                              disabled={translatingClipId === clip.id}
+                              className={`p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-violet-400 transition-colors border border-transparent flex items-center justify-center ${
+                                translatingClipId === clip.id ? 'bg-violet-500/10 text-violet-400 animate-pulse' : ''
+                              }`}
+                              title="🌐 Translate with AI"
+                            >
+                              {translatingClipId === clip.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />
+                              ) : (
+                                <Languages className={`w-3.5 h-3.5 ${activeTranslations[clip.id] ? 'text-violet-400' : ''}`} />
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <div className="h-5 w-px bg-white/10" />
+                            <button
+                              onClick={(e) => handleDeleteClip(clip.id, e)}
+                              className="p-1 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors shrink-0"
+                              title="Delete clip"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                      )}
 
-                      <div className="flex gap-1 flex-wrap min-w-0 flex-1 items-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* LIST VIEW RENDERING */}
+              {viewMode === 'list' && (
+                <div className="flex flex-col gap-3">
+                  {sortedClips.map((clip) => {
+                    const clipFolder = folders.find(f => f.id === clip.folder_id);
+                    const truncatedContent = clip.content.length > 180 
+                      ? clip.content.substring(0, 180) + '...'
+                      : clip.content;
+
+                    const isSelected = selectedClipIds.includes(clip.id);
+                    const hasAiOutput = Boolean(
+                      clipSummaries[clip.id] ||
+                      pendingRewrites[clip.id] ||
+                      activeTranslations[clip.id]
+                    );
+                    return (
+                      <Card 
+                        key={clip.id}
+                        draggable={!isSelectionMode}
+                        onDragStart={(e) => handleDragStart(e, clip.id)}
+                        onClick={() => {
+                          if (isSelectionMode) {
+                            handleToggleSelect(clip.id);
+                          } else {
                             openClipPreview(clip);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md border border-indigo-500/15 bg-indigo-500/8 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300 hover:bg-indigo-500/15 transition-colors"
-                          title="View clip"
-                        >
-                          <Eye className="w-3 h-3" />
-                          View
-                        </button>
+                          }
+                        }}
+                        className={`border bg-neutral-900/35 backdrop-blur-md relative overflow-hidden group flex flex-col p-4 gap-3 transition-all duration-300 ${
+                          isSelectionMode 
+                            ? isSelected
+                              ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
+                              : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
+                            : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-0.5 duration-300 cursor-pointer'
+                        }`}
+                      >
+                        {/* Checkbox for selection */}
+                        {isSelectionMode && (
+                          <div 
+                            onClick={(e) => { e.stopPropagation(); handleToggleSelect(clip.id); }}
+                            className={`absolute top-4 left-4 z-20 flex items-center justify-center w-5 h-5 rounded-full border transition-all cursor-pointer ${
+                              isSelected 
+                                ? 'border-indigo-400 bg-indigo-500 text-white' 
+                                : 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                            }`}
+                          >
+                            {isSelected && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            )}
+                          </div>
+                        )}
 
-                        <button
-                          onClick={(e) => handleTogglePin(clip.id, e)}
-                          className={`p-1 rounded-md hover:bg-white/5 transition-colors border border-transparent ${
-                            clip.pinned 
-                              ? 'text-yellow-400 border-yellow-500/10 bg-yellow-500/5' 
-                              : 'text-neutral-500 hover:text-neutral-300'
-                          }`}
-                          title={clip.pinned ? 'Unpin clip' : 'Pin clip'}
-                        >
-                          <Star className={`w-3 h-3 ${clip.pinned ? 'fill-current' : ''}`} />
-                        </button>
+                        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 w-full ${isSelectionMode ? 'pl-7' : ''}`}>
+                          {/* Title & Metadata */}
+                          <div className="flex flex-col gap-1 min-w-[200px] md:max-w-[280px]">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider font-mono">
+                                {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                              {clipFolder && (
+                                <span 
+                                  className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 bg-black/30"
+                                  style={{ borderColor: clipFolder.color + '20', color: clipFolder.color }}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: clipFolder.color }} />
+                                  {clipFolder.name}
+                                </span>
+                              )}
+                              {clip.pinned && (
+                                <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-1.5 py-0.2 text-[8px] font-black uppercase text-yellow-300">
+                                  Pinned
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="text-sm font-bold text-neutral-100 truncate leading-snug">{clip.title || 'Untitled Clip'}</h4>
+                            <span className="text-[10px] text-neutral-500 font-mono">
+                              {clip.content.length} chars {clip.tags.length > 0 ? `| ${clip.tags.length} tags` : ''}
+                            </span>
+                          </div>
 
-                        <button
-                          onClick={(e) => handleCopyContent(clip.id, clip.content, e)}
-                          className={`p-1 rounded-md hover:bg-white/5 transition-colors border border-transparent flex items-center justify-center text-xs font-semibold ${
-                            copiedClipId === clip.id 
-                              ? 'text-emerald-400 border-emerald-500/10 bg-emerald-500/5' 
-                              : 'text-neutral-500 hover:text-neutral-300'
-                          }`}
-                          title="Copy full content"
-                        >
-                          {copiedClipId === clip.id ? (
-                            <span className="text-[10px] font-black uppercase">Copied!</span>
+                          {/* Content Snippet */}
+                          <div 
+                            onClick={(e) => { e.stopPropagation(); openClipPreview(clip); }}
+                            className="flex-1 rounded-xl border border-white/5 bg-black/20 p-2.5 text-left transition-all hover:border-indigo-500/20 hover:bg-black/30 max-w-full md:max-w-2xl"
+                          >
+                            <p className="text-xs text-neutral-300 font-mono line-clamp-2 break-words leading-relaxed select-text">
+                              {truncatedContent}
+                            </p>
+                          </div>
+
+                          {/* Tags & Action Buttons */}
+                          <div className="flex items-center gap-4 justify-between md:justify-end shrink-0">
+                            {/* Tags column */}
+                            <div className="hidden lg:flex flex-wrap gap-1 max-w-[150px] justify-end">
+                              {clip.tags.slice(0, 2).map((tag, idx) => (
+                                <span 
+                                  key={idx}
+                                  className="text-[9px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                              {clip.tags.length > 2 && (
+                                <span className="text-[9px] bg-white/5 text-neutral-400 border border-white/5 px-2 py-0.5 rounded-full font-bold">
+                                  +{clip.tags.length - 2}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Row Action Toolbar */}
+                            <div className="flex items-center gap-1 bg-black/20 p-1.5 border border-white/5 rounded-xl relative" onClick={(e) => e.stopPropagation()}>
+                              {/* Rewrite Dropdown Menu */}
+                              {showRewriteMenu === clip.id && (
+                                <div 
+                                  onMouseLeave={() => setShowRewriteMenu(null)}
+                                  className="absolute bottom-12 right-24 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-28 backdrop-blur-md"
+                                >
+                                  <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Tone</div>
+                                  {[
+                                    { tone: 'formal', label: 'Formal' },
+                                    { tone: 'casual', label: 'Casual' },
+                                    { tone: 'shorter', label: 'Shorter' },
+                                    { tone: 'expand', label: 'Expand' }
+                                  ].map(({ tone, label }) => (
+                                    <button
+                                      key={tone}
+                                      onClick={() => {
+                                        setShowRewriteMenu(null);
+                                        handleRewrite(clip.id, clip.content, tone);
+                                      }}
+                                      className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Translate Dropdown Menu */}
+                              {showTranslateMenu === clip.id && (
+                                <div 
+                                  onMouseLeave={() => setShowTranslateMenu(null)}
+                                  className="absolute bottom-12 right-12 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 backdrop-blur-md"
+                                >
+                                  <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Lang</div>
+                                  {[
+                                    { code: 'Spanish', label: 'Spanish' },
+                                    { code: 'French', label: 'French' },
+                                    { code: 'German', label: 'German' },
+                                    { code: 'Chinese', label: 'Chinese' },
+                                    { code: 'Japanese', label: 'Japanese' }
+                                  ].map(({ code, label }) => (
+                                    <button
+                                      key={code}
+                                      onClick={() => {
+                                        setShowTranslateMenu(null);
+                                        handleTranslate(clip.id, clip.content, code);
+                                      }}
+                                      className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+
+                              <button onClick={() => openClipPreview(clip)} className="p-1 rounded hover:bg-white/5 text-indigo-400" title="View details">
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => handleTogglePin(clip.id, e)} className={`p-1 rounded hover:bg-white/5 ${clip.pinned ? 'text-yellow-400' : 'text-neutral-500'}`} title="Pin clip">
+                                <Star className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => handleCopyContent(clip.id, clip.content, e)} className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-neutral-300" title="Copy content">
+                                {copiedClipId === clip.id ? <span className="text-[8px] text-emerald-400 font-extrabold px-1">COPIED</span> : <Clipboard className="w-3.5 h-3.5" />}
+                              </button>
+                              <button onClick={(e) => handleOpenEditClip(clip, e)} className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-indigo-400" title="Edit details">
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => handleOpenShareModal(clip, e)} className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-violet-400" title="Share clip">
+                                <Share2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  if (!isPro) { setShowUpgradeModal(true); return; }
+                                  handleSummarize(clip.id, clip.content, e);
+                                }}
+                                disabled={summarizingClipId === clip.id}
+                                className={`p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-emerald-400 ${summarizingClipId === clip.id ? 'bg-emerald-500/10' : ''}`}
+                                title="Summarize"
+                              >
+                                {summarizingClipId === clip.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className={`w-3.5 h-3.5 ${clipSummaries[clip.id] ? 'text-emerald-400 fill-emerald-400/20' : ''}`} />}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (!isPro) { setShowUpgradeModal(true); return; }
+                                  setShowRewriteMenu(showRewriteMenu === clip.id ? null : clip.id);
+                                  setShowTranslateMenu(null);
+                                }}
+                                className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-indigo-400"
+                                title="Rewrite"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (!isPro) { setShowUpgradeModal(true); return; }
+                                  setShowTranslateMenu(showTranslateMenu === clip.id ? null : clip.id);
+                                  setShowRewriteMenu(null);
+                                }}
+                                className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-violet-400"
+                                title="Translate"
+                              >
+                                <Languages className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="h-4 w-px bg-white/10 mx-1" />
+                              <button onClick={(e) => handleDeleteClip(clip.id, e)} className="p-1 rounded hover:bg-white/5 text-rose-500 hover:text-rose-400" title="Delete">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Collapsible AI Summary Section */}
+                        {clipSummaries[clip.id] && (
+                          <div className="border-t border-white/5 bg-emerald-500/5 px-4 py-2.5 rounded-lg mt-1 select-text" onClick={(e) => e.stopPropagation()}>
+                            <div onClick={(e) => toggleSummaryCollapse(clip.id, e)} className="flex items-center justify-between cursor-pointer">
+                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1"><Sparkles className="w-3 h-3" />AI Summary</span>
+                              <span className="text-neutral-500">{collapsedSummaries[clip.id] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}</span>
+                            </div>
+                            {!collapsedSummaries[clip.id] && (
+                              <p className="text-[11px] text-neutral-300 leading-relaxed bg-black/20 p-2 rounded mt-2 border border-emerald-500/10 font-sans">{clipSummaries[clip.id]?.summary}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Collapsible Rewrite Suggestions */}
+                        {pendingRewrites[clip.id] && (
+                          <div className="border-t border-white/5 bg-indigo-500/5 px-4 py-2.5 rounded-lg mt-1 select-text" onClick={(e) => e.stopPropagation()}>
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1"><RefreshCw className="w-3 h-3" />AI Rewrite Suggestion</span>
+                            <p className="text-[11px] text-neutral-300 leading-relaxed bg-black/20 p-2 rounded mt-2 border border-indigo-500/10 font-sans">{pendingRewrites[clip.id]}</p>
+                            <div className="flex gap-2 justify-end mt-2">
+                              <button onClick={(e) => handleDismissRewrite(clip.id, e)} className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 bg-black/20 px-2.5 py-1 rounded border border-white/5">Dismiss</button>
+                              <button onClick={(e) => handleApplyRewrite(clip.id, e)} className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/5 px-2.5 py-1 rounded border border-indigo-500/20">Apply</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Collapsible Translation Suggestions */}
+                        {activeTranslations[clip.id] && (
+                          <div className="border-t border-white/5 bg-violet-500/5 px-4 py-2.5 rounded-lg mt-1 select-text" onClick={(e) => e.stopPropagation()}>
+                            <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1"><Languages className="w-3 h-3" />Translated to {activeTranslations[clip.id].lang}</span>
+                            <p className="text-[11px] text-neutral-300 leading-relaxed bg-black/20 p-2 rounded mt-2 border border-violet-500/10 font-sans">{activeTranslations[clip.id].text}</p>
+                            <div className="flex gap-2 justify-end mt-2">
+                              <button onClick={(e) => handleDismissTranslate(clip.id, e)} className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 bg-black/20 px-2.5 py-1 rounded border border-white/5">Dismiss</button>
+                              <button onClick={(e) => handleCopyTranslation(clip.id, activeTranslations[clip.id].text, e)} className="text-[10px] font-bold text-violet-400 hover:text-violet-300 bg-violet-500/5 px-2.5 py-1 rounded border border-violet-500/20">{copiedTranslationId === clip.id ? 'Copied!' : 'Copy'}</button>
+                            </div>
+                          </div>
+                        )}
+
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* TABLE VIEW RENDERING */}
+              {viewMode === 'table' && (
+                <div className="overflow-x-auto rounded-2xl border border-white/5 bg-[#0b0c10]/45 backdrop-blur-md shadow-2xl">
+                  <table className="w-full border-collapse text-left text-xs text-neutral-300">
+                    <thead>
+                      <tr className="border-b border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                        {isSelectionMode && <th className="py-3.5 px-4 w-10">Select</th>}
+                        <th className="py-3.5 px-4 w-[200px]">Title</th>
+                        <th className="py-3.5 px-4">Content Preview</th>
+                        <th className="py-3.5 px-4 w-[130px]">Folder</th>
+                        <th className="py-3.5 px-4 w-[160px]">Tags</th>
+                        <th className="py-3.5 px-4 w-[100px]">Date</th>
+                        <th className="py-3.5 px-4 w-[200px] text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedClips.map((clip) => {
+                        const clipFolder = folders.find(f => f.id === clip.folder_id);
+                        const isSelected = selectedClipIds.includes(clip.id);
+                        return (
+                          <tr 
+                            key={clip.id}
+                            onClick={() => {
+                              if (isSelectionMode) {
+                                handleToggleSelect(clip.id);
+                              } else {
+                                openClipPreview(clip);
+                              }
+                            }}
+                            className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${
+                              isSelected ? 'bg-indigo-950/10' : ''
+                            }`}
+                          >
+                            {isSelectionMode && (
+                              <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                                <div 
+                                  onClick={() => handleToggleSelect(clip.id)}
+                                  className={`flex items-center justify-center w-4 h-4 rounded border transition-all cursor-pointer ${
+                                    isSelected 
+                                      ? 'border-indigo-400 bg-indigo-500 text-white' 
+                                      : 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                            <td className="py-3 px-4 font-bold text-neutral-200">
+                              <div className="flex items-center gap-2 max-w-[180px] truncate">
+                                {clip.pinned && (
+                                  <Star className="w-3.5 h-3.5 text-yellow-500 fill-current shrink-0" />
+                                )}
+                                <span>{clip.title || 'Untitled Clip'}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 font-mono text-[11px] text-neutral-400 max-w-[280px] truncate select-text">
+                              {clip.content}
+                            </td>
+                            <td className="py-3 px-4">
+                              {clipFolder ? (
+                                <span 
+                                  className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border bg-black/30"
+                                  style={{ borderColor: clipFolder.color + '20', color: clipFolder.color }}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: clipFolder.color }} />
+                                  {clipFolder.name}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">Uncategorized</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex flex-wrap gap-1">
+                                {clip.tags.slice(0, 2).map((t, i) => (
+                                  <span key={i} className="text-[9px] font-extrabold uppercase tracking-wide bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
+                                    {t}
+                                  </span>
+                                ))}
+                                {clip.tags.length > 2 && (
+                                  <span className="text-[9px] font-extrabold bg-white/5 text-neutral-500 border border-white/5 px-1.5 rounded-full">
+                                    +{clip.tags.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-[10px] font-mono text-neutral-500">
+                              {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </td>
+                            <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => openClipPreview(clip)} className="p-1 rounded hover:bg-white/5 text-indigo-400" title="View details">
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={(e) => handleTogglePin(clip.id, e)} className={`p-1 rounded hover:bg-white/5 ${clip.pinned ? 'text-yellow-400' : 'text-neutral-500'}`} title="Pin clip">
+                                  <Star className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={(e) => handleCopyContent(clip.id, clip.content, e)} className="p-1 rounded hover:bg-white/5 text-neutral-400" title="Copy text">
+                                  {copiedClipId === clip.id ? <span className="text-[9px] text-emerald-400 font-extrabold px-1">COPIED</span> : <Clipboard className="w-3.5 h-3.5" />}
+                                </button>
+                                <button onClick={(e) => handleOpenEditClip(clip, e)} className="p-1 rounded hover:bg-white/5 text-neutral-400" title="Edit clip">
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={(e) => handleDeleteClip(clip.id, e)} className="p-1 rounded hover:bg-white/5 text-rose-400" title="Delete clip">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* KANBAN BOARD VIEW RENDERING */}
+              {viewMode === 'board' && (
+                <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent snap-x snap-mandatory min-h-[550px] items-stretch">
+                  {getKanbanColumns().map((column) => {
+                    return (
+                      <div
+                        key={column.id}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, column.id)}
+                        onDragEnter={() => setDraggedOverFolderId(column.id)}
+                        onDragLeave={() => setDraggedOverFolderId(null)}
+                        className={`flex-1 min-w-[290px] max-w-[340px] rounded-2xl bg-neutral-950/40 border p-4 flex flex-col gap-3 snap-align-start shrink-0 transition-all duration-300 ${
+                          draggedOverFolderId === column.id
+                            ? 'border-indigo-500/40 bg-indigo-500/5 scale-[1.01] shadow-lg shadow-indigo-500/5'
+                            : 'border-white/5'
+                        }`}
+                      >
+                        {/* Column Header */}
+                        <div className="flex items-center justify-between pb-2 border-b border-white/5 shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+                            <h3 className="text-xs font-black uppercase tracking-wider text-neutral-200 truncate">{column.name}</h3>
+                            <span className="text-[10px] bg-black/40 border border-white/5 font-mono px-2 py-0.5 rounded font-black text-neutral-400 shrink-0">
+                              {column.clips.length}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (column.id !== 'uncategorized' && column.id !== 'pinned' && column.id !== 'other') {
+                                setNewClipFolderId(column.id);
+                              } else {
+                                setNewClipFolderId('');
+                              }
+                              setIsNewClipOpen(true);
+                            }}
+                            className="p-1 rounded-lg text-neutral-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                            title="Add Clip to Column"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Column Body - Clips List */}
+                        <div className="flex flex-col gap-3 overflow-y-auto flex-grow max-h-[600px] pr-1.5 scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent">
+                          {column.clips.length > 0 ? (
+                            column.clips.map((clip) => {
+                              const isSelected = selectedClipIds.includes(clip.id);
+                              const truncatedContent = clip.content.length > 80 
+                                ? clip.content.substring(0, 80) + '...'
+                                : clip.content;
+                              return (
+                                <Card
+                                  key={clip.id}
+                                  draggable={!isSelectionMode}
+                                  onDragStart={(e) => handleDragStart(e, clip.id)}
+                                  onClick={() => {
+                                    if (isSelectionMode) {
+                                      handleToggleSelect(clip.id);
+                                    } else {
+                                      openClipPreview(clip);
+                                    }
+                                  }}
+                                  className={`border bg-neutral-900/35 backdrop-blur-md relative overflow-hidden group flex flex-col p-3.5 gap-2.5 transition-all duration-300 ${
+                                    isSelectionMode
+                                      ? isSelected
+                                        ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
+                                        : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
+                                      : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing'
+                                  }`}
+                                >
+                                  {/* Checkbox for selection */}
+                                  {isSelectionMode && (
+                                    <div 
+                                      onClick={(e) => { e.stopPropagation(); handleToggleSelect(clip.id); }}
+                                      className={`absolute top-3 left-3 z-20 flex items-center justify-center w-4 h-4 rounded-full border transition-all cursor-pointer ${
+                                        isSelected 
+                                          ? 'border-indigo-400 bg-indigo-500 text-white' 
+                                          : 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                                      }`}
+                                    >
+                                      {isSelected && (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className={`text-[9px] text-neutral-500 font-bold uppercase tracking-wider font-mono ${isSelectionMode ? 'pl-5' : ''}`}>
+                                        {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                      </span>
+                                      {clip.pinned && (
+                                        <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-yellow-300">
+                                          Pinned
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h4 className="text-xs font-bold text-neutral-200 line-clamp-1 leading-snug">{clip.title || 'Untitled Clip'}</h4>
+                                  </div>
+
+                                  <p className="text-[11px] text-neutral-400 font-mono break-words bg-black/10 border border-white/5 rounded-lg p-2 line-clamp-3 select-text">
+                                    {truncatedContent}
+                                  </p>
+
+                                  <div className="flex items-center justify-between border-t border-white/5 pt-2 mt-0.5 shrink-0">
+                                    <div className="flex flex-wrap gap-1 max-w-[110px] overflow-hidden">
+                                      {clip.tags.slice(0, 1).map((t, i) => (
+                                        <span key={i} className="text-[8px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-1.5 py-0.5 rounded-full uppercase truncate">
+                                          {t}
+                                        </span>
+                                      ))}
+                                      {clip.tags.length > 1 && (
+                                        <span className="text-[8px] bg-white/5 text-neutral-400 border border-white/5 px-1 rounded-full font-bold">
+                                          +{clip.tags.length - 1}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Action toolbar */}
+                                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                      <button onClick={() => openClipPreview(clip)} className="text-neutral-500 hover:text-indigo-400 p-0.5 rounded">
+                                        <Eye className="w-3 h-3" />
+                                      </button>
+                                      <button onClick={(e) => handleCopyContent(clip.id, clip.content, e)} className="text-neutral-500 hover:text-emerald-400 p-0.5 rounded">
+                                        {copiedClipId === clip.id ? <span className="text-[7px] text-emerald-400 font-black">COPIED</span> : <Clipboard className="w-3 h-3" />}
+                                      </button>
+                                      <button onClick={(e) => handleDeleteClip(clip.id, e)} className="text-neutral-500 hover:text-rose-400 p-0.5 rounded">
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </Card>
+                              );
+                            })
                           ) : (
-                            <Clipboard className="w-3 h-3" />
+                            <div className="border border-dashed border-white/5 bg-neutral-900/5 rounded-xl py-8 px-4 flex flex-col items-center justify-center text-center text-neutral-600">
+                              <Clipboard className="w-5 h-5 mb-1.5 opacity-60" />
+                              <p className="text-[10px] font-bold uppercase tracking-wider">Empty column</p>
+                            </div>
                           )}
-                        </button>
-
-                        <button
-                          onClick={(e) => handleOpenEditClip(clip, e)}
-                          className="p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-indigo-400 transition-colors border border-transparent flex items-center justify-center"
-                          title="Edit clip details"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-
-                        <button
-                          onClick={(e) => handleOpenShareModal(clip, e)}
-                          className="p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-violet-400 transition-colors border border-transparent flex items-center justify-center"
-                          title="Share clip"
-                        >
-                          <Share2 className="w-3 h-3" />
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isPro) {
-                              setShowUpgradeModal(true);
-                              return;
-                            }
-                            handleSummarize(clip.id, clip.content, e);
-                          }}
-                          disabled={summarizingClipId === clip.id}
-                          className={`p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-emerald-400 transition-colors border border-transparent flex items-center justify-center ${
-                            summarizingClipId === clip.id ? 'bg-emerald-500/10 text-emerald-400 animate-pulse' : ''
-                          }`}
-                          title="✨ Summarize with AI"
-                        >
-                          {summarizingClipId === clip.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
-                          ) : (
-                            <Sparkles className={`w-3 h-3 ${clipSummaries[clip.id] ? 'text-emerald-400 fill-emerald-400/20' : ''}`} />
-                          )}
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isPro) {
-                              setShowUpgradeModal(true);
-                              return;
-                            }
-                            setShowRewriteMenu(showRewriteMenu === clip.id ? null : clip.id);
-                            setShowTranslateMenu(null);
-                          }}
-                          disabled={rewritingClipId === clip.id}
-                          className={`p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-indigo-400 transition-colors border border-transparent flex items-center justify-center ${
-                            rewritingClipId === clip.id ? 'bg-indigo-500/10 text-indigo-400 animate-pulse' : ''
-                          }`}
-                          title="🪄 Rewrite with AI"
-                        >
-                          {rewritingClipId === clip.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
-                          ) : (
-                            <RefreshCw className={`w-3 h-3 ${pendingRewrites[clip.id] ? 'text-indigo-400' : ''}`} />
-                          )}
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isPro) {
-                              setShowUpgradeModal(true);
-                              return;
-                            }
-                            setShowTranslateMenu(showTranslateMenu === clip.id ? null : clip.id);
-                            setShowRewriteMenu(null);
-                          }}
-                          disabled={translatingClipId === clip.id}
-                          className={`p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-violet-400 transition-colors border border-transparent flex items-center justify-center ${
-                            translatingClipId === clip.id ? 'bg-violet-500/10 text-violet-400 animate-pulse' : ''
-                          }`}
-                          title="🌐 Translate with AI"
-                        >
-                          {translatingClipId === clip.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin text-violet-400" />
-                          ) : (
-                            <Languages className={`w-3 h-3 ${activeTranslations[clip.id] ? 'text-violet-400' : ''}`} />
-                          )}
-                        </button>
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <div className="h-5 w-px bg-white/10" />
-                        <button
-                          onClick={(e) => handleDeleteClip(clip.id, e)}
-                          className="p-1 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors shrink-0"
-                          title="Delete clip"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-
-                  </Card>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           ) : (
             /* Ambient Empty State design */
             <div className="border border-white/5 border-dashed bg-neutral-900/10 rounded-2xl p-8 md:p-16 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden mt-6">
