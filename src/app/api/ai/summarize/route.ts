@@ -3,6 +3,36 @@ import { createClient } from '@/utils/supabase/server';
 import { callAI } from '@/lib/openrouter';
 import { checkRateLimit } from '@/lib/ai-rate-limit';
 
+function createLocalSummary(content: string) {
+  const normalized = content
+    .replace(/\s+/g, ' ')
+    .replace(/```[\s\S]*?```/g, ' code snippet ')
+    .trim();
+
+  if (!normalized) {
+    return '';
+  }
+
+  const sentences = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const preferredSentence =
+    sentences.find((sentence) => sentence.length >= 40 && sentence.length <= 180) ||
+    sentences.find((sentence) => sentence.length >= 20) ||
+    normalized.slice(0, 180);
+
+  const compactSummary = preferredSentence
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[,:;]+$/, '');
+
+  return compactSummary.length > 180
+    ? `${compactSummary.slice(0, 177).trim()}...`
+    : compactSummary;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -38,10 +68,22 @@ export async function POST(request: NextRequest) {
     );
 
     if (!summary) {
-      return NextResponse.json(
-        { error: 'Failed to generate summary. AI service unavailable.' },
-        { status: 500 }
-      );
+      const fallbackSummary = createLocalSummary(content);
+
+      if (!fallbackSummary) {
+        return NextResponse.json(
+          { error: 'Failed to generate summary. AI service unavailable.' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        summary: fallbackSummary,
+        isFallback: true,
+        warning: 'OpenRouter AI is unavailable right now, so a local smart summary was generated instead.',
+        remaining: rateLimit.remaining,
+      });
     }
 
     return NextResponse.json({
