@@ -223,7 +223,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const storedTheme = localStorage.getItem('fc_dashboard_theme');
-    const nextTheme = storedTheme === 'light' ? 'light' : 'dark';
+    const nextTheme = storedTheme === 'dark' ? 'dark' : 'light';
     setThemeMode(nextTheme);
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
     document.documentElement.style.colorScheme = nextTheme;
@@ -2219,6 +2219,59 @@ export default function Dashboard() {
     : folders.find(f => f.id === selectedFolderId);
 
   const isPro = isProUser(userPlan, userTrialEndsAt);
+  const isDarkTheme = themeMode === 'dark';
+  const workspaceTitle =
+    activeFilter === 'all'
+      ? 'All Synced Clips'
+      : activeFilter === 'pinned'
+      ? 'Pinned Clips'
+      : `Folder: ${activeFolder?.name || 'Clips'}`;
+  const workspaceSubtitle =
+    activeFilter === 'folder'
+      ? `Viewing workspace clips filed under ${activeFolder?.name}`
+      : 'Manage, organize, preview, and share your synced clipboard workspace.';
+  const surfaceClass = isDarkTheme
+    ? 'border-white/8 bg-neutral-950/70 text-neutral-100 shadow-[0_24px_90px_rgba(15,23,42,0.45)]'
+    : 'border-slate-200/80 bg-white/88 text-slate-900 shadow-[0_24px_70px_rgba(148,163,184,0.22)]';
+  const mutedSurfaceClass = isDarkTheme
+    ? 'border-white/6 bg-white/[0.03]'
+    : 'border-slate-200/90 bg-slate-50/90';
+  const subtleTextClass = isDarkTheme ? 'text-neutral-400' : 'text-slate-500';
+  const titleTextClass = isDarkTheme ? 'text-white' : 'text-slate-900';
+  const navTextClass = isDarkTheme ? 'text-neutral-400 hover:text-neutral-200' : 'text-slate-600 hover:text-slate-900';
+  const navBadgeClass = isDarkTheme
+    ? 'bg-black/40 border-white/5 text-neutral-400'
+    : 'bg-slate-200/90 border-slate-200 text-slate-700';
+  const softPanelClass = isDarkTheme
+    ? 'border-white/6 bg-neutral-900/38'
+    : 'border-slate-200/80 bg-white/92';
+  const summaryPanelClass = isDarkTheme
+    ? 'border-t border-emerald-500/15 bg-gradient-to-r from-emerald-500/8 via-emerald-500/4 to-transparent'
+    : 'border-t border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50/70 to-transparent';
+  const rewritePanelClass = isDarkTheme
+    ? 'border-t border-indigo-500/15 bg-gradient-to-r from-indigo-500/8 via-violet-500/5 to-transparent'
+    : 'border-t border-indigo-200 bg-gradient-to-r from-indigo-50 via-violet-50/70 to-transparent';
+  const translatePanelClass = isDarkTheme
+    ? 'border-t border-violet-500/15 bg-gradient-to-r from-violet-500/8 via-fuchsia-500/5 to-transparent'
+    : 'border-t border-violet-200 bg-gradient-to-r from-violet-50 via-fuchsia-50/70 to-transparent';
+  const actionRailClass = isDarkTheme
+    ? 'bg-black/30 border-white/5'
+    : 'bg-slate-100/80 border-slate-200';
+  const dropdownSurfaceClass = isDarkTheme
+    ? 'border-white/10 bg-neutral-950 text-neutral-100'
+    : 'border-slate-200 bg-white text-slate-900';
+  const listSnippetClass = isDarkTheme
+    ? 'border-white/5 bg-black/20 hover:bg-black/30'
+    : 'border-slate-200 bg-white hover:bg-slate-50/80';
+  const listActionButtonClass = isDarkTheme
+    ? 'text-neutral-500 hover:text-neutral-300 hover:bg-white/5'
+    : 'text-slate-500 hover:text-slate-800 hover:bg-white';
+  const listDismissButtonClass = isDarkTheme
+    ? 'text-neutral-400 hover:text-neutral-200 bg-black/20 border border-white/5'
+    : 'text-slate-600 hover:text-slate-900 bg-white/80 border border-slate-200';
+  const appBgClass = isDarkTheme
+    ? 'bg-[#07070a] text-neutral-100 selection:bg-indigo-500/30 selection:text-indigo-200'
+    : 'bg-[radial-gradient(circle_at_top_left,_#ffffff,_#eef2ff_28%,_#f8fafc_60%,_#eef2ff_100%)] text-slate-900 selection:bg-indigo-200 selection:text-indigo-950';
 
   // Kanban columns partitioning
   const getKanbanColumns = () => {
@@ -2301,11 +2354,11 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#07070a] text-neutral-100 flex font-sans selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-hidden">
+    <div className={`min-h-screen flex font-sans relative overflow-hidden transition-colors duration-300 ${appBgClass}`}>
       
       {/* Dynamic Background Ambient Blurs */}
-      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-violet-600/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[140px] -z-10 pointer-events-none" />
+      <div className={`absolute top-0 left-0 w-[500px] h-[500px] rounded-full blur-[120px] -z-10 pointer-events-none ${isDarkTheme ? 'bg-violet-600/5' : 'bg-indigo-300/35'}`} />
+      <div className={`absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full blur-[140px] -z-10 pointer-events-none ${isDarkTheme ? 'bg-indigo-600/5' : 'bg-cyan-200/45'}`} />
 
       <OfflineBanner />
 
@@ -2318,26 +2371,30 @@ export default function Dashboard() {
       )}
 
       {/* --- SIDEBAR --- */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-neutral-950/95 md:bg-neutral-950/80 backdrop-blur-md shrink-0 flex flex-col transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+      <aside className={`fixed inset-y-0 left-0 z-40 w-72 border-r backdrop-blur-xl shrink-0 flex flex-col transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+        isDarkTheme
+          ? 'border-white/6 bg-neutral-950/92 md:bg-neutral-950/78'
+          : 'border-slate-200/80 bg-white/92 md:bg-white/80'
+      } ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         
         {/* Logo area */}
-        <div className="p-6 flex items-center justify-between gap-2.5 border-b border-white/5">
+        <div className={`p-6 flex items-center justify-between gap-2.5 border-b ${isDarkTheme ? 'border-white/6' : 'border-slate-200/80'}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
               <Clipboard className="w-4.5 h-4.5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-wider uppercase text-neutral-200">FreeClipboard</h1>
-              <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Dashboard</p>
+              <h1 className={`text-sm font-bold tracking-wider uppercase ${isDarkTheme ? 'text-neutral-200' : 'text-slate-900'}`}>FreeClipboard</h1>
+              <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkTheme ? 'text-neutral-500' : 'text-slate-500'}`}>Dashboard</p>
             </div>
           </div>
 
           {/* Close Sidebar button on Mobile */}
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="md:hidden p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-all"
+            className={`md:hidden p-1.5 rounded-lg transition-all ${isDarkTheme ? 'text-neutral-400 hover:text-white hover:bg-white/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
             title="Close sidebar"
           >
             <X className="w-4 h-4" />
@@ -2348,7 +2405,7 @@ export default function Dashboard() {
         <div className="p-4 flex flex-col gap-5 overflow-y-auto flex-grow scrollbar-thin">
           
           <div className="flex flex-col gap-1">
-            <h3 className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5">Overview</h3>
+            <h3 className={`px-3 text-[10px] font-bold uppercase tracking-widest mb-1.5 ${subtleTextClass}`}>Overview</h3>
             
             <button
               onClick={() => {
@@ -2359,14 +2416,14 @@ export default function Dashboard() {
               className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                 activeFilter === 'all'
                   ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                  : 'text-neutral-400 hover:text-neutral-200 border border-transparent hover:bg-white/5'
+                  : `${navTextClass} border border-transparent ${isDarkTheme ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`
               }`}
             >
               <span className="flex items-center gap-2">
                 <Home className="w-3.5 h-3.5" />
                 All Clips
               </span>
-              <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded font-bold border border-white/5">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${navBadgeClass}`}>
                 {clips.length}
               </span>
             </button>
@@ -2380,21 +2437,25 @@ export default function Dashboard() {
               className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                 activeFilter === 'pinned'
                   ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                  : 'text-neutral-400 hover:text-neutral-200 border border-transparent hover:bg-white/5'
+                  : `${navTextClass} border border-transparent ${isDarkTheme ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`
               }`}
             >
               <span className="flex items-center gap-2">
                 <Star className="w-3.5 h-3.5 fill-current" />
                 Pinned
               </span>
-              <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded font-bold border border-white/5">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${navBadgeClass}`}>
                 {clips.filter(c => c.pinned).length}
               </span>
             </button>
 
             <button
               onClick={() => router.push('/clipmind')}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-neutral-400 hover:text-indigo-300 border border-transparent hover:bg-indigo-500/5 hover:border-indigo-500/10 transition-all"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-transparent transition-all ${
+                isDarkTheme
+                  ? 'text-neutral-400 hover:text-indigo-300 hover:bg-indigo-500/5 hover:border-indigo-500/10'
+                  : 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100'
+              }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
               ClipMind AI
@@ -2409,7 +2470,11 @@ export default function Dashboard() {
 
             <button
               onClick={() => router.push('/graph')}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-neutral-400 hover:text-violet-300 border border-transparent hover:bg-violet-500/5 hover:border-violet-500/10 transition-all"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-transparent transition-all ${
+                isDarkTheme
+                  ? 'text-neutral-400 hover:text-violet-300 hover:bg-violet-500/5 hover:border-violet-500/10'
+                  : 'text-slate-600 hover:text-violet-600 hover:bg-violet-50 hover:border-violet-100'
+              }`}
             >
               <Brain className="w-3.5 h-3.5 text-violet-400" />
               Knowledge Graph
@@ -2420,7 +2485,11 @@ export default function Dashboard() {
 
             <button
               onClick={() => router.push('/analytics')}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-neutral-400 hover:text-emerald-300 border border-transparent hover:bg-emerald-500/5 hover:border-emerald-500/10 transition-all"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-transparent transition-all ${
+                isDarkTheme
+                  ? 'text-neutral-400 hover:text-emerald-300 hover:bg-emerald-500/5 hover:border-emerald-500/10'
+                  : 'text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-100'
+              }`}
             >
               <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
               Analytics
@@ -2433,14 +2502,14 @@ export default function Dashboard() {
           {/* Folders block */}
           <div className="flex flex-col gap-1.5">
             <div className="px-3 flex items-center justify-between mb-1">
-              <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-1">
+              <h3 className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 ${subtleTextClass}`}>
                 <FoldersIcon className="w-3 h-3 text-indigo-400" />
                 Folders
               </h3>
               
               <button
                 onClick={() => setIsNewFolderOpen(true)}
-                className="text-neutral-500 hover:text-indigo-400 transition-colors p-0.5 rounded"
+                className={`transition-colors p-0.5 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-600'}`}
                 title="Create Folder"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -2462,7 +2531,7 @@ export default function Dashboard() {
                 className={`group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${
                   activeFilter === 'folder' && selectedFolderId === 'uncategorized'
                     ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                    : 'text-neutral-400 hover:text-neutral-200 border-transparent hover:bg-white/5'
+                    : `${navTextClass} border-transparent ${isDarkTheme ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`
                 } ${
                   draggedOverFolderId === 'uncategorized'
                     ? 'bg-indigo-500/20 border-indigo-500 scale-[1.02] text-indigo-300 shadow-md shadow-indigo-500/10'
@@ -2474,7 +2543,7 @@ export default function Dashboard() {
                   <span className="truncate">Uncategorized</span>
                 </span>
                 
-                <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded font-bold border border-white/5">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${navBadgeClass}`}>
                   {clips.filter(c => !c.folder_id).length}
                 </span>
               </button>
@@ -2493,7 +2562,7 @@ export default function Dashboard() {
                     className={`group flex items-center gap-1 rounded-lg border text-xs font-semibold transition-all ${
                       isActive
                         ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                        : 'text-neutral-400 hover:text-neutral-200 border-transparent hover:bg-white/5'
+                        : `${navTextClass} border-transparent ${isDarkTheme ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`
                     } ${
                       draggedOverFolderId === folder.id
                         ? 'bg-indigo-500/20 border-indigo-500 scale-[1.02] text-indigo-300 shadow-md shadow-indigo-500/10'
@@ -2516,7 +2585,7 @@ export default function Dashboard() {
                     </button>
 
                     <div className="flex items-center gap-1 pr-2">
-                      <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded font-bold border border-white/5 group-hover:hidden">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border group-hover:hidden ${navBadgeClass}`}>
                         {folderClipsCount}
                       </span>
 
@@ -2729,33 +2798,45 @@ export default function Dashboard() {
       <div className="flex-grow flex flex-col min-w-0 z-10">
         
         {/* --- TOP BAR --- */}
-        <header className="relative z-30 h-auto min-h-[64px] border-b border-white/5 bg-neutral-950/40 backdrop-blur-md flex flex-wrap items-center justify-between px-3 md:px-8 py-2 gap-2 shrink-0">
+        <header className={`relative z-30 h-auto min-h-[72px] border-b backdrop-blur-xl flex flex-wrap items-center justify-between px-3 md:px-8 py-3 gap-3 shrink-0 transition-colors duration-300 ${
+          isDarkTheme
+            ? 'border-white/6 bg-neutral-950/45'
+            : 'border-slate-200/80 bg-white/70'
+        }`}>
           
           <div className="flex items-center flex-grow md:flex-initial gap-2">
             {/* Hamburger Button for mobile */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg border border-white/10 bg-black/25 text-neutral-400 hover:text-white transition-all shrink-0"
+              className={`md:hidden p-2 rounded-xl border transition-all shrink-0 ${
+                isDarkTheme
+                  ? 'border-white/10 bg-black/25 text-neutral-400 hover:text-white'
+                  : 'border-slate-200 bg-white text-slate-500 hover:text-slate-900'
+              }`}
               title="Open sidebar menu"
             >
               <Menu className="w-4.5 h-4.5" />
             </button>
 
             {/* Live Search bar */}
-            <div className="flex items-center gap-2 w-full max-w-[200px] sm:max-w-xs md:w-96">
+            <div className="flex items-center gap-2 w-full max-w-[240px] sm:max-w-sm md:w-[30rem]">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-neutral-600" />
+                <Search className={`absolute left-3 top-2.5 w-4 h-4 ${isDarkTheme ? 'text-neutral-600' : 'text-slate-400'}`} />
                 <Input
                   type="text"
                   placeholder="Search by title, content, or tags..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-black/30 border-white/10 pl-9 text-xs text-neutral-200 placeholder:text-neutral-600 focus:border-indigo-500/40 focus:ring-0"
+                  className={`h-10 rounded-2xl pl-9 text-xs transition-all ${
+                    isDarkTheme
+                      ? 'bg-black/30 border-white/10 text-neutral-200 placeholder:text-neutral-600 focus:border-indigo-500/40'
+                      : 'bg-white/80 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-indigo-400'
+                  } focus:ring-0`}
                 />
                 {searchQuery && (
                   <button 
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-2.5 p-0.5 text-neutral-600 hover:text-neutral-300 rounded"
+                    className={`absolute right-3 top-2.5 p-0.5 rounded ${isDarkTheme ? 'text-neutral-600 hover:text-neutral-300' : 'text-slate-400 hover:text-slate-700'}`}
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -2769,10 +2850,12 @@ export default function Dashboard() {
                   }
                   setSmartSearch(!smartSearch);
                 }}
-                className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all shrink-0 ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-[10px] font-bold uppercase tracking-wider transition-all shrink-0 ${
                   smartSearch
                     ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
-                    : 'bg-black/30 border-white/10 text-neutral-500 hover:text-neutral-300'
+                    : isDarkTheme
+                      ? 'bg-black/30 border-white/10 text-neutral-500 hover:text-neutral-300'
+                      : 'bg-white/75 border-slate-200 text-slate-500 hover:text-slate-900'
                 }`}
                 title={isPro ? 'Toggle AI-powered smart search' : 'Smart search is a Pro feature'}
               >
@@ -2783,7 +2866,7 @@ export default function Dashboard() {
           </div>
 
           {/* New Clip Action Button & User Profile */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* Header Clip Count Badge */}
             <button 
               onClick={() => {
@@ -2794,16 +2877,20 @@ export default function Dashboard() {
                   setIsUpgradeModalOpen(true);
                 }
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all duration-300 ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-[11px] font-bold transition-all duration-300 ${
                 !isPlanResolved
-                  ? 'cursor-default bg-white/5 border-white/10 text-neutral-500'
+                  ? isDarkTheme
+                    ? 'cursor-default bg-white/5 border-white/10 text-neutral-500'
+                    : 'cursor-default bg-white/70 border-slate-200 text-slate-400'
                   : userPlan === 'pro'
                   ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
                   : clips.length >= 500
                     ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20'
                     : clips.length >= 480
                       ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse hover:bg-amber-500/20'
-                      : 'cursor-pointer bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
+                      : isDarkTheme
+                        ? 'cursor-pointer bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
+                        : 'cursor-pointer bg-white/80 border-slate-200 text-slate-700 hover:bg-white'
               }`} 
               title={
                 !isPlanResolved
@@ -2824,7 +2911,7 @@ export default function Dashboard() {
             </button>
 
             {/* Connection Status Badge */}
-            <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all duration-300 ${
+            <div className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-[11px] font-bold transition-all duration-300 ${
               isOnline
                 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                 : 'bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse'
@@ -2844,16 +2931,29 @@ export default function Dashboard() {
 
             <button
               onClick={() => router.push('/clipmind')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all duration-300 bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/30"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-[11px] font-bold transition-all duration-300 bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/30"
               title="Open ClipMind AI Chat"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">ClipMind</span>
             </button>
 
+            <button
+              onClick={handleToggleTheme}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-[11px] font-bold transition-all duration-300 ${
+                isDarkTheme
+                  ? 'border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10'
+                  : 'border-slate-200 bg-white/80 text-slate-700 hover:bg-white'
+              }`}
+              title={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {isDarkTheme ? <SunMedium className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{isDarkTheme ? 'Light' : 'Dark'}</span>
+            </button>
+
             <Button
               onClick={() => handleOpenNewClipModal()}
-              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white border-0 shadow-lg shadow-indigo-500/20 font-bold text-xs px-4 py-4 gap-1.5 transition-all duration-300"
+              className="h-10 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white border-0 shadow-lg shadow-indigo-500/20 font-bold text-xs px-4 gap-1.5 transition-all duration-300"
             >
               <Plus className="w-3.5 h-3.5" />
               New Clip
@@ -2864,25 +2964,29 @@ export default function Dashboard() {
               <div className={`relative ${isProfileOpen ? 'z-[70]' : ''}`}>
                 <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="flex items-center gap-2 p-1.5 rounded-xl border border-white/5 bg-black/40 hover:bg-black/60 transition-all duration-300 shrink-0"
+                  className={`flex items-center gap-2 p-1.5 rounded-2xl border transition-all duration-300 shrink-0 ${
+                    isDarkTheme
+                      ? 'border-white/5 bg-black/40 hover:bg-black/60'
+                      : 'border-slate-200 bg-white/80 hover:bg-white'
+                  }`}
                   title="View workspace settings"
                 >
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-white text-[11px] border border-white/10 shadow-lg shadow-indigo-500/10 shrink-0">
                     {userEmail.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="hidden md:flex flex-col text-left pr-1.5">
-                    <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest leading-none mb-0.5">Active User</span>
-                    <span className="text-[11px] text-neutral-300 font-semibold max-w-[120px] truncate leading-none">{userEmail}</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-widest leading-none mb-0.5 ${subtleTextClass}`}>Active User</span>
+                    <span className={`text-[11px] font-semibold max-w-[120px] truncate leading-none ${titleTextClass}`}>{userEmail}</span>
                   </div>
                 </button>
 
                 {isProfileOpen && (
                   <>
                     <div className="fixed inset-0 z-[60]" onClick={() => setIsProfileOpen(false)} />
-                    <div className="absolute right-0 z-[70] mt-2 w-48 rounded-xl border border-white/10 bg-neutral-950/95 p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-md">
-                      <div className="px-3 py-2 border-b border-white/5 text-left mb-1">
-                        <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mb-0.5">Workspace</p>
-                        <p className="text-xs text-neutral-200 font-medium truncate">{userEmail}</p>
+                    <div className={`absolute right-0 z-[70] mt-2 w-56 rounded-2xl border p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 ${dropdownSurfaceClass}`}>
+                      <div className={`px-3 py-2 border-b text-left mb-1 ${isDarkTheme ? 'border-white/5' : 'border-slate-200/80'}`}>
+                        <p className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${subtleTextClass}`}>Workspace</p>
+                        <p className={`text-xs font-medium truncate ${titleTextClass}`}>{userEmail}</p>
                         <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
                           userPlan === 'pro'
                             ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.1)]'
@@ -2893,14 +2997,22 @@ export default function Dashboard() {
                       </div>
                       <button
                         onClick={() => { setIsProfileOpen(false); setIsSnippetsModalOpen(true); fetchSnippets(); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-neutral-400 hover:text-indigo-400 hover:bg-indigo-500/5 transition-all duration-200 text-left font-bold"
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-all duration-200 text-left font-bold ${
+                          isDarkTheme
+                            ? 'text-neutral-400 hover:text-indigo-400 hover:bg-indigo-500/5'
+                            : 'text-slate-500 hover:text-indigo-500 hover:bg-indigo-50'
+                        }`}
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         Snippets
                       </button>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-neutral-400 hover:text-rose-400 hover:bg-rose-500/5 transition-all duration-200 text-left font-bold"
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-all duration-200 text-left font-bold ${
+                          isDarkTheme
+                            ? 'text-neutral-400 hover:text-rose-400 hover:bg-rose-500/5'
+                            : 'text-slate-500 hover:text-rose-500 hover:bg-rose-50'
+                        }`}
                       >
                         <LogOut className="w-3.5 h-3.5" />
                         Log Out
@@ -2914,7 +3026,7 @@ export default function Dashboard() {
         </header>
 
         {/* --- DASHBOARD WRAPPER --- */}
-        <main className="flex-grow p-4 md:p-8 pb-20 md:pb-8 overflow-y-auto scrollbar-thin">
+        <main className="flex-grow p-4 md:p-6 xl:p-8 pb-20 md:pb-8 overflow-y-auto scrollbar-thin">
           
           {/* --- LIMIT WARNING BANNER --- */}
           {isPlanResolved && userPlan === 'free' && clips.length >= 450 && (
@@ -2970,30 +3082,60 @@ export default function Dashboard() {
           )}
            
           {/* Page Section Heading */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 md:mb-6 gap-4 shrink-0 border-b border-white/5 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
-                  <Grid className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base md:text-lg font-black tracking-wide text-neutral-200 leading-tight">
-                    {activeFilter === 'all' && 'All Synced Clips'}
-                    {activeFilter === 'pinned' && 'Pinned Clips'}
-                    {activeFilter === 'folder' && `Folder: ${activeFolder?.name || 'Clips'}`}
-                  </h2>
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
-                    {activeFilter === 'folder' 
-                      ? `Viewing workspace clips filed under ${activeFolder?.name}`
-                      : 'Manage, copy, and pin your cross-device synced items.'}
+          <section className={`mb-4 md:mb-6 rounded-[28px] border p-4 md:p-5 xl:p-6 backdrop-blur-xl transition-colors duration-300 ${surfaceClass}`}>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 ${
+                      isDarkTheme
+                        ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+                        : 'bg-indigo-50 border-indigo-100 text-indigo-500'
+                    }`}>
+                      <Grid className="w-4.5 h-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-[10px] font-black uppercase tracking-[0.28em] ${subtleTextClass}`}>Workspace Canvas</p>
+                      <h2 className={`text-lg md:text-2xl font-black tracking-tight leading-tight ${titleTextClass}`}>
+                        {workspaceTitle}
+                      </h2>
+                    </div>
+                  </div>
+                  <p className={`mt-3 max-w-2xl text-sm leading-relaxed ${subtleTextClass}`}>
+                    {workspaceSubtitle}
                   </p>
                 </div>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 xl:min-w-[24rem]">
+                  <div className={`rounded-2xl border px-4 py-3 ${mutedSurfaceClass}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>Visible</p>
+                    <p className={`mt-2 text-2xl font-black leading-none ${titleTextClass}`}>{filteredClips.length}</p>
+                    <p className={`mt-1 text-[11px] ${subtleTextClass}`}>Clips in view</p>
+                  </div>
+                  <div className={`rounded-2xl border px-4 py-3 ${mutedSurfaceClass}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>Pinned</p>
+                    <p className={`mt-2 text-2xl font-black leading-none ${titleTextClass}`}>{clips.filter(c => c.pinned).length}</p>
+                    <p className={`mt-1 text-[11px] ${subtleTextClass}`}>Fast access</p>
+                  </div>
+                  <div className={`rounded-2xl border px-4 py-3 ${mutedSurfaceClass}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>Folders</p>
+                    <p className={`mt-2 text-2xl font-black leading-none ${titleTextClass}`}>{folders.length}</p>
+                    <p className={`mt-1 text-[11px] ${subtleTextClass}`}>Organized sets</p>
+                  </div>
+                  <div className={`rounded-2xl border px-4 py-3 ${mutedSurfaceClass}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>AI</p>
+                    <p className={`mt-2 text-2xl font-black leading-none ${titleTextClass}`}>
+                      {Object.keys(clipSummaries).length + Object.keys(pendingRewrites).length + Object.keys(activeTranslations).length}
+                    </p>
+                    <p className={`mt-1 text-[11px] ${subtleTextClass}`}>Enhanced items</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pt-1`}>
+                <div className="flex items-center gap-2 flex-wrap">
               {/* View Mode Switcher */}
-              <div className="flex items-center bg-black/40 border border-white/5 p-1 rounded-xl shrink-0 shadow-lg">
+              <div className={`flex items-center p-1 rounded-2xl shrink-0 shadow-lg ${mutedSurfaceClass}`}>
                 <button
                   type="button"
                   onClick={() => handleSetViewMode('board')}
@@ -3067,7 +3209,7 @@ export default function Dashboard() {
               </button>
 
               {/* Import/Export buttons in toolbar */}
-              <div className="flex items-center gap-1 bg-black/40 border border-white/5 px-2 py-1 rounded-xl h-[34px]">
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-2xl h-[34px] ${mutedSurfaceClass}`}>
                 <button
                   type="button"
                   onClick={() => triggerFileInput()}
@@ -3123,67 +3265,14 @@ export default function Dashboard() {
                   <span className="hidden sm:inline">MD</span>
                 </button>
               </div>
+                </div>
 
-              <span className="text-xs text-neutral-500 font-semibold bg-black/40 border border-white/5 px-2.5 py-1.5 rounded-xl font-mono h-[34px] flex items-center">
-                Showing {filteredClips.length} {filteredClips.length === 1 ? 'clip' : 'clips'}
-              </span>
-            </div>
-          </div>
-
-          {/* --- WORKSPACE STATS GLOW BANNER --- */}
-          <div className="mb-6 rounded-3xl border border-white/5 bg-gradient-to-tr from-neutral-950/90 to-neutral-900/40 p-5 md:p-6 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
-            {/* Decorative subtle ambient glows inside banner */}
-            <div className="absolute top-0 right-0 w-[180px] h-[180px] bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
-            <div className="absolute bottom-0 left-1/3 w-[150px] h-[150px] bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y divide-white/5 lg:divide-y-0 lg:divide-x divide-solid">
-              <div className="flex items-center gap-3.5 pt-0">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-md">
-                  <Clipboard className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">Visible Clips</p>
-                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">{filteredClips.length}</p>
-                  <p className="text-[10px] text-neutral-500 truncate mt-1">Based on active filters</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3.5 pt-4 lg:pt-0 lg:pl-6">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 shadow-md">
-                  <Star className="w-5 h-5 fill-amber-500/10" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">Pinned Clips</p>
-                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">{clips.filter(c => c.pinned).length}</p>
-                  <p className="text-[10px] text-neutral-500 truncate mt-1">Starred for fast access</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3.5 pt-4 lg:pt-0 lg:pl-6">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 shadow-md">
-                  <FoldersIcon className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">Folders</p>
-                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">{folders.length}</p>
-                  <p className="text-[10px] text-neutral-500 truncate mt-1">Organized clip buckets</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3.5 pt-4 lg:pt-0 lg:pl-6">
-                <div className="w-10 h-10 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 shadow-md">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500 font-mono">AI Enhanced</p>
-                  <p className="mt-1 text-2xl font-black text-white tracking-tight leading-none">
-                    {Object.keys(clipSummaries).length + Object.keys(pendingRewrites).length + Object.keys(activeTranslations).length}
-                  </p>
-                  <p className="text-[10px] text-neutral-500 truncate mt-1">Summaries & translations</p>
-                </div>
+                <span className={`text-xs font-semibold px-3 py-2 rounded-2xl font-mono inline-flex items-center ${mutedSurfaceClass} ${subtleTextClass}`}>
+                  Showing {filteredClips.length} {filteredClips.length === 1 ? 'clip' : 'clips'}
+                </span>
               </div>
             </div>
-          </div>
+          </section>
 
           {/* --- SELECTION ACTIONS TOOLBAR --- */}
           {isSelectionMode && (
@@ -3254,7 +3343,7 @@ export default function Dashboard() {
             <>
               {/* GRID VIEW RENDERING */}
               {viewMode === 'grid' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-4">
                   {sortedClips.map((clip) => {
                     const clipFolder = folders.find(f => f.id === clip.folder_id);
                     const truncatedContent = clip.content.length > 100 
@@ -3279,12 +3368,16 @@ export default function Dashboard() {
                             openClipPreview(clip);
                           }
                         }}
-                        className={`border bg-neutral-900/35 backdrop-blur-md shadow-xl relative overflow-hidden group flex flex-col min-h-[198px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
+                        className={`border backdrop-blur-md relative overflow-hidden group flex flex-col min-h-[184px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
                           isSelectionMode 
                             ? isSelected
-                              ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
-                              : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
-                            : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-1 duration-300 cursor-pointer'
+                              ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
+                              : isDarkTheme
+                                ? 'border-white/6 bg-neutral-900/38 hover:border-white/10 hover:bg-neutral-900/48 cursor-pointer'
+                                : 'border-slate-200/80 bg-white/92 hover:border-slate-300 hover:bg-white cursor-pointer'
+                            : isDarkTheme
+                              ? 'border-white/6 bg-neutral-900/35 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-1 cursor-pointer shadow-xl'
+                              : 'border-slate-200/80 bg-white/92 hover:border-slate-300 hover:bg-white hover:-translate-y-1 cursor-pointer shadow-[0_18px_44px_rgba(148,163,184,0.18)]'
                         }`}
                       >
                         {/* Checkbox overlay for selection mode */}
@@ -3294,7 +3387,9 @@ export default function Dashboard() {
                             className={`absolute top-4 left-4 z-20 flex items-center justify-center w-5 h-5 rounded-full border transition-all cursor-pointer ${
                               isSelected 
                                 ? 'border-indigo-400 bg-indigo-500 text-white' 
-                                : 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                                : isDarkTheme
+                                  ? 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                                  : 'border-slate-300 bg-white hover:border-indigo-400'
                             }`}
                           >
                             {isSelected && (
@@ -3311,7 +3406,7 @@ export default function Dashboard() {
                           {/* Card Header & folder indicator */}
                           <div className="flex flex-col gap-2 shrink-0">
                             <div className="flex items-start justify-between gap-2">
-                              <span className={`text-[10px] text-neutral-500 font-bold uppercase tracking-[0.22em] font-mono transition-all duration-200 ${isSelectionMode ? 'pl-7' : ''}`}>
+                              <span className={`text-[10px] font-bold uppercase tracking-[0.22em] font-mono transition-all duration-200 ${isSelectionMode ? 'pl-7' : ''} ${subtleTextClass}`}>
                                 {new Date(clip.created_at).toLocaleDateString(undefined, { 
                                   month: 'short', 
                                   day: 'numeric', 
@@ -3322,7 +3417,7 @@ export default function Dashboard() {
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {clipFolder && (
                                   <span 
-                                    className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 bg-black/30"
+                                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${isDarkTheme ? 'bg-black/30' : 'bg-white/70'}`}
                                     style={{ 
                                       borderColor: clipFolder.color + '20', 
                                       color: clipFolder.color 
@@ -3336,7 +3431,7 @@ export default function Dashboard() {
                                   </span>
                                 )}
                                 {clip.pinned && (
-                                  <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-300">
+                                  <span className={`rounded-full border border-yellow-500/15 bg-yellow-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isDarkTheme ? 'text-yellow-300' : 'text-amber-600'}`}>
                                     Pinned
                                   </span>
                                 )}
@@ -3344,10 +3439,10 @@ export default function Dashboard() {
                             </div>
 
                             <div className="space-y-1">
-                              <h4 className="text-sm font-semibold text-neutral-100 line-clamp-2 leading-snug">
+                              <h4 className={`text-sm font-semibold line-clamp-2 leading-snug ${titleTextClass}`}>
                                 {clip.title || 'Untitled Clip'}
                               </h4>
-                              <p className="text-[11px] text-neutral-500">
+                              <p className={`text-[11px] ${subtleTextClass}`}>
                                 {clip.content.length} characters
                                 {clip.tags.length > 0 ? ` | ${clip.tags.length} tag${clip.tags.length === 1 ? '' : 's'}` : ''}
                                 {hasAiOutput ? ' | AI enhanced' : ''}
@@ -3361,10 +3456,14 @@ export default function Dashboard() {
                               e.stopPropagation();
                               openClipPreview(clip);
                             }}
-                            className="rounded-xl border border-white/5 bg-black/20 p-3 text-left transition-all hover:border-indigo-500/20 hover:bg-black/30"
+                            className={`rounded-2xl border p-3 text-left transition-all hover:border-indigo-500/20 ${
+                              isDarkTheme
+                                ? 'border-white/5 bg-black/20 hover:bg-black/30'
+                                : 'border-slate-200 bg-slate-50/80 hover:bg-white'
+                            }`}
                             title="Open full clip preview"
                           >
-                            <p className="text-xs text-neutral-300 leading-relaxed break-words font-mono line-clamp-4 min-h-[72px]">
+                            <p className={`text-xs leading-relaxed break-words font-mono line-clamp-4 min-h-[72px] ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
                               {truncatedContent}
                             </p>
                           </button>
@@ -3379,10 +3478,10 @@ export default function Dashboard() {
                                 {tag}
                               </span>
                             )) : (
-                              <span className="text-[10px] text-neutral-600 font-medium">No tags yet</span>
+                              <span className={`text-[10px] font-medium ${isDarkTheme ? 'text-neutral-600' : 'text-slate-400'}`}>No tags yet</span>
                             )}
                             {clip.tags.length > 3 && (
-                              <span className="text-[9px] bg-white/5 text-neutral-400 border border-white/5 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                              <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${isDarkTheme ? 'bg-white/5 text-neutral-400 border border-white/5' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                                 +{clip.tags.length - 3}
                               </span>
                             )}
@@ -3392,7 +3491,7 @@ export default function Dashboard() {
                         
                         {/* Collapsible AI Summary Section */}
                         {clipSummaries[clip.id] && (
-                          <div className="border-t border-white/5 bg-emerald-500/5 px-5 py-3 transition-all duration-300">
+                          <div className={`px-5 py-3 transition-all duration-300 ${summaryPanelClass}`}>
                             <div 
                               onClick={(e) => toggleSummaryCollapse(clip.id, e)}
                               className="flex items-center justify-between cursor-pointer group/summary"
@@ -3401,7 +3500,7 @@ export default function Dashboard() {
                                 <Sparkles className="w-3 h-3 text-emerald-400" />
                                 <span>AI Summary</span>
                               </div>
-                              <button className="text-neutral-500 group-hover/summary:text-neutral-300 transition-colors">
+                              <button className={`${isDarkTheme ? 'text-neutral-500 group-hover/summary:text-neutral-300' : 'text-slate-400 group-hover/summary:text-slate-700'} transition-colors`}>
                                 {collapsedSummaries[clip.id] ? (
                                   <ChevronDown className="w-3.5 h-3.5" />
                                 ) : (
@@ -3412,11 +3511,11 @@ export default function Dashboard() {
                             
                             {!collapsedSummaries[clip.id] && (
                               <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                                <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-emerald-500/10 select-text">
+                                <p className={`text-[11px] font-sans leading-relaxed p-2.5 rounded-2xl border select-text ${isDarkTheme ? 'text-neutral-300 bg-black/20 border-emerald-500/10' : 'text-slate-700 bg-white/75 border-emerald-200'}`}>
                                   {clipSummaries[clip.id]?.summary}
                                 </p>
                                 {clipSummaries[clip.id]?.isFallback && (
-                                  <div className="text-[9px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded leading-normal flex items-start gap-1 font-sans">
+                                  <div className={`text-[9px] px-2.5 py-1.5 rounded-2xl leading-normal flex items-start gap-1 font-sans border ${isDarkTheme ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-amber-700 bg-amber-50 border-amber-200'}`}>
                                     <span className="font-bold shrink-0">⚠️ Local Fallback:</span>
                                     <span>{clipSummaries[clip.id]?.warning || 'Unable to reach the OpenRouter API. Displaying a high-quality local smart summary.'}</span>
                                   </div>
@@ -3428,7 +3527,7 @@ export default function Dashboard() {
 
                         {/* Collapsible Rewrite Panel */}
                         {pendingRewrites[clip.id] && (
-                          <div className="border-t border-white/5 bg-indigo-500/5 px-5 py-3 transition-all duration-300">
+                          <div className={`px-5 py-3 transition-all duration-300 ${rewritePanelClass}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 uppercase tracking-wider font-mono">
                                 <RefreshCw className="w-3 h-3 text-indigo-400" />
@@ -3436,7 +3535,7 @@ export default function Dashboard() {
                               </div>
                             </div>
                             <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-indigo-500/10 select-text">
+                              <p className={`text-[11px] font-sans leading-relaxed p-2.5 rounded-2xl border select-text ${isDarkTheme ? 'text-neutral-300 bg-black/20 border-indigo-500/10' : 'text-slate-700 bg-white/75 border-indigo-200'}`}>
                                 {pendingRewrites[clip.id]}
                               </p>
                               <div className="flex gap-2 justify-end">
@@ -3459,7 +3558,7 @@ export default function Dashboard() {
 
                         {/* Collapsible Translate Panel */}
                         {activeTranslations[clip.id] && (
-                          <div className="border-t border-white/5 bg-violet-500/5 px-5 py-3 transition-all duration-300">
+                          <div className={`px-5 py-3 transition-all duration-300 ${translatePanelClass}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-violet-400 uppercase tracking-wider font-mono">
                                 <Languages className="w-3 h-3 text-violet-400" />
@@ -3467,7 +3566,7 @@ export default function Dashboard() {
                               </div>
                             </div>
                             <div className="flex flex-col gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <p className="text-[11px] text-neutral-300 font-sans leading-relaxed bg-black/20 p-2.5 rounded border border-violet-500/10 select-text">
+                              <p className={`text-[11px] font-sans leading-relaxed p-2.5 rounded-2xl border select-text ${isDarkTheme ? 'text-neutral-300 bg-black/20 border-violet-500/10' : 'text-slate-700 bg-white/75 border-violet-200'}`}>
                                 {activeTranslations[clip.id].text}
                               </p>
                               <div className="flex gap-2 justify-end">
@@ -3489,14 +3588,14 @@ export default function Dashboard() {
                         )}
 
                         {/* Card Actions Panel */}
-                        <div className="border-t border-white/5 bg-black/40 px-4 py-2.5 flex items-center justify-between shrink-0 relative gap-2">
+                        <div className={`border-t px-4 py-2.5 flex items-center justify-between shrink-0 relative gap-2 ${isDarkTheme ? 'border-white/5 bg-black/40' : 'border-slate-200/80 bg-slate-100/90'}`}>
                           {/* Rewrite Dropdown Menu */}
                           {showRewriteMenu === clip.id && (
                             <div 
                               onMouseLeave={() => setShowRewriteMenu(null)}
-                              className="absolute bottom-12 left-16 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-28 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md"
+                              className={`absolute bottom-12 left-16 z-30 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-28 animate-in fade-in slide-in-from-bottom-2 duration-150 ${dropdownSurfaceClass}`}
                             >
-                              <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Select Tone</div>
+                              <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-b mb-0.5 font-mono ${subtleTextClass} ${isDarkTheme ? 'border-white/5' : 'border-slate-200'}`}>Select Tone</div>
                               {[
                                 { tone: 'formal', label: 'Formal' },
                                 { tone: 'casual', label: 'Casual' },
@@ -3522,9 +3621,9 @@ export default function Dashboard() {
                           {showTranslateMenu === clip.id && (
                             <div 
                               onMouseLeave={() => setShowTranslateMenu(null)}
-                              className="absolute bottom-12 left-24 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md"
+                              className={`absolute bottom-12 left-24 z-30 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 animate-in fade-in slide-in-from-bottom-2 duration-150 ${dropdownSurfaceClass}`}
                             >
-                              <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Select Lang</div>
+                              <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-b mb-0.5 font-mono ${subtleTextClass} ${isDarkTheme ? 'border-white/5' : 'border-slate-200'}`}>Select Lang</div>
                               {[
                                 { code: 'Spanish', label: 'Spanish' },
                                 { code: 'French', label: 'French' },
@@ -3693,7 +3792,7 @@ export default function Dashboard() {
 
               {/* LIST VIEW RENDERING */}
               {viewMode === 'list' && (
-                <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-3">
                   {sortedClips.map((clip) => {
                     const clipFolder = folders.find(f => f.id === clip.folder_id);
                     const truncatedContent = clip.content.length > 180 
@@ -3718,12 +3817,16 @@ export default function Dashboard() {
                             openClipPreview(clip);
                           }
                         }}
-                        className={`border bg-neutral-900/35 backdrop-blur-md relative overflow-hidden group flex flex-col p-4 gap-3 transition-all duration-300 ${
+                        className={`border backdrop-blur-md relative overflow-hidden group flex flex-col p-4 gap-3 transition-all duration-300 ${
                           isSelectionMode 
                             ? isSelected
-                              ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
-                              : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
-                            : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-0.5 duration-300 cursor-pointer'
+                              ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
+                              : isDarkTheme
+                                ? 'border-white/5 bg-neutral-900/35 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
+                                : 'border-slate-200/80 bg-white/92 hover:border-slate-300 hover:bg-white cursor-pointer'
+                            : isDarkTheme
+                              ? 'border-white/5 bg-neutral-900/35 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-0.5 cursor-pointer'
+                              : 'border-slate-200/80 bg-white/92 hover:border-slate-300 hover:bg-white hover:-translate-y-0.5 cursor-pointer shadow-[0_12px_34px_rgba(148,163,184,0.16)]'
                         }`}
                       >
                         {/* Checkbox for selection */}
@@ -3746,12 +3849,12 @@ export default function Dashboard() {
                           {/* Title & Metadata */}
                           <div className="flex flex-col gap-1 min-w-[200px] md:max-w-[280px]">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider font-mono">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider font-mono ${subtleTextClass}`}>
                                 {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                               </span>
                               {clipFolder && (
                                 <span 
-                                  className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 bg-black/30"
+                                  className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${isDarkTheme ? 'bg-black/30' : 'bg-white/85'}`}
                                   style={{ borderColor: clipFolder.color + '20', color: clipFolder.color }}
                                 >
                                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: clipFolder.color }} />
@@ -3759,13 +3862,13 @@ export default function Dashboard() {
                                 </span>
                               )}
                               {clip.pinned && (
-                                <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-1.5 py-0.2 text-[8px] font-black uppercase text-yellow-300">
+                                <span className={`rounded-full border border-yellow-500/15 bg-yellow-500/10 px-1.5 py-0.2 text-[8px] font-black uppercase ${isDarkTheme ? 'text-yellow-300' : 'text-amber-600'}`}>
                                   Pinned
                                 </span>
                               )}
                             </div>
-                            <h4 className="text-sm font-bold text-neutral-100 truncate leading-snug">{clip.title || 'Untitled Clip'}</h4>
-                            <span className="text-[10px] text-neutral-500 font-mono">
+                            <h4 className={`text-sm font-bold truncate leading-snug ${titleTextClass}`}>{clip.title || 'Untitled Clip'}</h4>
+                            <span className={`text-[10px] font-mono ${subtleTextClass}`}>
                               {clip.content.length} chars {clip.tags.length > 0 ? `| ${clip.tags.length} tags` : ''}
                             </span>
                           </div>
@@ -3773,9 +3876,9 @@ export default function Dashboard() {
                           {/* Content Snippet */}
                           <div 
                             onClick={(e) => { e.stopPropagation(); openClipPreview(clip); }}
-                            className="flex-1 rounded-xl border border-white/5 bg-black/20 p-2.5 text-left transition-all hover:border-indigo-500/20 hover:bg-black/30 max-w-full md:max-w-2xl"
+                            className={`flex-1 rounded-2xl border p-2.5 text-left transition-all hover:border-indigo-500/20 max-w-full md:max-w-2xl ${listSnippetClass}`}
                           >
-                            <p className="text-xs text-neutral-300 font-mono line-clamp-2 break-words leading-relaxed select-text">
+                            <p className={`text-xs font-mono line-clamp-2 break-words leading-relaxed select-text ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
                               {truncatedContent}
                             </p>
                           </div>
@@ -3793,21 +3896,21 @@ export default function Dashboard() {
                                 </span>
                               ))}
                               {clip.tags.length > 2 && (
-                                <span className="text-[9px] bg-white/5 text-neutral-400 border border-white/5 px-2 py-0.5 rounded-full font-bold">
+                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${isDarkTheme ? 'bg-white/5 text-neutral-400 border border-white/5' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                                   +{clip.tags.length - 2}
                                 </span>
                               )}
                             </div>
 
                             {/* Row Action Toolbar */}
-                            <div className="flex items-center gap-1 bg-black/20 p-1.5 border border-white/5 rounded-xl relative" onClick={(e) => e.stopPropagation()}>
+                            <div className={`flex items-center gap-1 p-1.5 border rounded-xl relative ${actionRailClass}`} onClick={(e) => e.stopPropagation()}>
                               {/* Rewrite Dropdown Menu */}
                               {showRewriteMenu === clip.id && (
                                 <div 
                                   onMouseLeave={() => setShowRewriteMenu(null)}
-                                  className="absolute bottom-12 right-24 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-28 backdrop-blur-md"
+                                  className={`absolute bottom-12 right-24 z-30 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-28 ${dropdownSurfaceClass}`}
                                 >
-                                  <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Tone</div>
+                                  <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-b mb-0.5 font-mono ${subtleTextClass} ${isDarkTheme ? 'border-white/5' : 'border-slate-200'}`}>Tone</div>
                                   {[
                                     { tone: 'formal', label: 'Formal' },
                                     { tone: 'casual', label: 'Casual' },
@@ -3820,7 +3923,7 @@ export default function Dashboard() {
                                         setShowRewriteMenu(null);
                                         handleRewrite(clip.id, clip.content, tone);
                                       }}
-                                      className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                                    className={`w-full text-left text-[11px] font-semibold px-2 py-1 rounded transition-colors ${isDarkTheme ? 'text-neutral-300 hover:text-white hover:bg-white/5' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'}`}
                                     >
                                       {label}
                                     </button>
@@ -3832,9 +3935,9 @@ export default function Dashboard() {
                               {showTranslateMenu === clip.id && (
                                 <div 
                                   onMouseLeave={() => setShowTranslateMenu(null)}
-                                  className="absolute bottom-12 right-12 z-30 bg-neutral-950/95 border border-white/10 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 backdrop-blur-md"
+                                  className={`absolute bottom-12 right-12 z-30 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 w-32 ${dropdownSurfaceClass}`}
                                 >
-                                  <div className="text-[9px] font-black text-neutral-500 uppercase tracking-widest px-2 py-0.5 border-b border-white/5 mb-0.5 font-mono">Lang</div>
+                                  <div className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-b mb-0.5 font-mono ${subtleTextClass} ${isDarkTheme ? 'border-white/5' : 'border-slate-200'}`}>Lang</div>
                                   {[
                                     { code: 'Spanish', label: 'Spanish' },
                                     { code: 'French', label: 'French' },
@@ -3848,7 +3951,7 @@ export default function Dashboard() {
                                         setShowTranslateMenu(null);
                                         handleTranslate(clip.id, clip.content, code);
                                       }}
-                                      className="w-full text-left text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                                    className={`w-full text-left text-[11px] font-semibold px-2 py-1 rounded transition-colors ${isDarkTheme ? 'text-neutral-300 hover:text-white hover:bg-white/5' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'}`}
                                     >
                                       {label}
                                     </button>
@@ -3856,19 +3959,19 @@ export default function Dashboard() {
                                 </div>
                               )}
 
-                              <button onClick={() => openClipPreview(clip)} className="p-1 rounded hover:bg-white/5 text-indigo-400" title="View details">
+                              <button onClick={() => openClipPreview(clip)} className={`p-1 rounded text-indigo-400 ${isDarkTheme ? 'hover:bg-white/5' : 'hover:bg-white'}`} title="View details">
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={(e) => handleTogglePin(clip.id, e)} className={`p-1 rounded hover:bg-white/5 ${clip.pinned ? 'text-yellow-400' : 'text-neutral-500'}`} title="Pin clip">
+                              <button onClick={(e) => handleTogglePin(clip.id, e)} className={`p-1 rounded ${isDarkTheme ? 'hover:bg-white/5' : 'hover:bg-white'} ${clip.pinned ? (isDarkTheme ? 'text-yellow-400' : 'text-amber-600') : (isDarkTheme ? 'text-neutral-500' : 'text-slate-500')}`} title="Pin clip">
                                 <Star className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={(e) => handleCopyContent(clip.id, clip.content, e)} className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-neutral-300" title="Copy content">
+                              <button onClick={(e) => handleCopyContent(clip.id, clip.content, e)} className={`p-1 rounded ${listActionButtonClass}`} title="Copy content">
                                 {copiedClipId === clip.id ? <span className="text-[8px] text-emerald-400 font-extrabold px-1">COPIED</span> : <Clipboard className="w-3.5 h-3.5" />}
                               </button>
-                              <button onClick={(e) => handleOpenEditClip(clip, e)} className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-indigo-400" title="Edit details">
+                              <button onClick={(e) => handleOpenEditClip(clip, e)} className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-indigo-400 hover:bg-white/5' : 'text-slate-500 hover:text-indigo-600 hover:bg-white'}`} title="Edit details">
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={(e) => handleOpenShareModal(clip, e)} className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-violet-400" title="Share clip">
+                              <button onClick={(e) => handleOpenShareModal(clip, e)} className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-violet-400 hover:bg-white/5' : 'text-slate-500 hover:text-violet-600 hover:bg-white'}`} title="Share clip">
                                 <Share2 className="w-3.5 h-3.5" />
                               </button>
                               <button 
@@ -3877,7 +3980,7 @@ export default function Dashboard() {
                                   handleSummarize(clip.id, clip.content, e);
                                 }}
                                 disabled={summarizingClipId === clip.id}
-                                className={`p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-emerald-400 ${summarizingClipId === clip.id ? 'bg-emerald-500/10' : ''}`}
+                                className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-emerald-400 hover:bg-white/5' : 'text-slate-500 hover:text-emerald-600 hover:bg-white'} ${summarizingClipId === clip.id ? 'bg-emerald-500/10' : ''}`}
                                 title="Summarize"
                               >
                                 {summarizingClipId === clip.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className={`w-3.5 h-3.5 ${clipSummaries[clip.id] ? 'text-emerald-400 fill-emerald-400/20' : ''}`} />}
@@ -3888,7 +3991,7 @@ export default function Dashboard() {
                                   setShowRewriteMenu(showRewriteMenu === clip.id ? null : clip.id);
                                   setShowTranslateMenu(null);
                                 }}
-                                className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-indigo-400"
+                                className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-indigo-400 hover:bg-white/5' : 'text-slate-500 hover:text-indigo-600 hover:bg-white'}`}
                                 title="Rewrite"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
@@ -3899,7 +4002,7 @@ export default function Dashboard() {
                                   setShowTranslateMenu(showTranslateMenu === clip.id ? null : clip.id);
                                   setShowRewriteMenu(null);
                                 }}
-                                className="p-1 rounded hover:bg-white/5 text-neutral-500 hover:text-violet-400"
+                                className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-violet-400 hover:bg-white/5' : 'text-slate-500 hover:text-violet-600 hover:bg-white'}`}
                                 title="Translate"
                               >
                                 <Languages className="w-3.5 h-3.5" />
@@ -3914,24 +4017,24 @@ export default function Dashboard() {
 
                         {/* Collapsible AI Summary Section */}
                         {clipSummaries[clip.id] && (
-                          <div className="border-t border-white/5 bg-emerald-500/5 px-4 py-2.5 rounded-lg mt-1 select-text" onClick={(e) => e.stopPropagation()}>
+                          <div className={`px-4 py-2.5 rounded-2xl mt-1 select-text ${summaryPanelClass}`} onClick={(e) => e.stopPropagation()}>
                             <div onClick={(e) => toggleSummaryCollapse(clip.id, e)} className="flex items-center justify-between cursor-pointer">
                               <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1"><Sparkles className="w-3 h-3" />AI Summary</span>
-                              <span className="text-neutral-500">{collapsedSummaries[clip.id] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}</span>
+                              <span className={subtleTextClass}>{collapsedSummaries[clip.id] ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}</span>
                             </div>
                             {!collapsedSummaries[clip.id] && (
-                              <p className="text-[11px] text-neutral-300 leading-relaxed bg-black/20 p-2 rounded mt-2 border border-emerald-500/10 font-sans">{clipSummaries[clip.id]?.summary}</p>
+                              <p className={`text-[11px] leading-relaxed p-2 rounded-2xl mt-2 border font-sans ${isDarkTheme ? 'text-neutral-300 bg-black/20 border-emerald-500/10' : 'text-slate-700 bg-white/75 border-emerald-200'}`}>{clipSummaries[clip.id]?.summary}</p>
                             )}
                           </div>
                         )}
 
                         {/* Collapsible Rewrite Suggestions */}
                         {pendingRewrites[clip.id] && (
-                          <div className="border-t border-white/5 bg-indigo-500/5 px-4 py-2.5 rounded-lg mt-1 select-text" onClick={(e) => e.stopPropagation()}>
+                          <div className={`px-4 py-2.5 rounded-2xl mt-1 select-text ${rewritePanelClass}`} onClick={(e) => e.stopPropagation()}>
                             <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1"><RefreshCw className="w-3 h-3" />AI Rewrite Suggestion</span>
-                            <p className="text-[11px] text-neutral-300 leading-relaxed bg-black/20 p-2 rounded mt-2 border border-indigo-500/10 font-sans">{pendingRewrites[clip.id]}</p>
+                            <p className={`text-[11px] leading-relaxed p-2 rounded-2xl mt-2 border font-sans ${isDarkTheme ? 'text-neutral-300 bg-black/20 border-indigo-500/10' : 'text-slate-700 bg-white/75 border-indigo-200'}`}>{pendingRewrites[clip.id]}</p>
                             <div className="flex gap-2 justify-end mt-2">
-                              <button onClick={(e) => handleDismissRewrite(clip.id, e)} className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 bg-black/20 px-2.5 py-1 rounded border border-white/5">Dismiss</button>
+                              <button onClick={(e) => handleDismissRewrite(clip.id, e)} className={`text-[10px] font-bold px-2.5 py-1 rounded border ${listDismissButtonClass}`}>Dismiss</button>
                               <button onClick={(e) => handleApplyRewrite(clip.id, e)} className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/5 px-2.5 py-1 rounded border border-indigo-500/20">Apply</button>
                             </div>
                           </div>
@@ -3939,11 +4042,11 @@ export default function Dashboard() {
 
                         {/* Collapsible Translation Suggestions */}
                         {activeTranslations[clip.id] && (
-                          <div className="border-t border-white/5 bg-violet-500/5 px-4 py-2.5 rounded-lg mt-1 select-text" onClick={(e) => e.stopPropagation()}>
+                          <div className={`px-4 py-2.5 rounded-2xl mt-1 select-text ${translatePanelClass}`} onClick={(e) => e.stopPropagation()}>
                             <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1"><Languages className="w-3 h-3" />Translated to {activeTranslations[clip.id].lang}</span>
-                            <p className="text-[11px] text-neutral-300 leading-relaxed bg-black/20 p-2 rounded mt-2 border border-violet-500/10 font-sans">{activeTranslations[clip.id].text}</p>
+                            <p className={`text-[11px] leading-relaxed p-2 rounded-2xl mt-2 border font-sans ${isDarkTheme ? 'text-neutral-300 bg-black/20 border-violet-500/10' : 'text-slate-700 bg-white/75 border-violet-200'}`}>{activeTranslations[clip.id].text}</p>
                             <div className="flex gap-2 justify-end mt-2">
-                              <button onClick={(e) => handleDismissTranslate(clip.id, e)} className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200 bg-black/20 px-2.5 py-1 rounded border border-white/5">Dismiss</button>
+                              <button onClick={(e) => handleDismissTranslate(clip.id, e)} className={`text-[10px] font-bold px-2.5 py-1 rounded border ${listDismissButtonClass}`}>Dismiss</button>
                               <button onClick={(e) => handleCopyTranslation(clip.id, activeTranslations[clip.id].text, e)} className="text-[10px] font-bold text-violet-400 hover:text-violet-300 bg-violet-500/5 px-2.5 py-1 rounded border border-violet-500/20">{copiedTranslationId === clip.id ? 'Copied!' : 'Copy'}</button>
                             </div>
                           </div>
@@ -3957,10 +4060,10 @@ export default function Dashboard() {
 
               {/* TABLE VIEW RENDERING */}
               {viewMode === 'table' && (
-                <div className="overflow-x-auto rounded-2xl border border-white/5 bg-[#0b0c10]/45 backdrop-blur-md shadow-2xl">
-                  <table className="w-full border-collapse text-left text-xs text-neutral-300">
+                <div className={`overflow-x-auto rounded-[24px] border backdrop-blur-md shadow-2xl ${isDarkTheme ? 'border-white/5 bg-[#0b0c10]/45' : 'border-slate-200/80 bg-gradient-to-b from-white/95 to-slate-50/85'}`}>
+                  <table className={`w-full border-collapse text-left text-xs ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
                     <thead>
-                      <tr className="border-b border-white/5 bg-black/40 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      <tr className={`border-b text-[10px] font-bold uppercase tracking-wider ${isDarkTheme ? 'border-white/5 bg-black/40 text-neutral-500' : 'border-slate-200/80 bg-slate-50/90 text-slate-500'}`}>
                         {isSelectionMode && <th className="py-3.5 px-4 w-10">Select</th>}
                         <th className="py-3.5 px-4 w-[200px]">Title</th>
                         <th className="py-3.5 px-4">Content Preview</th>
@@ -3984,8 +4087,14 @@ export default function Dashboard() {
                                 openClipPreview(clip);
                               }
                             }}
-                            className={`hover:bg-white/[0.02] transition-colors cursor-pointer group ${
-                              isSelected ? 'bg-indigo-950/10' : ''
+                            className={`transition-colors cursor-pointer group ${
+                              isSelected
+                                ? isDarkTheme
+                                  ? 'bg-indigo-950/10'
+                                  : 'bg-indigo-50/80'
+                                : isDarkTheme
+                                  ? 'hover:bg-white/[0.02]'
+                                  : 'hover:bg-slate-50/85'
                             }`}
                           >
                             {isSelectionMode && (
@@ -4004,7 +4113,7 @@ export default function Dashboard() {
                                 </div>
                               </td>
                             )}
-                            <td className="py-3 px-4 font-bold text-neutral-200">
+                            <td className={`py-3 px-4 font-bold ${titleTextClass}`}>
                               <div className="flex items-center gap-2 max-w-[180px] truncate">
                                 {clip.pinned && (
                                   <Star className="w-3.5 h-3.5 text-yellow-500 fill-current shrink-0" />
@@ -4012,37 +4121,37 @@ export default function Dashboard() {
                                 <span>{clip.title || 'Untitled Clip'}</span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 font-mono text-[11px] text-neutral-400 max-w-[280px] truncate select-text">
+                            <td className={`py-3 px-4 font-mono text-[11px] max-w-[280px] truncate select-text ${subtleTextClass}`}>
                               {clip.content}
                             </td>
                             <td className="py-3 px-4">
                               {clipFolder ? (
                                 <span 
-                                  className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border bg-black/30"
+                                  className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${isDarkTheme ? 'bg-black/30' : 'bg-white/75'}`}
                                   style={{ borderColor: clipFolder.color + '20', color: clipFolder.color }}
                                 >
                                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: clipFolder.color }} />
                                   {clipFolder.name}
                                 </span>
                               ) : (
-                                <span className="text-[10px] text-neutral-600 font-bold uppercase tracking-wider">Uncategorized</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${subtleTextClass}`}>Uncategorized</span>
                               )}
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex flex-wrap gap-1">
                                 {clip.tags.slice(0, 2).map((t, i) => (
-                                  <span key={i} className="text-[9px] font-extrabold uppercase tracking-wide bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
+                                  <span key={i} className={`text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${isDarkTheme ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
                                     {t}
                                   </span>
                                 ))}
                                 {clip.tags.length > 2 && (
-                                  <span className="text-[9px] font-extrabold bg-white/5 text-neutral-500 border border-white/5 px-1.5 rounded-full">
+                                  <span className={`text-[9px] font-extrabold px-1.5 rounded-full border ${isDarkTheme ? 'bg-white/5 text-neutral-500 border-white/5' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                                     +{clip.tags.length - 2}
                                   </span>
                                 )}
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-[10px] font-mono text-neutral-500">
+                            <td className={`py-3 px-4 text-[10px] font-mono ${subtleTextClass}`}>
                               {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                             </td>
                             <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -4083,18 +4192,22 @@ export default function Dashboard() {
                         onDrop={(e) => handleDrop(e, column.id)}
                         onDragEnter={() => setDraggedOverFolderId(column.id)}
                         onDragLeave={() => setDraggedOverFolderId(null)}
-                        className={`flex-1 min-w-[290px] max-w-[340px] rounded-2xl bg-neutral-950/40 border p-4 flex flex-col gap-3 snap-align-start shrink-0 transition-all duration-300 ${
+                        className={`flex-1 min-w-[290px] max-w-[340px] rounded-[28px] border p-4 flex flex-col gap-3 snap-align-start shrink-0 transition-all duration-300 ${
                           draggedOverFolderId === column.id
-                            ? 'border-indigo-500/40 bg-indigo-500/5 scale-[1.01] shadow-lg shadow-indigo-500/5'
-                            : 'border-white/5'
+                            ? isDarkTheme
+                              ? 'border-indigo-500/40 bg-indigo-500/8 scale-[1.01] shadow-lg shadow-indigo-500/5'
+                              : 'border-indigo-200 bg-indigo-50/85 scale-[1.01] shadow-lg shadow-indigo-100/60'
+                            : isDarkTheme
+                              ? 'border-white/5 bg-[linear-gradient(180deg,rgba(17,24,39,0.82),rgba(10,10,15,0.52))]'
+                              : 'border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(241,245,249,0.92))] shadow-[0_18px_45px_rgba(148,163,184,0.18)]'
                         }`}
                       >
                         {/* Column Header */}
-                        <div className="flex items-center justify-between pb-2 border-b border-white/5 shrink-0">
+                        <div className={`flex items-center justify-between pb-2 border-b shrink-0 ${isDarkTheme ? 'border-white/5' : 'border-slate-200/80'}`}>
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
-                            <h3 className="text-xs font-black uppercase tracking-wider text-neutral-200 truncate">{column.name}</h3>
-                            <span className="text-[10px] bg-black/40 border border-white/5 font-mono px-2 py-0.5 rounded font-black text-neutral-400 shrink-0">
+                            <h3 className={`text-xs font-black uppercase tracking-wider truncate ${titleTextClass}`}>{column.name}</h3>
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-black shrink-0 ${isDarkTheme ? 'bg-black/40 border border-white/5 text-neutral-400' : 'bg-white/85 border border-slate-200 text-slate-500'}`}>
                               {column.clips.length}
                             </span>
                           </div>
@@ -4134,12 +4247,16 @@ export default function Dashboard() {
                                       openClipPreview(clip);
                                     }
                                   }}
-                                  className={`border bg-neutral-900/35 backdrop-blur-md relative overflow-hidden group flex flex-col p-3.5 gap-2.5 transition-all duration-300 ${
+                                  className={`border backdrop-blur-md relative overflow-hidden group flex flex-col p-3.5 gap-2.5 transition-all duration-300 ${
                                     isSelectionMode
                                       ? isSelected
-                                        ? 'border-indigo-500/40 bg-indigo-950/10 cursor-pointer'
-                                        : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
-                                      : 'border-white/5 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing'
+                                        ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
+                                        : isDarkTheme
+                                          ? 'border-white/5 bg-neutral-900/35 hover:border-white/10 hover:bg-neutral-900/40 cursor-pointer'
+                                          : 'border-slate-200/80 bg-white/88 hover:border-slate-300 hover:bg-white cursor-pointer'
+                                      : isDarkTheme
+                                        ? 'border-white/5 bg-neutral-900/35 hover:border-white/10 hover:bg-neutral-900/55 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing'
+                                        : 'border-slate-200/80 bg-white/88 hover:border-slate-300 hover:bg-white hover:-translate-y-0.5 cursor-grab active:cursor-grabbing shadow-[0_10px_28px_rgba(148,163,184,0.16)]'
                                   }`}
                                 >
                                   {/* Checkbox for selection */}
@@ -4149,7 +4266,9 @@ export default function Dashboard() {
                                       className={`absolute top-3 left-3 z-20 flex items-center justify-center w-4 h-4 rounded-full border transition-all cursor-pointer ${
                                         isSelected 
                                           ? 'border-indigo-400 bg-indigo-500 text-white' 
-                                          : 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                                          : isDarkTheme
+                                            ? 'border-white/20 bg-neutral-950/80 hover:border-indigo-400'
+                                            : 'border-slate-300 bg-white hover:border-indigo-400'
                                       }`}
                                     >
                                       {isSelected && (
@@ -4160,31 +4279,31 @@ export default function Dashboard() {
 
                                   <div className="flex flex-col gap-1.5">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className={`text-[9px] text-neutral-500 font-bold uppercase tracking-wider font-mono ${isSelectionMode ? 'pl-5' : ''}`}>
+                                      <span className={`text-[9px] font-bold uppercase tracking-wider font-mono ${isSelectionMode ? 'pl-5' : ''} ${subtleTextClass}`}>
                                         {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                       </span>
                                       {clip.pinned && (
-                                        <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-yellow-300">
+                                        <span className={`rounded-full border border-yellow-500/15 bg-yellow-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider ${isDarkTheme ? 'text-yellow-300' : 'text-amber-600'}`}>
                                           Pinned
                                         </span>
                                       )}
                                     </div>
-                                    <h4 className="text-xs font-bold text-neutral-200 line-clamp-1 leading-snug">{clip.title || 'Untitled Clip'}</h4>
+                                    <h4 className={`text-xs font-bold line-clamp-1 leading-snug ${titleTextClass}`}>{clip.title || 'Untitled Clip'}</h4>
                                   </div>
 
-                                  <p className="text-[11px] text-neutral-400 font-mono break-words bg-black/10 border border-white/5 rounded-lg p-2 line-clamp-3 select-text">
+                                  <p className={`text-[11px] font-mono break-words rounded-2xl p-2 line-clamp-3 select-text border ${isDarkTheme ? 'text-neutral-400 bg-black/10 border-white/5' : 'text-slate-600 bg-slate-50/85 border-slate-200'}`}>
                                     {truncatedContent}
                                   </p>
 
-                                  <div className="flex items-center justify-between border-t border-white/5 pt-2 mt-0.5 shrink-0">
+                                  <div className={`flex items-center justify-between border-t pt-2 mt-0.5 shrink-0 ${isDarkTheme ? 'border-white/5' : 'border-slate-200/80'}`}>
                                     <div className="flex flex-wrap gap-1 max-w-[110px] overflow-hidden">
                                       {clip.tags.slice(0, 1).map((t, i) => (
-                                        <span key={i} className="text-[8px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-1.5 py-0.5 rounded-full uppercase truncate">
+                                        <span key={i} className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase truncate border ${isDarkTheme ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
                                           {t}
                                         </span>
                                       ))}
                                       {clip.tags.length > 1 && (
-                                        <span className="text-[8px] bg-white/5 text-neutral-400 border border-white/5 px-1 rounded-full font-bold">
+                                        <span className={`text-[8px] px-1 rounded-full font-bold border ${isDarkTheme ? 'bg-white/5 text-neutral-400 border-white/5' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                                           +{clip.tags.length - 1}
                                         </span>
                                       )}
@@ -4207,7 +4326,7 @@ export default function Dashboard() {
                               );
                             })
                           ) : (
-                            <div className="border border-dashed border-white/5 bg-neutral-900/5 rounded-xl py-8 px-4 flex flex-col items-center justify-center text-center text-neutral-600">
+                            <div className={`border border-dashed rounded-2xl py-8 px-4 flex flex-col items-center justify-center text-center ${isDarkTheme ? 'border-white/5 bg-neutral-900/5 text-neutral-600' : 'border-slate-200 bg-white/60 text-slate-400'}`}>
                               <Clipboard className="w-5 h-5 mb-1.5 opacity-60" />
                               <p className="text-[10px] font-bold uppercase tracking-wider">Empty column</p>
                             </div>

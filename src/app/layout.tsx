@@ -63,12 +63,12 @@ export default function RootLayout({
               (function() {
                 try {
                   var storedTheme = localStorage.getItem('fc_dashboard_theme');
-                  var theme = storedTheme === 'light' ? 'light' : 'dark';
+                  var theme = storedTheme === 'dark' ? 'dark' : 'light';
                   document.documentElement.classList.toggle('dark', theme === 'dark');
                   document.documentElement.style.colorScheme = theme;
                 } catch (e) {
-                  document.documentElement.classList.add('dark');
-                  document.documentElement.style.colorScheme = 'dark';
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.style.colorScheme = 'light';
                 }
               })();
             `,
