@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ArrowRight, Check, Clipboard, Clock3, Copy, Lock } from 'lucide-react';
 
 interface SharedClipClientProps {
   title: string | null;
@@ -66,51 +67,45 @@ export default function SharedClipClient({
     : '';
 
   return (
-    <div className="min-h-screen bg-[#07070a] text-neutral-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900 flex flex-col">
       {/* Meta */}
       <title>{title ? `${title} — FreeClipboard` : 'Shared Clip — FreeClipboard'}</title>
 
-      {/* Ambient orbs */}
-      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/5 rounded-full blur-[130px] -z-10 pointer-events-none" />
-      <div className="fixed bottom-0 right-1/4 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[140px] -z-10 pointer-events-none" />
-      <div className="fixed top-1/2 left-0 w-[300px] h-[300px] bg-purple-600/3 rounded-full blur-[100px] -z-10 pointer-events-none" />
-
       {/* Top nav bar */}
-      <header className="border-b border-white/5 bg-neutral-950/60 backdrop-blur-md px-6 py-4 flex items-center justify-between shrink-0">
+      <header className="border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3">
         <a href="/" className="flex items-center gap-2.5 group">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_12px_26px_rgba(99,102,241,0.24)]">
+            <Clipboard className="h-4 w-4 text-white" />
           </div>
-          <span className="text-sm font-black tracking-tight bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent group-hover:opacity-80 transition-opacity">
-            FreeClipboard
-          </span>
+          <span className="text-sm font-black tracking-tight text-slate-950 transition-colors group-hover:text-indigo-600">FreeClipboard</span>
         </a>
 
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
-          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+          <Lock className="h-3 w-3" />
           Read-Only
+        </div>
         </div>
       </header>
 
       {/* Content */}
-      <main className="flex-grow flex items-start justify-center p-6 pt-12 pb-16">
-        <div className="w-full max-w-2xl">
+      <main className="flex-grow bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_48%,#eef2ff_100%)] px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto w-full max-w-2xl">
           
           {/* Card */}
-          <div className="border border-white/8 bg-neutral-900/40 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(148,163,184,0.18)]">
             
             {/* Card Header */}
-            <div className="px-6 pt-6 pb-4 border-b border-white/5 bg-black/20">
-              <div className="flex items-start justify-between gap-4 mb-3">
+            <div className="border-b border-slate-200 bg-slate-50/80 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
+              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex-grow min-w-0">
-                  <h1 className="text-xl font-black tracking-tight text-neutral-100 leading-tight break-words">
+                  <h1 className="break-words text-xl font-black leading-tight tracking-tight text-slate-950 sm:text-2xl">
                     {title || 'Untitled Clip'}
                   </h1>
-                  <p className="text-xs text-neutral-500 mt-1.5 font-semibold">
+                  <p className="mt-2 text-xs font-semibold text-slate-500">
                     Created {formattedDate}
                     {pinned && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-yellow-500/80">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                      <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
                         Pinned
                       </span>
                     )}
@@ -120,20 +115,20 @@ export default function SharedClipClient({
                 {/* Copy button */}
                 <button
                   onClick={handleCopy}
-                  className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 border shadow-lg ${
+                  className={`inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all duration-300 sm:w-auto ${
                     copied
-                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 shadow-emerald-500/10 scale-95'
-                      : 'bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-purple-500/10 border-indigo-500/20 text-indigo-300 hover:from-indigo-500/20 hover:to-purple-500/20 hover:border-indigo-500/40 hover:scale-105 shadow-indigo-500/5'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-transparent bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]'
                   }`}
                 >
                   {copied ? (
                     <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      <Check className="h-4 w-4" />
                       Copied!
                     </>
                   ) : (
                     <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                      <Copy className="h-4 w-4" />
                       Copy Content
                     </>
                   )}
@@ -146,7 +141,7 @@ export default function SharedClipClient({
                   {tags.map((tag, i) => (
                     <span
                       key={i}
-                      className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider"
+                      className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700"
                     >
                       {tag}
                     </span>
@@ -156,24 +151,24 @@ export default function SharedClipClient({
             </div>
 
             {/* Content body */}
-            <div className="p-6">
-              <pre className="text-sm text-neutral-300 font-mono leading-relaxed whitespace-pre-wrap break-words bg-black/20 border border-white/5 rounded-xl p-5 select-text overflow-x-auto">
+            <div className="p-4 sm:p-6">
+              <pre className="max-h-[64vh] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-[13px] leading-7 text-slate-700 select-text sm:p-5 sm:text-sm">
                 {content}
               </pre>
             </div>
 
             {/* Footer with expiry */}
             {shareExpiresAt && (
-              <div className="px-6 pb-5">
-                <div className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-semibold ${
+              <div className="px-4 pb-5 sm:px-6">
+                <div className={`flex flex-wrap items-center gap-2.5 rounded-xl border p-3 text-xs font-semibold ${
                   timeLeft === 'Expired'
-                    ? 'bg-rose-500/5 border-rose-500/20 text-rose-400'
-                    : 'bg-amber-500/5 border-amber-500/20 text-amber-400/80'
+                    ? 'border-rose-200 bg-rose-50 text-rose-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-800'
                 }`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 animate-pulse"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <Clock3 className="h-3.5 w-3.5 shrink-0" />
                   <span>{timeLeft}</span>
-                  <span className="text-neutral-600">•</span>
-                  <span className="text-neutral-600">Free plan — links expire after 7 days</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="text-slate-600">Free plan links expire after 7 days</span>
                 </div>
               </div>
             )}
@@ -181,15 +176,15 @@ export default function SharedClipClient({
 
           {/* CTA footer */}
           <div className="mt-8 text-center flex flex-col items-center gap-3">
-            <p className="text-xs text-neutral-600">
-              Shared via <span className="text-indigo-400 font-bold">FreeClipboard</span> — your premium cloud clipboard
+            <p className="text-xs text-slate-500">
+              Shared via <span className="font-bold text-indigo-600">FreeClipboard</span> — your premium cloud clipboard
             </p>
             <a
               href="/"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-all"
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
-              Start saving your own clips →
+              Start saving your own clips
+              <ArrowRight className="h-3.5 w-3.5" />
             </a>
           </div>
 

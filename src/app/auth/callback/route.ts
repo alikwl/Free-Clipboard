@@ -12,7 +12,14 @@ export async function GET(request: Request) {
     
     if (!error && data.session) {
       const token = data.session.access_token;
+      const refreshToken = data.session.refresh_token;
+      const expiresIn = data.session.expires_in;
       const redirectUrl = `${origin}${next}`;
+      const authPayload = JSON.stringify({
+        token,
+        refreshToken,
+        expiresIn,
+      }).replace(/</g, '\\u003c');
 
       // Render a page that posts the token to the Chrome extension, then redirects
       return new NextResponse(
@@ -30,8 +37,10 @@ h3{color:#e2e2e8;margin-top:20px;margin-bottom:8px}
 <p>Redirecting&hellip;</p>
 </div>
 <script>
-try{window.opener&&window.opener.postMessage({type:'FC_AUTH',token:'${token}'},'*');}catch(e){}
-window.postMessage({type:'FC_AUTH',token:'${token}'},'*');
+var fcAuthPayload=${authPayload};
+try{localStorage.setItem('fc_extension_auth',JSON.stringify(fcAuthPayload));}catch(e){}
+try{window.opener&&window.opener.postMessage({type:'FC_AUTH',token:fcAuthPayload.token,refreshToken:fcAuthPayload.refreshToken,expiresIn:fcAuthPayload.expiresIn},'*');}catch(e){}
+window.postMessage({type:'FC_AUTH',token:fcAuthPayload.token,refreshToken:fcAuthPayload.refreshToken,expiresIn:fcAuthPayload.expiresIn},'*');
 setTimeout(function(){window.location.href='${redirectUrl}';},80);
 </script></body></html>`,
         {

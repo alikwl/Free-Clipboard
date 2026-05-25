@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ArrowRight, Check, Clipboard, Clock3, Copy, Layers, Lock } from 'lucide-react';
 
 interface Clip {
   id: string;
@@ -69,85 +70,81 @@ export default function CollectionShareClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#07070a] text-neutral-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900 flex flex-col">
       <title>{`Collection (${clips.length} clips) — FreeClipboard`}</title>
 
-      {/* Ambient background decoration */}
-      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/5 rounded-full blur-[130px] -z-10 pointer-events-none" />
-      <div className="fixed bottom-0 right-1/4 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[140px] -z-10 pointer-events-none" />
-      <div className="fixed top-1/2 left-0 w-[300px] h-[300px] bg-purple-600/3 rounded-full blur-[100px] -z-10 pointer-events-none" />
-
       {/* Header bar */}
-      <header className="border-b border-white/5 bg-neutral-950/60 backdrop-blur-md px-6 py-4 flex items-center justify-between shrink-0 sticky top-0 z-30">
+      <header className="sticky top-0 z-30 shrink-0 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
         <a href="/" className="flex items-center gap-2.5 group">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_12px_26px_rgba(99,102,241,0.24)]">
+            <Clipboard className="h-4 w-4 text-white" />
           </div>
-          <span className="text-sm font-black tracking-tight bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent group-hover:opacity-80 transition-opacity">
-            FreeClipboard
-          </span>
+          <span className="text-sm font-black tracking-tight text-slate-950 transition-colors group-hover:text-indigo-600">FreeClipboard</span>
         </a>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <button
             onClick={handleCopyAll}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+            className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all ${
               copiedAll
-                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-transparent bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_12px_26px_rgba(99,102,241,0.22)] hover:translate-y-[-1px]'
             }`}
           >
             {copiedAll ? (
               <>
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <Check className="h-3.5 w-3.5" />
                 All Copied!
               </>
             ) : (
               <>
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                <Copy className="h-3.5 w-3.5" />
                 Copy All
               </>
             )}
           </button>
           
-          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:flex">
+            <Lock className="h-3 w-3" />
             Collection
           </div>
+        </div>
         </div>
       </header>
 
       {/* Main content grid */}
-      <main className="flex-grow p-6 md:p-12 max-w-5xl w-full mx-auto flex flex-col gap-6">
+      <main className="flex-grow bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_48%,#eef2ff_100%)] px-4 py-8 sm:px-6 sm:py-10">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         
         {/* Collection summary header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02] border border-white/5 rounded-2xl p-5 backdrop-blur-lg">
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(148,163,184,0.14)] md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-black text-neutral-100 tracking-tight flex items-center gap-2">
+            <h1 className="flex flex-wrap items-center gap-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
               Shared Collection Page
-              <span className="text-xs bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
+              <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 font-mono text-xs font-bold text-indigo-700">
                 {clips.length} {clips.length === 1 ? 'Clip' : 'Clips'}
               </span>
             </h1>
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="mt-2 text-sm text-slate-600">
               Select and copy individual snippets or copy the entire page content.
             </p>
           </div>
 
           {shareExpiresAt && mounted && (
-            <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-[11px] font-bold ${
+            <div className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[11px] font-bold ${
               timeLeft === 'Expired'
-                ? 'bg-rose-500/5 border-rose-500/25 text-rose-300'
-                : 'bg-amber-500/5 border-amber-500/25 text-amber-300'
+                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                : 'border-amber-200 bg-amber-50 text-amber-800'
             }`}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <Clock3 className="h-3.5 w-3.5" />
               <span>{timeLeft}</span>
             </div>
           )}
         </div>
 
         {/* Clip cards grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {clips.map((clip, index) => {
             const dateStr = mounted
               ? new Date(clip.created_at).toLocaleDateString(undefined, {
@@ -158,46 +155,46 @@ export default function CollectionShareClient({
             return (
               <div
                 key={clip.id}
-                className="border border-white/5 bg-neutral-900/30 backdrop-blur-md rounded-2xl flex flex-col justify-between overflow-hidden shadow-lg transition-transform hover:-translate-y-0.5 duration-200"
+                className="flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(148,163,184,0.12)] transition-transform duration-200 hover:-translate-y-0.5"
               >
                 {/* Header */}
-                <div className="px-5 py-4 border-b border-white/5 bg-black/15 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-4 sm:px-5">
                   <div className="min-w-0">
-                    <h3 className="text-xs font-bold text-neutral-200 truncate">{clip.title || `Clip #${index + 1}`}</h3>
-                    <p className="text-[10px] text-neutral-500 font-mono mt-0.5">{dateStr}</p>
+                    <h3 className="truncate text-sm font-bold text-slate-950">{clip.title || `Clip #${index + 1}`}</h3>
+                    <p className="mt-0.5 font-mono text-[10px] text-slate-500">{dateStr}</p>
                   </div>
 
                   <button
                     onClick={() => handleCopySingle(clip.id, clip.content)}
-                    className={`shrink-0 flex items-center justify-center p-2 rounded-lg transition-all border ${
+                    className={`flex shrink-0 items-center justify-center rounded-lg border p-2 transition-all ${
                       copiedClipId === clip.id
-                        ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
-                        : 'bg-white/[0.02] border-white/10 text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.06]'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700'
                     }`}
                     title="Copy clip content"
                   >
                     {copiedClipId === clip.id ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <Check className="h-3.5 w-3.5" />
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                      <Copy className="h-3.5 w-3.5" />
                     )}
                   </button>
                 </div>
 
                 {/* Content area */}
-                <div className="p-5 flex-grow">
-                  <pre className="text-[11px] text-neutral-300 font-mono leading-relaxed whitespace-pre-wrap break-words bg-black/20 border border-white/5 rounded-xl p-4 max-h-48 overflow-y-auto select-text">
+                <div className="flex-grow p-4 sm:p-5">
+                  <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-[12px] leading-6 text-slate-700 select-text">
                     {clip.content}
                   </pre>
                 </div>
 
                 {/* Tags footer */}
                 {clip.tags.length > 0 && (
-                  <div className="px-5 py-3 border-t border-white/[0.03] bg-black/5 flex flex-wrap gap-1 shrink-0">
+                  <div className="flex shrink-0 flex-wrap gap-1.5 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:px-5">
                     {clip.tags.map((tag, idx) => (
                       <span
                         key={idx}
-                        className="text-[9px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider"
+                        className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-indigo-700"
                       >
                         {tag}
                       </span>
@@ -211,18 +208,20 @@ export default function CollectionShareClient({
 
         {/* CTA footer */}
         <div className="mt-8 text-center flex flex-col items-center gap-3 shrink-0">
-          <p className="text-xs text-neutral-600">
-            Shared via <span className="text-indigo-400 font-bold">FreeClipboard</span> — your premium cloud clipboard
+          <p className="text-xs text-slate-500">
+            Shared via <span className="font-bold text-indigo-600">FreeClipboard</span> — your premium cloud clipboard
           </p>
           <a
             href="/"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-all shadow-md shadow-indigo-500/5"
+            className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
-            Create your own clip page →
+            <Layers className="h-3.5 w-3.5" />
+            Create your own clip page
+            <ArrowRight className="h-3.5 w-3.5" />
           </a>
         </div>
 
+        </div>
       </main>
     </div>
   );

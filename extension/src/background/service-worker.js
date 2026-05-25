@@ -20,7 +20,9 @@ const state = {
   lastSyncTime: 0,
   pendingChanges: 0,
   initialized: false,
-  listenersRegistered: false
+  listenersRegistered: false,
+  lastAuthNotifyAt: 0,
+  lastSyncNotifyAt: 0
 };
 let initializePromise = null;
 
@@ -99,6 +101,9 @@ function handleMessage(request, sender, sendResponse) {
     'GET_SESSION': handleGetSession,
     'SIGN_OUT': handleSignOut,
     'SIGN_IN_GOOGLE': handleSignInGoogle,
+    'COMPLETE_WEB_AUTH': handleCompleteWebAuth,
+    'COMPLETE_WEB_AUTH_TOKEN': handleCompleteWebAuthToken,
+    'CLOSE_AUTH_WINDOW': handleCloseAuthWindow,
     'SAVE_SETTINGS': handleSaveSettings,
     'SHOW_FEEDBACK': handleShowFeedback
   };
@@ -114,6 +119,7 @@ async function handleSignInGoogle(data, sender) {
     }
 
     const authData = await state.supabase.signInWithGoogle();
+    await uploadPendingLocalClips();
     await syncFromServer();
     console.log('[FreeClipboard] OAuth sign in successful');
 
@@ -128,8 +134,8 @@ async function handleSignInGoogle(data, sender) {
     // Categorize error for better user feedback
     let userError = errorMsg;
     
-    if (errorMsg.includes('user') || errorMsg.includes('cancelled')) {
-      userError = 'Authentication was cancelled';
+    if (errorMsg.includes('user') || errorMsg.includes('cancelled') || errorMsg.includes('approve access')) {
+      userError = 'Chrome sign-in was not approved. Open freeclipboard.com/login, sign in, then reopen the extension.';
     } else if (errorMsg.includes('Chrome') || errorMsg.includes('Identity')) {
       userError = 'Chrome Identity API error - please reinstall the extension';
     } else if (errorMsg.includes('Authorization') || errorMsg.includes('load')) {
@@ -140,6 +146,77 @@ async function handleSignInGoogle(data, sender) {
 
     throw new Error(userError);
   }
+}
+
+async function openWebsiteLoginFallback() {
+  const loginUrl = 'https://freeclipboard.com/login?extension=1';
+
+  try {
+    await chrome.tabs.create({ url: loginUrl, active: true });
+  } catch {
+    await chrome.windows.create({
+      url: loginUrl,
+      type: 'popup',
+      width: 820,
+      height: 760,
+      focused: true
+    });
+  }
+}
+
+async function handleCompleteWebAuth(data, sender) {
+  if (!data?.url) {
+    throw new Error('Missing authentication callback URL');
+  }
+
+  if (!state.supabase) {
+    state.supabase = await getSupabase();
+    setupSupabaseListeners();
+  }
+
+  const authData = await state.supabase.completeAuthFromUrl(data.url);
+  await uploadPendingLocalClips();
+  await syncFromServer();
+  notifyAuthChanged(authData.user);
+  closeAuthSurface(sender);
+
+  return {
+    session: authData.session,
+    user: authData.user
+  };
+}
+
+async function handleCompleteWebAuthToken(data, sender) {
+  if (!data?.accessToken) {
+    throw new Error('Missing authentication token');
+  }
+
+  if (!state.supabase) {
+    state.supabase = await getSupabase();
+    setupSupabaseListeners();
+  }
+
+  const authData = await state.supabase.completeAuthFromToken({
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken || null,
+    expiresIn: data.expiresIn || 3600
+  });
+  await uploadPendingLocalClips();
+  await syncFromServer();
+  notifyAuthChanged(authData.user);
+  if (data.closeAuthWindow === true) {
+    closeAuthSurface(sender);
+  }
+
+  return {
+    session: authData.session,
+    user: authData.user
+  };
+}
+
+async function handleCloseAuthWindow(data, sender) {
+  closeAuthSurface(sender);
+  return { closing: true };
 }
 
 async function handleSaveSettings(data, sender) {
@@ -196,10 +273,12 @@ async function handleShowFeedback(data) {
 
 async function handleCaptureClip(data, sender) {
   const clip = state.crdt.createClip(data.content, {
+    user_id: state.supabase?.session?.user?.id,
     content_type: data.content_type || detectContentType(data.content),
-    source_url: data.source_url || sender.tab?.url,
-    source_title: data.source_title || sender.tab?.title,
+    source_url: data.source_url || data.page_url || sender.tab?.url,
+    source_title: data.source_title || data.page_title || sender.tab?.title,
     source_app: data.source_app || getAppName(sender.tab?.url),
+    sync_status: 'pending',
     metadata: {
       ...data.metadata,
       capture_method: data.source_method || 'manual',
@@ -366,6 +445,7 @@ async function handleSignOut() {
 
 async function processSyncQueue() {
   if (!state.isOnline || state.syncQueue.length === 0) return;
+  if (!state.supabase?.session) return;
   if (state.syncState === 'syncing') return;
 
   state.syncState = 'syncing';
@@ -430,14 +510,40 @@ async function syncFromServer() {
   if (!state.supabase?.session || !state.isOnline) return;
 
   try {
+    await uploadPendingLocalClips();
     const result = await state.supabase.getClips({ limit: 200, offset: 0 });
     for (const clip of result.clips) {
       await saveToLocalDB(clip);
     }
-    notifyUI('clips_synced', { count: result.clips.length });
+  notifyClipsSynced(result.clips.length);
   } catch (err) {
     console.error('[FreeClipboard] Remote sync failed:', err);
   }
+}
+
+async function uploadPendingLocalClips() {
+  if (!state.supabase?.session || !state.isOnline) return;
+
+  const pendingClips = await getPendingLocalClips();
+  if (pendingClips.length === 0) return;
+
+  for (const clip of pendingClips) {
+    try {
+      await state.supabase.saveClip({
+        ...clip,
+        user_id: clip.user_id || state.supabase.session.user.id
+      });
+      await updateLocalSyncStatus(clip.id, 'synced');
+    } catch (err) {
+      console.error('[FreeClipboard] Pending clip upload failed:', err);
+      await updateLocalClip(clip.id, {
+        sync_status: 'failed',
+        sync_error: err.message
+      });
+    }
+  }
+
+  notifyClipsSynced(pendingClips.length);
 }
 
 // ============================================
@@ -876,6 +982,35 @@ async function getLocalClips(limit = 20, offset = 0) {
   });
 }
 
+async function getPendingLocalClips() {
+  const db = await getDB();
+  const tx = db.transaction('clips', 'readonly');
+  const store = tx.objectStore('clips');
+  const txDone = transactionToPromise(tx);
+
+  const clips = [];
+  await new Promise((resolve) => {
+    const request = store.openCursor();
+    request.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (!cursor) {
+        resolve();
+        return;
+      }
+
+      const clip = cursor.value;
+      if (!clip.is_deleted && clip.sync_status !== 'synced') {
+        clips.push(clip);
+      }
+      cursor.continue();
+    };
+    request.onerror = () => resolve();
+  });
+
+  await txDone;
+  return clips;
+}
+
 async function searchLocalClips(query, filters = {}) {
   const db = await getDB();
   const tx = db.transaction('clips', 'readonly');
@@ -1019,4 +1154,54 @@ async function showPageBadge(tabId, text) {
 
 function notifyUI(event, data) {
   chrome.runtime.sendMessage({ type: 'UI_UPDATE', event, data }).catch?.(() => {});
+}
+
+function notifyAuthChanged(user) {
+  const now = Date.now();
+  if (now - state.lastAuthNotifyAt < 1500) return;
+  state.lastAuthNotifyAt = now;
+  notifyUI('auth_changed', { user });
+}
+
+function notifyClipsSynced(count) {
+  if (!count) return;
+
+  const now = Date.now();
+  if (now - state.lastSyncNotifyAt < 1500) return;
+  state.lastSyncNotifyAt = now;
+  notifyUI('clips_synced', { count });
+}
+
+function closeAuthSurface(sender) {
+  const tabId = sender?.tab?.id;
+  const url = sender?.tab?.url || '';
+
+  if (!isAuthCallbackUrl(url)) {
+    console.warn('[FreeClipboard] Refusing to close non-auth tab:', url);
+    return;
+  }
+
+  setTimeout(() => {
+    if (typeof tabId === 'number') {
+      chrome.tabs.remove(tabId).catch((tabErr) => {
+        console.warn('[FreeClipboard] Could not close auth tab:', tabErr?.message || tabErr);
+      });
+    }
+  }, 700);
+}
+
+function isAuthCallbackUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const isFreeClipboard = /(^|\.)freeclipboard\.com$/i.test(parsed.hostname) ||
+      /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname);
+    if (!isFreeClipboard) return false;
+
+    const hashParams = new URLSearchParams(parsed.hash.startsWith('#') ? parsed.hash.slice(1) : parsed.hash);
+    return parsed.pathname === '/extension-connected' ||
+      hashParams.has('access_token') ||
+      hashParams.has('refresh_token');
+  } catch {
+    return false;
+  }
 }

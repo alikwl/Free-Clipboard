@@ -18,6 +18,8 @@ const state = {
   user: null,
   session: null,
   confirmResolver: null,
+  refreshTimer: null,
+  lastRefreshAt: 0,
   settings: {
     auto_capture: true,
     show_tooltip: true,
@@ -155,7 +157,7 @@ async function showDashboard() {
   }
 
   // Load clips
-  await loadClips();
+  await loadClips(true);
 
   // Update stats
   updateStats();
@@ -581,8 +583,12 @@ function setupRealtimeListener() {
     if (message.type === 'UI_UPDATE') {
       const { event, data } = message;
       
-      if (event === 'clip_added' || event === 'clip_updated' || event === 'clip_deleted') {
-        refreshClips();
+      if (event === 'auth_changed') {
+        refreshSessionAndDashboard();
+      }
+
+      if (event === 'clip_added' || event === 'clip_updated' || event === 'clip_deleted' || event === 'clips_synced') {
+        scheduleRefreshClips();
       }
     }
   });
@@ -590,6 +596,25 @@ function setupRealtimeListener() {
 
 async function refreshClips() {
   await loadClips(true);
+}
+
+function scheduleRefreshClips() {
+  clearTimeout(state.refreshTimer);
+  state.refreshTimer = setTimeout(() => {
+    const now = Date.now();
+    if (now - state.lastRefreshAt < 1200) return;
+    state.lastRefreshAt = now;
+    refreshClips();
+  }, 250);
+}
+
+async function refreshSessionAndDashboard() {
+  const sessionResponse = await getSessionWithRetry();
+  if (sessionResponse?.success && sessionResponse.data?.authenticated) {
+    state.user = sessionResponse.data.user;
+    state.session = sessionResponse.data.session;
+    await showDashboard();
+  }
 }
 
 // ============================================

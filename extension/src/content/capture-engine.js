@@ -17,8 +17,15 @@
 
   let lastSelection = '';
   let isEnabled = true;
+  let authHandoffInFlight = false;
 
   function init() {
+    if (completeExtensionAuthFromPage()) {
+      return;
+    }
+
+    setupWebsiteAuthMessageBridge();
+
     chrome.storage.local.get('fc_settings', (result) => {
       const settings = result.fc_settings || {};
       isEnabled = settings.capture_enabled !== false;
@@ -33,6 +40,170 @@
     setupCopyListener();
     setupSelectionListener();
     setupKeyboardListener();
+  }
+
+  function completeExtensionAuthFromPage() {
+    const isFreeClipboardPage = /(^|\.)freeclipboard\.com$/i.test(window.location.hostname) ||
+      /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+    const params = new URLSearchParams(window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash);
+    const hasAuthToken = params.has('access_token') || params.has('refresh_token');
+
+    if (!isFreeClipboardPage || !hasAuthToken) {
+      return false;
+    }
+
+    if (authHandoffInFlight) {
+      return true;
+    }
+
+    authHandoffInFlight = true;
+    const callbackUrl = window.location.href;
+    try {
+      window.history.replaceState(null, document.title, `${window.location.origin}/extension-connected`);
+    } catch {}
+
+    chrome.runtime.sendMessage({
+      type: 'COMPLETE_WEB_AUTH',
+      data: { url: callbackUrl, closeAuthWindow: true }
+    }, (response) => {
+      authHandoffInFlight = false;
+      if (chrome.runtime.lastError || !response?.success) {
+        console.error('[FreeClipboard] Extension auth handoff failed:', chrome.runtime.lastError?.message || response?.error);
+        renderAuthFailed();
+        return;
+      }
+
+      renderAuthComplete();
+      requestAuthWindowClose();
+    });
+
+    renderAuthCompleting();
+    return true;
+  }
+
+  function setupWebsiteAuthMessageBridge() {
+    const isFreeClipboardPage = /(^|\.)freeclipboard\.com$/i.test(window.location.hostname) ||
+      /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+
+    if (!isFreeClipboardPage) {
+      return;
+    }
+
+    consumeStoredWebsiteAuth();
+    setTimeout(consumeStoredWebsiteAuth, 800);
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+
+      const data = event.data || {};
+      if (data.type !== 'FC_AUTH' && data.type !== 'FC_AUTH_TOKEN') {
+        return;
+      }
+
+      const accessToken = data.token || data.access_token || data.accessToken;
+      if (!accessToken) {
+        return;
+      }
+
+      completeAuthTokenHandoff({
+        accessToken,
+        refreshToken: data.refresh_token || data.refreshToken || null,
+        expiresIn: data.expires_in || data.expiresIn || 3600,
+        source: 'website-message',
+        closeAuthWindow: false
+      });
+    });
+  }
+
+  function completeAuthTokenHandoff({ accessToken, refreshToken = null, expiresIn = 3600, source = 'website', closeAuthWindow = false }) {
+    if (authHandoffInFlight || !accessToken) {
+      return;
+    }
+
+    authHandoffInFlight = true;
+    chrome.runtime.sendMessage({
+      type: 'COMPLETE_WEB_AUTH_TOKEN',
+      data: { accessToken, refreshToken, expiresIn, closeAuthWindow }
+    }, (response) => {
+      authHandoffInFlight = false;
+      if (chrome.runtime.lastError || !response?.success) {
+        console.error('[FreeClipboard] Auth token handoff failed:', chrome.runtime.lastError?.message || response?.error);
+        return;
+      }
+      console.log(`[FreeClipboard] ${source} auth connected to extension`);
+      if (closeAuthWindow) {
+        requestAuthWindowClose();
+      }
+    });
+  }
+
+  function requestAuthWindowClose() {
+    setTimeout(() => {
+      chrome.runtime.sendMessage({ type: 'CLOSE_AUTH_WINDOW' }, () => {});
+    }, 450);
+  }
+
+  function consumeStoredWebsiteAuth() {
+    let raw = null;
+    try {
+      raw = window.localStorage.getItem('fc_extension_auth');
+    } catch {
+      return;
+    }
+
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      const accessToken = parsed.token || parsed.access_token || parsed.accessToken;
+      if (!accessToken) return;
+
+      try {
+        window.localStorage.removeItem('fc_extension_auth');
+      } catch {}
+
+      completeAuthTokenHandoff({
+        accessToken,
+        refreshToken: parsed.refreshToken || parsed.refresh_token || null,
+        expiresIn: parsed.expiresIn || parsed.expires_in || 3600,
+        source: 'stored website',
+        closeAuthWindow: false
+      });
+    } catch (err) {
+      console.error('[FreeClipboard] Stored auth payload could not be parsed:', err);
+    }
+  }
+
+  function renderAuthCompleting() {
+    document.documentElement.innerHTML = `
+      <head>
+        <title>FreeClipboard - Signing in</title>
+        <style>
+          body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f8fbff;color:#101828;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+          .card{width:min(360px,calc(100vw - 32px));padding:28px;border:1px solid #e5e7eb;border-radius:18px;background:white;box-shadow:0 20px 60px rgba(15,23,42,.12);text-align:center}
+          .mark{width:52px;height:52px;margin:0 auto 16px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,#5b5cf6,#c33df2);color:white;font-size:26px}
+          h1{margin:0 0 8px;font-size:22px;letter-spacing:0}
+          p{margin:0;color:#667085;font-size:14px;line-height:1.5}
+        </style>
+      </head>
+      <body><div class="card"><div class="mark">✓</div><h1>Connecting extension</h1><p>FreeClipboard is finishing sign in and syncing your saved clips.</p></div></body>
+    `;
+  }
+
+  function renderAuthComplete() {
+    const title = document.querySelector('h1');
+    const text = document.querySelector('p');
+    if (title) title.textContent = 'Extension connected';
+    if (text) text.textContent = 'Signed in. This window will close automatically.';
+  }
+
+  function renderAuthFailed() {
+    const title = document.querySelector('h1');
+    const text = document.querySelector('p');
+    if (title) title.textContent = 'Extension connection failed';
+    if (text) text.textContent = 'Reload the extension, then sign in again from the toolbar.';
   }
 
   function setupCopyListener() {

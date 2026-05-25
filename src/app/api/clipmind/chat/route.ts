@@ -24,6 +24,89 @@ function extractKeywords(text: string): string[] {
     .filter(w => w.length > 2 && !['and', 'the', 'for', 'you', 'with', 'what', 'find', 'show', 'here', 'this', 'that', 'from', 'about', 'most', 'have', 'been', 'were', 'any', 'how', 'who', 'why', 'can'].includes(w));
 }
 
+function formatClipContext(clip: Record<string, unknown>, index: number) {
+  const title = typeof clip.title === 'string' && clip.title.trim() ? clip.title.trim() : `Clip ${index + 1}`;
+  const content = typeof clip.content === 'string' ? clip.content.trim().replace(/\s+/g, ' ') : '';
+  const tags = Array.isArray(clip.tags) ? clip.tags.map(String).filter(Boolean) : [];
+  const savedDate = typeof clip.created_at === 'string'
+    ? new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'unknown date';
+
+  return {
+    title,
+    content,
+    tags,
+    savedDate,
+  };
+}
+
+function createLocalClipMindAnswer(
+  message: string,
+  contextClips: Record<string, unknown>[],
+  totalClipsCount: number,
+  mainTopics: string,
+  mostCommonType: string
+) {
+  const query = message.toLowerCase();
+  const formatted = contextClips.slice(0, 6).map(formatClipContext);
+
+  if (formatted.length === 0) {
+    return `I don't see that in your clipboard history yet.\n\nTry saving a few related clips first, then ask ClipMind again. Your workspace currently has ${totalClipsCount} clip${totalClipsCount === 1 ? '' : 's'}.`;
+  }
+
+  const matching = formatted.filter((clip) => {
+    const haystack = `${clip.title} ${clip.content} ${clip.tags.join(' ')}`.toLowerCase();
+    return extractKeywords(query).some(keyword => haystack.includes(keyword));
+  });
+  const selected = matching.length > 0 ? matching : formatted.slice(0, 4);
+
+  const bullets = selected.map((clip, index) => {
+    const preview = clip.content.length > 180 ? `${clip.content.slice(0, 177).trim()}...` : clip.content;
+    const tagsText = clip.tags.length > 0 ? ` Tags: ${clip.tags.slice(0, 4).join(', ')}.` : '';
+    return `- **${clip.title}** (${clip.savedDate}): ${preview || 'No text preview available.'}${tagsText}`;
+  }).join('\n');
+
+  const prefix = query.includes('summary') || query.includes('summarize')
+    ? 'Here is a local summary from your saved clips:'
+    : 'OpenRouter is unavailable right now, so I searched your local clipboard context instead:';
+
+  return `${prefix}\n\n${bullets}\n\nWorkspace signal: ${totalClipsCount} total clips, main topics: ${mainTopics}, most common type: ${mostCommonType}.\n\nThis is a local fallback answer, so it only uses the clips already visible to ClipMind context.`;
+}
+
+function streamClipMindText(
+  text: string,
+  supabase: SupabaseClient,
+  conversationId: string,
+  userId: string,
+  userMessage: string
+) {
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const chunks = text.match(/.{1,90}(\s|$)/g) || [text];
+      let fullResponse = '';
+
+      for (const chunk of chunks) {
+        fullResponse += chunk;
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+      }
+
+      await saveConversationMessage(supabase, conversationId, userId, userMessage, fullResponse.trim());
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+
 async function saveConversationMessage(
   supabase: SupabaseClient,
   conversationId: string,
@@ -90,16 +173,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Ensure API Key is configured
-    if (!apiKey) {
-      console.error('OPENROUTER_API_KEY environment variable is not defined.');
-      return NextResponse.json(
-        { error: 'OpenRouter API key is not configured on the server.' },
-        { status: 500 }
-      );
-    }
-
-    // 3. Parse request payload
+    // 2. Parse request payload
     const { message, conversationId, history = [] } = await request.json();
 
     if (!message || typeof message !== 'string') {
@@ -110,7 +184,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'conversationId is required.' }, { status: 400 });
     }
 
-    // 4. Retrieve context: Metadata-based search + Recent clips
+    // 3. Retrieve context: Metadata-based search + Recent clips
     // Fetch clip metadata
     const { data: metaList } = await supabase
       .from('clip_metadata')
@@ -268,7 +342,13 @@ Rules:
       content: h.content
     })).slice(-10); // feed last 10 messages for memory conservation
 
-    // 5. OpenRouter streaming call
+    if (!apiKey) {
+      console.error('OPENROUTER_API_KEY environment variable is not defined. Using local ClipMind fallback.');
+      const fallbackAnswer = createLocalClipMindAnswer(message, contextClips, totalClipsCount, mainTopics, mostCommonType);
+      return streamClipMindText(fallbackAnswer, supabase, conversationId, user.id, message);
+    }
+
+    // 4. OpenRouter streaming call
     let response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -318,10 +398,11 @@ Rules:
     if (!response.ok) {
       const errText = await response.text();
       console.error('All OpenRouter endpoints failed streaming:', errText);
-      return NextResponse.json({ error: 'Failed to contact the AI model.' }, { status: 502 });
+      const fallbackAnswer = createLocalClipMindAnswer(message, contextClips, totalClipsCount, mainTopics, mostCommonType);
+      return streamClipMindText(fallbackAnswer, supabase, conversationId, user.id, message);
     }
 
-    // 6. Pipe SSE response to client
+    // 5. Pipe SSE response to client
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 

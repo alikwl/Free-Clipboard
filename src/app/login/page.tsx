@@ -32,10 +32,18 @@ function LoginContent() {
   const broadcastAuthToken = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
+      const payload = {
+        token: session.access_token,
+        refreshToken: session.refresh_token,
+        expiresIn: session.expires_in,
+      };
+
+      window.localStorage.setItem('fc_extension_auth', JSON.stringify(payload));
+
       const targetOrigin = window.location.origin || 'https://freeclipboard.com';
       window.postMessage({
         type: 'FC_AUTH_TOKEN',
-        token: session.access_token,
+        ...payload,
         source: 'freeclipboard_website'
       }, targetOrigin);
     }

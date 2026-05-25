@@ -53,6 +53,13 @@ import {
   RefreshCw,
   Brain,
   BarChart3,
+  Bot,
+  Code2,
+  FileText,
+  ListChecks,
+  ScanText,
+  Tags,
+  Wand2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import ProGate from '@/components/pro-gate';
@@ -71,6 +78,29 @@ interface Clip {
   pinned: boolean;
   folder_id?: string;
   created_at: string;
+  metadata?: ClipEntities;
+}
+
+interface ClipVersionSnapshot {
+  content: string;
+  title?: string | null;
+  tags: string[];
+  pinned: boolean;
+  folder_id?: string | null;
+  saved_at: string;
+}
+
+interface ClipEntities {
+  is_deleted?: boolean;
+  deleted_at?: string | null;
+  source_url?: string;
+  source_title?: string;
+  source_app?: string;
+  favicon?: string;
+  code_language?: string;
+  capture_method?: string;
+  last_used_at?: string;
+  version_history?: ClipVersionSnapshot[];
 }
 
 interface Folder {
@@ -115,7 +145,7 @@ const getStoredUserPlan = (): 'free' | 'pro' | null => {
 
 interface SyncQueueItem {
   id: string;
-  table: 'clips' | 'folders';
+  table: 'clips' | 'folders' | 'clip_metadata';
   action: 'insert' | 'update' | 'delete';
   payload: {
     id: string;
@@ -127,11 +157,17 @@ interface SyncQueueItem {
     name?: string;
     color?: string | null;
     created_at?: string;
+    clip_id?: string;
+    entities?: ClipEntities;
+    clip_type?: string | null;
   };
 }
 
 type PreviewRenderMode = 'raw' | 'formatted' | 'markdown';
 type DetectedClipContentType = 'markdown' | 'json' | 'html' | 'code' | 'list' | 'plain';
+type NewClipContentMode = 'auto' | DetectedClipContentType;
+type TaskStatus = 'pending' | 'in-progress' | 'done';
+type TaskFilter = 'all' | TaskStatus;
 
 const escapeHtml = (value: string) =>
   value
@@ -304,6 +340,80 @@ const smartFormatContent = (content: string, type: DetectedClipContentType) => {
     .trim();
 };
 
+const TASK_TYPE_TAG = 'TYPE:TASK';
+const TASK_STATUS_PREFIX = 'STATUS:';
+
+const isTaskClip = (clip: Clip) => clip.tags.some(tag => tag.toUpperCase() === TASK_TYPE_TAG);
+
+const getTaskStatus = (clip: Clip): TaskStatus => {
+  const statusTag = clip.tags.find(tag => tag.toUpperCase().startsWith(TASK_STATUS_PREFIX));
+  const status = statusTag?.split(':')[1]?.toLowerCase();
+  return status === 'in-progress' || status === 'done' ? status : 'pending';
+};
+
+const withTaskMetadata = (tags: string[], status: TaskStatus = 'pending') => {
+  const visibleTags = tags.filter(tag => {
+    const upper = tag.toUpperCase();
+    return upper !== TASK_TYPE_TAG && !upper.startsWith(TASK_STATUS_PREFIX);
+  });
+  return [...new Set([...visibleTags, TASK_TYPE_TAG, `${TASK_STATUS_PREFIX}${status.toUpperCase()}`])];
+};
+
+const getVisibleClipTags = (clip: Clip) => clip.tags.filter(tag => {
+  const upper = tag.toUpperCase();
+  return upper !== TASK_TYPE_TAG && !upper.startsWith(TASK_STATUS_PREFIX);
+});
+
+const normalizeClipEntities = (value: unknown): ClipEntities => {
+  if (!value || typeof value !== 'object') return {};
+  const raw = value as Record<string, unknown>;
+  return {
+    is_deleted: raw.is_deleted === true,
+    deleted_at: typeof raw.deleted_at === 'string' ? raw.deleted_at : null,
+    source_url: typeof raw.source_url === 'string' ? raw.source_url : undefined,
+    source_title: typeof raw.source_title === 'string' ? raw.source_title : undefined,
+    source_app: typeof raw.source_app === 'string' ? raw.source_app : undefined,
+    favicon: typeof raw.favicon === 'string' ? raw.favicon : undefined,
+    code_language: typeof raw.code_language === 'string' ? raw.code_language : undefined,
+    capture_method: typeof raw.capture_method === 'string' ? raw.capture_method : undefined,
+    last_used_at: typeof raw.last_used_at === 'string' ? raw.last_used_at : undefined,
+    version_history: Array.isArray(raw.version_history)
+      ? raw.version_history
+          .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+          .map((item) => ({
+            content: typeof item.content === 'string' ? item.content : '',
+            title: typeof item.title === 'string' ? item.title : null,
+            tags: Array.isArray(item.tags) ? item.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+            pinned: Boolean(item.pinned),
+            folder_id: typeof item.folder_id === 'string' ? item.folder_id : null,
+            saved_at: typeof item.saved_at === 'string' ? item.saved_at : new Date().toISOString(),
+          }))
+      : [],
+  };
+};
+
+const isDeletedClip = (clip: Clip) => clip.metadata?.is_deleted === true;
+
+const buildVersionSnapshot = (clip: Clip): ClipVersionSnapshot => ({
+  content: clip.content,
+  title: clip.title || null,
+  tags: [...clip.tags],
+  pinned: clip.pinned,
+  folder_id: clip.folder_id || null,
+  saved_at: new Date().toISOString(),
+});
+
+const withVersionSnapshot = (clip: Clip): ClipEntities => {
+  const current = normalizeClipEntities(clip.metadata);
+  const history = [buildVersionSnapshot(clip), ...(current.version_history || [])].slice(0, 12);
+  return {
+    ...current,
+    version_history: history,
+    is_deleted: false,
+    deleted_at: null,
+  };
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const supabase = createClient();
@@ -317,7 +427,7 @@ export default function Dashboard() {
   const [dataLoading, setDataLoading] = useState(true);
   
   // Navigation & Filtering
-  const [activeFilter, setActiveFilter] = useState<'all' | 'pinned' | 'folder'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'pinned' | 'folder' | 'trash'>('all');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -333,6 +443,9 @@ export default function Dashboard() {
   const [newClipTagsString, setNewClipTagsString] = useState('');
   const [newClipFolderId, setNewClipFolderId] = useState('');
   const [newClipPinned, setNewClipPinned] = useState(false);
+  const [newClipAsTask, setNewClipAsTask] = useState(false);
+  const [newClipContentMode, setNewClipContentMode] = useState<NewClipContentMode>('auto');
+  const [newClipAiOrganize, setNewClipAiOrganize] = useState(true);
   const newClipContentRef = useRef<HTMLTextAreaElement>(null);
   
   // Form states - Folder
@@ -366,6 +479,8 @@ export default function Dashboard() {
   const editClipContentRef = useRef<HTMLTextAreaElement>(null);
   const [editClipFolderId, setEditClipFolderId] = useState('');
   const [editClipPinned, setEditClipPinned] = useState(false);
+  const [editClipAsTask, setEditClipAsTask] = useState(false);
+  const [editClipTaskStatus, setEditClipTaskStatus] = useState<TaskStatus>('pending');
 
   // Duplicate Check States
   const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
@@ -383,13 +498,14 @@ export default function Dashboard() {
 
   // Mobile sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'board' | 'grid' | 'list' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'board' | 'grid' | 'list' | 'table' | 'checklist'>('grid');
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>('all');
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('fc_view_mode');
-      if (saved === 'board' || saved === 'grid' || saved === 'list' || saved === 'table') {
+      if (saved === 'board' || saved === 'grid' || saved === 'list' || saved === 'table' || saved === 'checklist') {
         setViewMode(saved);
       }
     }
@@ -404,7 +520,7 @@ export default function Dashboard() {
     document.documentElement.style.colorScheme = nextTheme;
   }, []);
 
-  const handleSetViewMode = (mode: 'board' | 'grid' | 'list' | 'table') => {
+  const handleSetViewMode = (mode: 'board' | 'grid' | 'list' | 'table' | 'checklist') => {
     setViewMode(mode);
     localStorage.setItem('fc_view_mode', mode);
   };
@@ -631,6 +747,45 @@ export default function Dashboard() {
     }
   };
 
+  const persistClipMetadata = useCallback(async (
+    currentUser: User,
+    clipId: string,
+    entities: ClipEntities,
+    clipType: string | null = null,
+  ) => {
+    const normalizedEntities = normalizeClipEntities(entities);
+    const { data: existingRows, error: existingError } = await supabase
+      .from('clip_metadata')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('clip_id', clipId)
+      .limit(1);
+
+    if (existingError) throw existingError;
+
+    const payload = {
+      user_id: currentUser.id,
+      clip_id: clipId,
+      entities: normalizedEntities,
+      clip_type: clipType || 'other',
+    };
+
+    const existingId = existingRows?.[0]?.id;
+    if (existingId) {
+      const { error } = await supabase
+        .from('clip_metadata')
+        .update(payload)
+        .eq('id', existingId);
+      if (error) throw error;
+      return;
+    }
+
+    const { error } = await supabase
+      .from('clip_metadata')
+      .insert(payload);
+    if (error) throw error;
+  }, [supabase]);
+
   // Fetch Cloud Data
   const fetchData = useCallback(async (currentUser: User) => {
     try {
@@ -650,6 +805,17 @@ export default function Dashboard() {
 
       if (clipsError) throw clipsError;
 
+      const { data: dbClipMetadata, error: clipMetadataError } = await supabase
+        .from('clip_metadata')
+        .select('clip_id, entities')
+        .eq('user_id', currentUser.id);
+
+      if (clipMetadataError) throw clipMetadataError;
+
+      const metadataMap = new Map(
+        (dbClipMetadata || []).map((row) => [row.clip_id, normalizeClipEntities(row.entities)])
+      );
+
       const formattedFolders: Folder[] = (dbFolders || []).map(f => ({
         id: f.id,
         name: f.name,
@@ -665,6 +831,7 @@ export default function Dashboard() {
         pinned: c.pinned,
         folder_id: c.folder_id || undefined,
         created_at: c.created_at,
+        metadata: metadataMap.get(c.id) || {},
       }));
 
       setFolders(formattedFolders);
@@ -686,7 +853,7 @@ export default function Dashboard() {
   }, [supabase, addToast]);
 
   // Enqueue action to local storage sync queue
-  const enqueueAction = useCallback((table: 'clips' | 'folders', action: 'insert' | 'update' | 'delete', payload: SyncQueueItem['payload']) => {
+  const enqueueAction = useCallback((table: 'clips' | 'folders' | 'clip_metadata', action: 'insert' | 'update' | 'delete', payload: SyncQueueItem['payload']) => {
     const queueItem: SyncQueueItem = {
       id: 'sync-' + Math.random().toString(36).substring(2, 9),
       table,
@@ -746,6 +913,13 @@ export default function Dashboard() {
               .eq('id', item.payload.id);
             if (error) throw error;
           }
+        } else if (item.table === 'clip_metadata') {
+          await persistClipMetadata(
+            currentUser,
+            item.payload.clip_id || item.payload.id,
+            item.payload.entities || {},
+            item.payload.clip_type || 'other',
+          );
         } else if (item.table === 'folders') {
           if (item.action === 'insert') {
             const { error } = await supabase
@@ -797,7 +971,7 @@ export default function Dashboard() {
     } else {
       addToast('Some offline changes failed to sync. Will retry when connection stabilizes.', 'warning');
     }
-  }, [supabase, addToast, fetchData]);
+  }, [supabase, addToast, fetchData, persistClipMetadata]);
 
   // --- FETCH SUPABASE SESSION & PLAN ---
   useEffect(() => {
@@ -1555,7 +1729,11 @@ export default function Dashboard() {
           ...prev,
           [clipId]: data.rewritten,
         }));
-        addToast(`Content rewritten in ${tone} tone!`, 'success');
+        if (data.isFallback) {
+          addToast(data.warning || 'AI service is unavailable, so a local smart rewrite was generated.', 'warning');
+        } else {
+          addToast(`Content rewritten in ${tone} tone!`, 'success');
+        }
       } else {
         throw new Error('Invalid API response structure.');
       }
@@ -1800,15 +1978,16 @@ export default function Dashboard() {
     if (!newClipContent.trim()) return;
 
     // Check clip limit for free users
-    if (!isPro && clips.length >= FREE_CLIP_LIMIT) {
+    if (!isPro && liveClips.length >= FREE_CLIP_LIMIT) {
       setIsUpgradeModalOpen(true);
       return;
     }
 
-    const parsedTags = newClipTagsString
+    const parsedTagsBase = newClipTagsString
       .split(',')
       .map(tag => tag.trim().toUpperCase())
       .filter(tag => tag.length > 0);
+    const parsedTags = newClipAsTask ? withTaskMetadata(parsedTagsBase, 'pending') : parsedTagsBase;
 
     const clipData = {
       title: newClipTitle.trim() || undefined,
@@ -1828,6 +2007,64 @@ export default function Dashboard() {
     executeCreateClip(clipData);
   };
 
+  const getNewClipDetectedType = () => (
+    newClipContentMode === 'auto'
+      ? detectClipContentType(newClipContent)
+      : newClipContentMode
+  );
+
+  const inferClipTitle = () => {
+    const content = newClipContent.trim();
+    if (!content) {
+      addToast('Paste content first so AI Assist can infer a title.', 'info');
+      return;
+    }
+
+    const firstLine = content.split('\n').map(line => line.trim()).find(Boolean) || '';
+    const urlMatch = content.match(/https?:\/\/[^\s)]+/);
+    const titleSource = urlMatch
+      ? urlMatch[0].replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0]
+      : firstLine.replace(/^#{1,6}\s*/, '').replace(/^[-*]\s*/, '');
+
+    const title = titleSource.length > 60 ? `${titleSource.slice(0, 57).trim()}...` : titleSource;
+    setNewClipTitle(title || 'Saved clipboard note');
+    addToast('Smart title generated.', 'success');
+  };
+
+  const suggestClipTags = () => {
+    const content = newClipContent.toLowerCase();
+    const detectedType = getNewClipDetectedType();
+    if (!content.trim()) {
+      addToast('Paste content first so AI Assist can suggest tags.', 'info');
+      return;
+    }
+
+    const tagCandidates = new Set<string>();
+    if (detectedType !== 'plain') tagCandidates.add(detectedType.toUpperCase());
+    if (/https?:\/\//.test(content)) tagCandidates.add('LINK');
+    if (/(meeting|agenda|notes|action item|follow up)/.test(content)) tagCandidates.add('NOTES');
+    if (/(todo|task|checklist|deadline)/.test(content)) tagCandidates.add('TASKS');
+    if (/(react|next\.?js|typescript|javascript|css|tailwind|api|function|const )/.test(content)) tagCandidates.add('CODE');
+    if (/(research|source|paper|citation|reference)/.test(content)) tagCandidates.add('RESEARCH');
+    if (/(prompt|ai|model|openai|gemini|claude)/.test(content)) tagCandidates.add('AI');
+    if (tagCandidates.size === 0) tagCandidates.add('CLIP');
+
+    setNewClipTagsString(Array.from(tagCandidates).slice(0, 5).join(', '));
+    addToast('Smart tags suggested.', 'success');
+  };
+
+  const formatNewClipContent = () => {
+    const content = newClipContent.trim();
+    if (!content) {
+      addToast('Paste content first so AI Assist can clean it up.', 'info');
+      return;
+    }
+
+    const formatted = smartFormatContent(content, getNewClipDetectedType());
+    setNewClipContent(formatted);
+    addToast('Content cleaned and formatted.', 'success');
+  };
+
   const executeCreateClip = async (clipData: {
     title?: string;
     content: string;
@@ -1841,6 +2078,7 @@ export default function Dashboard() {
       id: generateUUID(),
       ...clipData,
       created_at: new Date().toISOString(),
+      metadata: {},
     };
 
     const updated = [newClip, ...clips];
@@ -1876,6 +2114,9 @@ export default function Dashboard() {
     setNewClipTagsString('');
     setNewClipFolderId('');
     setNewClipPinned(false);
+    setNewClipAsTask(false);
+    setNewClipContentMode('auto');
+    setNewClipAiOrganize(true);
     setIsNewClipOpen(false);
     addToast('Clip created successfully!', 'success');
 
@@ -1887,7 +2128,7 @@ export default function Dashboard() {
     });
 
     // Trigger background auto-tagging and RAG analysis silently if user is Pro
-    if (userPlan === 'pro') {
+    if (userPlan === 'pro' && newClipAiOrganize) {
       triggerSilentAutoTag(newClip.id, newClip.content);
       triggerRAGAnalyze(newClip.id, newClip.content);
     }
@@ -1897,9 +2138,11 @@ export default function Dashboard() {
     setEditingClip(clip);
     setEditClipTitle(clip.title || '');
     setEditClipContent(clip.content);
-    setEditClipTagsString(clip.tags.join(', '));
+    setEditClipTagsString(getVisibleClipTags(clip).join(', '));
     setEditClipFolderId(clip.folder_id || '');
     setEditClipPinned(clip.pinned);
+    setEditClipAsTask(isTaskClip(clip));
+    setEditClipTaskStatus(getTaskStatus(clip));
     setIsEditClipOpen(true);
   };
 
@@ -1920,10 +2163,11 @@ export default function Dashboard() {
     e.preventDefault();
     if (!editingClip || !editClipContent.trim()) return;
 
-    const parsedTags = editClipTagsString
+    const parsedTagsBase = editClipTagsString
       .split(',')
       .map(tag => tag.trim().toUpperCase())
       .filter(tag => tag.length > 0);
+    const parsedTags = editClipAsTask ? withTaskMetadata(parsedTagsBase, editClipTaskStatus) : parsedTagsBase;
 
     const clipData = {
       id: editingClip.id,
@@ -1956,9 +2200,12 @@ export default function Dashboard() {
   }) => {
     if (!user || !clipData.id) return;
 
-    const updated = clips.map(c => 
-      c.id === clipData.id 
-        ? { ...c, ...clipData } 
+    const existingClip = clips.find((clip) => clip.id === clipData.id);
+    const nextMetadata = existingClip ? withVersionSnapshot(existingClip) : {};
+
+    const updated = clips.map(c =>
+      c.id === clipData.id
+        ? { ...c, ...clipData, metadata: { ...normalizeClipEntities(c.metadata), ...nextMetadata } }
         : c
     );
     setClips(updated);
@@ -2001,6 +2248,10 @@ export default function Dashboard() {
       };
       enqueueAction('clips', 'update', updatePayload);
       addToast('Saved locally. Will sync when online.', 'info');
+    }
+
+    if (existingClip) {
+      await persistClipEntities(clipData.id, nextMetadata, existingClip.metadata?.code_language ? 'code' : 'other');
     }
 
     setIsEditClipOpen(false);
@@ -2058,6 +2309,72 @@ export default function Dashboard() {
     addToast(isPinnedNow ? 'Clip pinned to top!' : 'Clip unpinned.', 'success');
   };
 
+  const persistClipTags = async (id: string, tags: string[], successMessage: string) => {
+    const updated = clips.map((clip) => clip.id === id ? { ...clip, tags } : clip);
+    setClips(updated);
+    localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updated));
+
+    if (navigator.onLine && user) {
+      try {
+        const { error } = await supabase
+          .from('clips')
+          .update({ tags })
+          .eq('id', id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to sync task metadata:', err);
+        enqueueAction('clips', 'update', { id, tags });
+        addToast('Task metadata saved locally. Will sync when online.', 'info');
+      }
+    } else {
+      enqueueAction('clips', 'update', { id, tags });
+      addToast('Task metadata saved locally. Will sync when online.', 'info');
+    }
+
+    addToast(successMessage, 'success');
+  };
+
+  const persistClipEntities = async (clipId: string, entities: ClipEntities, clipType = 'other') => {
+    if (!user) return;
+
+    const normalizedEntities = normalizeClipEntities(entities);
+    let updatedClips: Clip[] = [];
+    setClips((prev) => {
+      updatedClips = prev.map((clip) =>
+        clip.id === clipId
+          ? { ...clip, metadata: { ...normalizeClipEntities(clip.metadata), ...normalizedEntities } }
+          : clip
+      );
+      localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updatedClips));
+      return updatedClips;
+    });
+
+    if (navigator.onLine) {
+      try {
+        await persistClipMetadata(user, clipId, normalizedEntities, clipType);
+      } catch (err) {
+        console.error('Failed to sync clip metadata:', err);
+        enqueueAction('clip_metadata', 'update', { id: clipId, clip_id: clipId, entities: normalizedEntities, clip_type: clipType });
+        addToast('Clip metadata saved locally. Will sync when online.', 'info');
+      }
+    } else {
+      enqueueAction('clip_metadata', 'update', { id: clipId, clip_id: clipId, entities: normalizedEntities, clip_type: clipType });
+      addToast('Clip metadata saved locally. Will sync when online.', 'info');
+    }
+  };
+
+  const handleCreateTaskFromClip = async (clip: Clip, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const nextTags = withTaskMetadata(clip.tags, 'pending');
+    await persistClipTags(clip.id, nextTags, 'Clip converted into a pending task.');
+  };
+
+  const handleTaskStatusChange = async (clip: Clip, status: TaskStatus, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const nextTags = withTaskMetadata(clip.tags, status);
+    await persistClipTags(clip.id, nextTags, `Task marked ${status.replace('-', ' ')}.`);
+  };
+
   // Copy Clip Content
   const handleCopyContent = (id: string, text: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -2069,28 +2386,32 @@ export default function Dashboard() {
     e.stopPropagation();
     if (!user) return;
 
-    const updated = clips.filter((c) => c.id !== id);
+    const deletedAt = new Date().toISOString();
+    const updated = clips.map((c) =>
+      c.id === id
+        ? {
+            ...c,
+            metadata: {
+              ...normalizeClipEntities(c.metadata),
+              is_deleted: true,
+              deleted_at: deletedAt,
+            },
+          }
+        : c
+    );
     setClips(updated);
     localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updated));
 
-    if (navigator.onLine) {
-      try {
-        const { error } = await supabase
-          .from('clips')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
-      } catch (err) {
-        console.error('Failed to delete clip from cloud:', err);
-        enqueueAction('clips', 'delete', { id });
-        addToast('Deletion pending sync.', 'info');
-      }
-    } else {
-      enqueueAction('clips', 'delete', { id });
-      addToast('Deletion pending sync.', 'info');
-    }
+    await persistClipEntities(id, { is_deleted: true, deleted_at: deletedAt }, 'other');
 
-    addToast('Clip deleted.', 'info');
+    addToast('Clip moved to trash.', 'info');
+  };
+
+  const handleRestoreClip = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!user) return;
+    await persistClipEntities(id, { is_deleted: false, deleted_at: null }, 'other');
+    addToast('Clip restored.', 'success');
   };
 
   const executeImportClips = async (importedList: Clip[]) => {
@@ -2335,7 +2656,8 @@ export default function Dashboard() {
   };
 
   const handleOpenNewClipModal = useCallback((isShortcut = false) => {
-    if (userPlan === 'free' && clips.length >= 500) {
+    const activeClipCount = clips.filter((clip) => !isDeletedClip(clip)).length;
+    if (userPlan === 'free' && activeClipCount >= 500) {
       setIsUpgradeModalOpen(true);
       addToast('Clip limit reached! Please upgrade to Pro.', 'warning');
     } else {
@@ -2344,7 +2666,7 @@ export default function Dashboard() {
         addToast('Quick-Add Modal opened!', 'info');
       }
     }
-  }, [clips.length, userPlan, addToast]);
+  }, [clips, userPlan, addToast]);
 
   // Global Keyboard Shortcuts Effect
   useEffect(() => {
@@ -2361,7 +2683,21 @@ export default function Dashboard() {
   }, [handleOpenNewClipModal]);
 
   // --- FILTERING LOGIC ---
+  const liveClips = clips.filter((clip) => !isDeletedClip(clip));
+  const trashedClips = clips.filter((clip) => isDeletedClip(clip));
+
   const filteredClips = clips.filter((clip) => {
+    if (activeFilter === 'trash') {
+      if (!isDeletedClip(clip)) return false;
+    } else if (isDeletedClip(clip)) {
+      return false;
+    }
+
+    if (viewMode === 'checklist') {
+      if (!isTaskClip(clip)) return false;
+      if (taskFilter !== 'all' && getTaskStatus(clip) !== taskFilter) return false;
+    }
+
     // 1. Sidebar Category/Folder filtering
     if (activeFilter === 'pinned' && !clip.pinned) return false;
     if (activeFilter === 'folder') {
@@ -2401,8 +2737,13 @@ export default function Dashboard() {
       ? 'All Synced Clips'
       : activeFilter === 'pinned'
       ? 'Pinned Clips'
+      : activeFilter === 'trash'
+      ? 'Trash'
       : `Folder: ${activeFolder?.name || 'Clips'}`;
   const workspaceSubtitle =
+    activeFilter === 'trash'
+      ? 'Deleted clips stay here until you restore them.'
+      :
     activeFilter === 'folder'
       ? `Viewing workspace clips filed under ${activeFolder?.name}`
       : 'Manage, organize, preview, and share your synced clipboard workspace.';
@@ -2451,6 +2792,29 @@ export default function Dashboard() {
   const previewContentType = previewingClip ? detectClipContentType(previewingClip.content) : 'plain';
   const previewFormattedContent = previewingClip ? smartFormatContent(previewingClip.content, previewContentType) : '';
   const previewMarkdownHtml = previewingClip ? markdownToHtml(previewingClip.content) : '';
+  const taskClips = clips.filter(isTaskClip);
+  const taskCounts = taskClips.reduce(
+    (acc, clip) => {
+      acc[getTaskStatus(clip)] += 1;
+      return acc;
+    },
+    { pending: 0, 'in-progress': 0, done: 0 } as Record<TaskStatus, number>
+  );
+  const completedTaskCount = taskCounts.done;
+  const taskProgress = taskClips.length > 0 ? Math.round((completedTaskCount / taskClips.length) * 100) : 0;
+  const newClipDetectedType = getNewClipDetectedType();
+  const newClipWordCount = newClipContent.trim() ? newClipContent.trim().split(/\s+/).length : 0;
+  const newClipCharCount = newClipContent.length;
+  const newClipDuplicate = newClipContent.trim()
+    ? clips.find(c => c.content.trim() === newClipContent.trim())
+    : undefined;
+  const newClipModeOptions: { value: NewClipContentMode; label: string; icon: React.ElementType }[] = [
+    { value: 'auto', label: 'Auto', icon: ScanText },
+    { value: 'plain', label: 'Note', icon: FileText },
+    { value: 'code', label: 'Code', icon: Code2 },
+    { value: 'markdown', label: 'Markdown', icon: ListChecks },
+    { value: 'json', label: 'JSON', icon: Code2 },
+  ];
 
   // Kanban columns partitioning
   const getKanbanColumns = () => {
@@ -2607,7 +2971,7 @@ export default function Dashboard() {
                 All Clips
               </span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${navBadgeClass}`}>
-                {clips.length}
+                {liveClips.length}
               </span>
             </button>
 
@@ -2628,7 +2992,28 @@ export default function Dashboard() {
                 Pinned
               </span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${navBadgeClass}`}>
-                {clips.filter(c => c.pinned).length}
+                {liveClips.filter(c => c.pinned).length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveFilter('trash');
+                setSelectedFolderId(null);
+                setIsSidebarOpen(false);
+              }}
+              className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeFilter === 'trash'
+                  ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                  : `${navTextClass} border border-transparent ${isDarkTheme ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Trash2 className="w-3.5 h-3.5" />
+                Trash
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${navBadgeClass}`}>
+                {trashedClips.length}
               </span>
             </button>
 
@@ -3212,40 +3597,40 @@ export default function Dashboard() {
         <main className="flex-grow p-3.5 md:p-6 xl:p-8 pb-28 md:pb-8 overflow-y-auto scrollbar-thin">
           
           {/* --- LIMIT WARNING BANNER --- */}
-          {isPlanResolved && userPlan === 'free' && clips.length >= 450 && (
+          {isPlanResolved && userPlan === 'free' && liveClips.length >= 450 && (
             <div className={`mb-4 md:mb-6 p-3 md:p-4 rounded-xl border backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 animate-in slide-in-from-top duration-300 shadow-xl ${
-              clips.length >= 500
+              liveClips.length >= 500
                 ? 'border-rose-500/20 bg-rose-500/5 text-rose-300'
-                : clips.length >= 490
+                : liveClips.length >= 490
                 ? 'border-orange-500/20 bg-orange-500/5 text-orange-300'
                 : 'border-amber-500/20 bg-amber-500/5 text-amber-300'
             }`}>
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${
-                  clips.length >= 500
+                  liveClips.length >= 500
                     ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                    : clips.length >= 490
+                    : liveClips.length >= 490
                     ? 'bg-orange-500/10 border-orange-500/20 text-orange-400'
                     : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
                 }`}>
-                  {clips.length >= 500 ? <X className="w-4 h-4 animate-pulse" /> :
-                   clips.length >= 490 ? <AlertCircle className="w-4 h-4 animate-pulse" /> :
+                  {liveClips.length >= 500 ? <X className="w-4 h-4 animate-pulse" /> :
+                   liveClips.length >= 490 ? <AlertCircle className="w-4 h-4 animate-pulse" /> :
                    <Info className="w-4 h-4" />}
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-neutral-200 truncate">
-                    {clips.length >= 500
+                    {liveClips.length >= 500
                       ? 'Free Clip Limit Reached (500/500)'
-                      : clips.length >= 490
-                      ? `Only ${FREE_CLIP_LIMIT - clips.length} clips left!`
-                      : `${FREE_CLIP_LIMIT - clips.length} clips remaining — upgrade`}
+                      : liveClips.length >= 490
+                      ? `Only ${FREE_CLIP_LIMIT - liveClips.length} clips left!`
+                      : `${FREE_CLIP_LIMIT - liveClips.length} clips remaining — upgrade`}
                   </p>
                   <p className="text-[11px] opacity-80 font-medium">
-                    {clips.length >= 500
+                    {liveClips.length >= 500
                       ? "You've built an amazing collection of 500 clips! Upgrade to Pro to keep going — $5/mo"
-                      : clips.length >= 490
+                      : liveClips.length >= 490
                       ? "You're almost at the free limit. Upgrade to Pro for unlimited clips."
-                      : `You have used ${clips.length} out of ${FREE_CLIP_LIMIT} free clips. Upgrade to Pro to unlock unlimited clips.`}
+                      : `You have used ${liveClips.length} out of ${FREE_CLIP_LIMIT} free clips. Upgrade to Pro to unlock unlimited clips.`}
                   </p>
                 </div>
               </div>
@@ -3316,9 +3701,9 @@ export default function Dashboard() {
               </div>
 
               <div className={`flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pt-1`}>
-                <div className="flex items-center gap-2 flex-wrap w-full xl:w-auto">
+              <div className="flex items-center gap-2 flex-wrap w-full xl:w-auto">
               {/* View Mode Switcher */}
-              <div className={`grid grid-cols-4 w-full sm:w-auto sm:flex items-center p-1 rounded-2xl shrink-0 shadow-lg ${mutedSurfaceClass}`}>
+              <div className={`grid grid-cols-5 w-full sm:w-auto sm:flex items-center p-1 rounded-2xl shrink-0 shadow-lg ${mutedSurfaceClass}`}>
                 <button
                   type="button"
                   onClick={() => handleSetViewMode('board')}
@@ -3348,6 +3733,21 @@ export default function Dashboard() {
                 >
                   <Grid className="w-3.5 h-3.5" />
                   <span>Grid</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetViewMode('checklist')}
+                  className={`px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    viewMode === 'checklist'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm'
+                      : isDarkTheme
+                        ? 'text-neutral-400 hover:text-neutral-200 border border-transparent'
+                        : 'text-slate-500 hover:text-slate-900 border border-transparent'
+                  }`}
+                  title="Checklist task view"
+                >
+                  <ListChecks className="w-3.5 h-3.5" />
+                  <span>Tasks</span>
                 </button>
                 <button
                   type="button"
@@ -3537,11 +3937,141 @@ export default function Dashboard() {
             </div>
           )}
 
+          {viewMode === 'checklist' && (
+            <section className={`mb-4 md:mb-6 rounded-[28px] border p-4 md:p-5 backdrop-blur-xl ${surfaceClass}`}>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${isDarkTheme ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : 'border-emerald-200 bg-emerald-50 text-emerald-600'}`}>
+                      <ListChecks className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>Checklist</p>
+                      <h3 className={`text-lg font-black tracking-tight ${titleTextClass}`}>{completedTaskCount} of {taskClips.length} tasks done</h3>
+                    </div>
+                  </div>
+                  <div className={`mt-4 h-2 overflow-hidden rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-200'}`}>
+                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all" style={{ width: `${taskProgress}%` }} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  {[
+                    { value: 'all' as TaskFilter, label: 'All', count: taskClips.length },
+                    { value: 'pending' as TaskFilter, label: 'Pending', count: taskCounts.pending },
+                    { value: 'in-progress' as TaskFilter, label: 'In Progress', count: taskCounts['in-progress'] },
+                    { value: 'done' as TaskFilter, label: 'Done', count: taskCounts.done },
+                  ].map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => setTaskFilter(filter.value)}
+                      className={`rounded-2xl border px-3 py-2 text-xs font-black transition ${
+                        taskFilter === filter.value
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                          : isDarkTheme
+                            ? 'border-white/10 bg-black/25 text-neutral-400 hover:text-neutral-200'
+                            : 'border-slate-200 bg-white/80 text-slate-600 hover:text-slate-950'
+                      }`}
+                    >
+                      {filter.label} <span className="ml-1 opacity-70">{filter.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* --- CLIPS DYNAMIC VIEWS --- */}
           {dataLoading ? (
             <ClipListSkeleton count={6} />
           ) : sortedClips.length > 0 ? (
             <>
+              {/* CHECKLIST VIEW RENDERING */}
+              {viewMode === 'checklist' && (
+                <div className="grid gap-3">
+                  {sortedClips.map((clip) => {
+                    const clipFolder = folders.find(f => f.id === clip.folder_id);
+                    const status = getTaskStatus(clip);
+                    const visibleTags = getVisibleClipTags(clip);
+                    const statusStyles: Record<TaskStatus, string> = {
+                      pending: isDarkTheme ? 'border-slate-500/20 bg-slate-500/10 text-slate-300' : 'border-slate-200 bg-slate-50 text-slate-700',
+                      'in-progress': 'border-amber-300/40 bg-amber-50 text-amber-700',
+                      done: 'border-emerald-300/40 bg-emerald-50 text-emerald-700',
+                    };
+
+                    return (
+                      <Card
+                        key={clip.id}
+                        onClick={() => openClipPreview(clip)}
+                        className={`rounded-[24px] border p-4 transition-all hover:-translate-y-0.5 ${
+                          isDarkTheme
+                            ? 'border-white/6 bg-neutral-900/35 hover:bg-neutral-900/55'
+                            : 'border-slate-200/80 bg-white/92 shadow-[0_14px_36px_rgba(148,163,184,0.14)] hover:bg-white'
+                        }`}
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${statusStyles[status]}`}>
+                                {status.replace('-', ' ')}
+                              </span>
+                              {clipFolder && (
+                                <span
+                                  className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${isDarkTheme ? 'bg-black/30' : 'bg-white/85'}`}
+                                  style={{ borderColor: `${clipFolder.color}33`, color: clipFolder.color }}
+                                >
+                                  {clipFolder.name}
+                                </span>
+                              )}
+                              <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${subtleTextClass}`}>
+                                {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <h4 className={`text-base font-black leading-snug ${titleTextClass}`}>{clip.title || 'Untitled Task'}</h4>
+                            <p className={`mt-2 line-clamp-2 font-mono text-xs leading-6 ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
+                              {clip.content}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {visibleTags.length > 0 ? visibleTags.slice(0, 4).map((tag, idx) => (
+                                <span key={idx} className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${isDarkTheme ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300' : 'border-indigo-100 bg-indigo-50 text-indigo-600'}`}>
+                                  {tag}
+                                </span>
+                              )) : (
+                                <span className={`text-[10px] ${subtleTextClass}`}>No tags</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            {(['pending', 'in-progress', 'done'] as TaskStatus[]).map((nextStatus) => (
+                              <button
+                                key={nextStatus}
+                                type="button"
+                                onClick={(e) => handleTaskStatusChange(clip, nextStatus, e)}
+                                className={`rounded-xl border px-3 py-2 text-xs font-black capitalize transition ${
+                                  status === nextStatus
+                                    ? statusStyles[nextStatus]
+                                    : isDarkTheme
+                                      ? 'border-white/10 bg-black/25 text-neutral-400 hover:text-neutral-200'
+                                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                                }`}
+                              >
+                                {nextStatus.replace('-', ' ')}
+                              </button>
+                            ))}
+                            <button onClick={(e) => handleSummarize(clip.id, clip.content, e)} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100">
+                              <Sparkles className="mr-1 inline h-3.5 w-3.5" />
+                              Summary
+                            </button>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* GRID VIEW RENDERING */}
               {viewMode === 'grid' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-4">
@@ -3557,6 +4087,7 @@ export default function Dashboard() {
                       pendingRewrites[clip.id] ||
                       activeTranslations[clip.id]
                     );
+                    const visibleTags = getVisibleClipTags(clip);
                     return (
                       <Card 
                         key={clip.id}
@@ -3636,6 +4167,17 @@ export default function Dashboard() {
                                     Pinned
                                   </span>
                                 )}
+                                {isTaskClip(clip) && (
+                                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                    getTaskStatus(clip) === 'done'
+                                      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
+                                      : getTaskStatus(clip) === 'in-progress'
+                                        ? 'border-amber-500/20 bg-amber-500/10 text-amber-500'
+                                        : 'border-slate-500/20 bg-slate-500/10 text-slate-500'
+                                  }`}>
+                                    {getTaskStatus(clip).replace('-', ' ')}
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -3645,7 +4187,7 @@ export default function Dashboard() {
                               </h4>
                               <p className={`text-[11px] ${subtleTextClass}`}>
                                 {clip.content.length} characters
-                                {clip.tags.length > 0 ? ` | ${clip.tags.length} tag${clip.tags.length === 1 ? '' : 's'}` : ''}
+                                {visibleTags.length > 0 ? ` | ${visibleTags.length} tag${visibleTags.length === 1 ? '' : 's'}` : ''}
                                 {hasAiOutput ? ' | AI enhanced' : ''}
                               </p>
                             </div>
@@ -3671,7 +4213,7 @@ export default function Dashboard() {
 
                           {/* Badges and tags */}
                           <div className="flex flex-wrap gap-1.5 overflow-hidden min-h-[24px] shrink-0">
-                            {clip.tags.length > 0 ? clip.tags.slice(0, 3).map((tag, idx) => (
+                            {visibleTags.length > 0 ? visibleTags.slice(0, 3).map((tag, idx) => (
                               <span 
                                 key={idx}
                                 className="text-[9px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider"
@@ -3681,9 +4223,9 @@ export default function Dashboard() {
                             )) : (
                               <span className={`text-[10px] font-medium ${isDarkTheme ? 'text-neutral-600' : 'text-slate-400'}`}>No tags yet</span>
                             )}
-                            {clip.tags.length > 3 && (
+                            {visibleTags.length > 3 && (
                               <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${isDarkTheme ? 'bg-white/5 text-neutral-400 border border-white/5' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                                +{clip.tags.length - 3}
+                                +{visibleTags.length - 3}
                               </span>
                             )}
                           </div>
@@ -3903,6 +4445,16 @@ export default function Dashboard() {
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
+
+                            {!isTaskClip(clip) && (
+                              <button
+                                onClick={(e) => handleCreateTaskFromClip(clip, e)}
+                                className="p-1 rounded-md hover:bg-white/5 text-neutral-500 hover:text-emerald-400 transition-colors border border-transparent flex items-center justify-center"
+                                title="Create task from note"
+                              >
+                                <ListChecks className="w-3.5 h-3.5" />
+                              </button>
+                            )}
 
                             <button
                               onClick={(e) => handleOpenShareModal(clip, e)}
@@ -4695,110 +5247,223 @@ export default function Dashboard() {
 
       {/* 1. NEW CLIP MODAL */}
       <Dialog open={isNewClipOpen} onOpenChange={setIsNewClipOpen}>
-        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-md w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
-          {/* Subtle decoration */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-base font-bold text-neutral-200">Create New Clip</DialogTitle>
-            <DialogDescription className="text-xs text-neutral-500">
-              Enter a title, paste your content, and add organizational tags.
-            </DialogDescription>
+        <DialogContent className="max-h-[92vh] w-[calc(100%-1.25rem)] max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
+          <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-black tracking-tight text-slate-950">Create New Clip</DialogTitle>
+                  <DialogDescription className="mt-1 text-sm leading-6 text-slate-600">
+                    Paste once, then let AI Assist title, tag, format, and organize it.
+                  </DialogDescription>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500">
+                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-700">{newClipDetectedType.toUpperCase()}</span>
+                <span>{newClipWordCount} words</span>
+                <span>{newClipCharCount} chars</span>
+              </div>
+            </div>
           </DialogHeader>
 
-          <form onSubmit={handleCreateClip} className="flex flex-col gap-4">
-            
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Clip Title (optional)</label>
-              <Input
-                type="text"
-                placeholder="React layout component, meeting logs, etc..."
-                value={newClipTitle}
-                onChange={(e) => setNewClipTitle(e.target.value)}
-                className="bg-black/30 border-white/10 text-xs focus:border-indigo-500/40 text-neutral-200 placeholder:text-neutral-600"
-                maxLength={60}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Content (required)</label>
-              <Textarea
-                ref={newClipContentRef}
-                placeholder="Paste code snippet, documentation, or links here..."
-                value={newClipContent}
-                onChange={(e) => setNewClipContent(e.target.value)}
-                onKeyUp={() => {
-                  if (newClipContentRef.current) {
-                    expandSnippetInTextarea(newClipContentRef.current, setNewClipContent);
-                  }
-                }}
-                className="min-h-[140px] bg-black/30 border-white/10 text-xs focus:border-indigo-500/40 text-neutral-200 placeholder:text-neutral-600 resize-y"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Tags (comma-separated)</label>
-                <Input
-                  type="text"
-                  placeholder="CODE, NOTES, V1"
-                  value={newClipTagsString}
-                  onChange={(e) => setNewClipTagsString(e.target.value)}
-                  className="bg-black/30 border-white/10 text-xs focus:border-indigo-500/40 text-neutral-200 placeholder:text-neutral-600"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Assign Folder</label>
-                <select
-                  value={newClipFolderId}
-                  onChange={(e) => setNewClipFolderId(e.target.value)}
-                  className="h-10 w-full rounded-md border border-white/10 bg-black/30 text-xs text-neutral-200 px-3 outline-none focus:border-indigo-500/40"
+          <form onSubmit={handleCreateClip} className="grid gap-0 lg:grid-cols-[1fr_17rem]">
+            <div className="flex flex-col gap-5 p-5 sm:p-6">
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Clip title</label>
+                  <Input
+                    type="text"
+                    placeholder="React layout component, meeting logs, etc..."
+                    value={newClipTitle}
+                    onChange={(e) => setNewClipTitle(e.target.value)}
+                    className="h-11 rounded-xl border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
+                    maxLength={60}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={inferClipTitle}
+                  className="mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
                 >
-                  <option value="">No Folder</option>
-                  {folders.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
+                  <Wand2 className="h-4 w-4" />
+                  Smart Title
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Content</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {newClipModeOptions.map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setNewClipContentMode(value)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black transition ${
+                          newClipContentMode === value
+                            ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800'
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Textarea
+                  ref={newClipContentRef}
+                  placeholder="Paste code, meeting notes, URLs, research snippets, or reusable text here..."
+                  value={newClipContent}
+                  onChange={(e) => setNewClipContent(e.target.value)}
+                  onKeyUp={() => {
+                    if (newClipContentRef.current) {
+                      expandSnippetInTextarea(newClipContentRef.current, setNewClipContent);
+                    }
+                  }}
+                  className="min-h-[220px] resize-y rounded-2xl border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-7 text-slate-800 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
+                  required
+                />
+                {newClipDuplicate && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                    Possible duplicate: {newClipDuplicate.title || 'Untitled clip'}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Tags</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="CODE, NOTES, V1"
+                      value={newClipTagsString}
+                      onChange={(e) => setNewClipTagsString(e.target.value)}
+                      className="h-11 rounded-xl border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={suggestClipTags}
+                      className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-emerald-700 transition hover:bg-emerald-100"
+                      title="Suggest tags"
+                    >
+                      <Tags className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Folder</label>
+                  <select
+                    value={newClipFolderId}
+                    onChange={(e) => setNewClipFolderId(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  >
+                    <option value="">No Folder</option>
+                    {folders.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="checkbox"
-                id="pin-on-creation"
-                checked={newClipPinned}
-                onChange={(e) => setNewClipPinned(e.target.checked)}
-                className="rounded border-white/10 bg-black/30 text-indigo-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 accent-indigo-500 cursor-pointer"
-              />
-              <label 
-                htmlFor="pin-on-creation" 
-                className="text-xs text-neutral-400 select-none cursor-pointer hover:text-neutral-200 transition-colors"
-              >
-                Pin this clip to top of dashboard
+            <aside className="flex flex-col gap-4 border-t border-slate-200 bg-slate-50/80 p-5 sm:p-6 lg:border-l lg:border-t-0">
+              <div className="rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-indigo-600" />
+                  <p className="text-sm font-black text-slate-950">AI Assist</p>
+                </div>
+                <div className="grid gap-2">
+                  <button type="button" onClick={inferClipTitle} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                    <Wand2 className="h-4 w-4" />
+                    Generate title
+                  </button>
+                  <button type="button" onClick={suggestClipTags} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
+                    <Tags className="h-4 w-4" />
+                    Suggest tags
+                  </button>
+                  <button type="button" onClick={formatNewClipContent} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700">
+                    <ScanText className="h-4 w-4" />
+                    Clean format
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-amber-200 hover:bg-amber-50/50">
+                <input
+                  type="checkbox"
+                  checked={newClipPinned}
+                  onChange={(e) => setNewClipPinned(e.target.checked)}
+                  className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-slate-800">Pin to top</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">Keep this clip visible in the dashboard.</span>
+                </span>
               </label>
-            </div>
 
-            <DialogFooter className="mt-4 gap-2">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                onClick={() => setIsNewClipOpen(false)}
-                className="text-neutral-400 hover:text-white hover:bg-white/5 text-xs font-semibold"
-              >
-                Cancel
-              </Button>
-              
-              <Button
-                type="submit"
-                disabled={!newClipContent.trim()}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-5 border-0 shadow-lg shadow-indigo-500/20"
-              >
-                Create Clip
-              </Button>
-            </DialogFooter>
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-emerald-200 hover:bg-emerald-50/50">
+                <input
+                  type="checkbox"
+                  checked={newClipAsTask}
+                  onChange={(e) => setNewClipAsTask(e.target.checked)}
+                  className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 accent-emerald-600"
+                />
+                <span>
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                    <ListChecks className="h-4 w-4 text-emerald-600" />
+                    Create as task
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">Adds it to Checklist as Pending.</span>
+                </span>
+              </label>
 
+              <label className={`flex items-start gap-3 rounded-2xl border p-4 transition ${
+                userPlan === 'pro'
+                  ? 'cursor-pointer border-indigo-200 bg-indigo-50/70'
+                  : 'border-slate-200 bg-white'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={newClipAiOrganize}
+                  onChange={(e) => setNewClipAiOrganize(e.target.checked)}
+                  disabled={userPlan !== 'pro'}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 accent-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <span>
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                    <Brain className="h-4 w-4 text-indigo-600" />
+                    AI organize after save
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    {userPlan === 'pro' ? 'Auto-tag and index this clip for ClipMind.' : 'Available on Pro for auto-tagging and ClipMind indexing.'}
+                  </span>
+                </span>
+              </label>
+
+              <DialogFooter className="mt-auto gap-2 pt-2 sm:space-x-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setIsNewClipOpen(false)}
+                  className="h-11 text-sm font-bold text-slate-600 hover:bg-white hover:text-slate-950"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!newClipContent.trim()}
+                  className="h-11 border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50"
+                >
+                  Create Clip
+                </Button>
+              </DialogFooter>
+            </aside>
           </form>
         </DialogContent>
       </Dialog>
@@ -5057,157 +5722,166 @@ export default function Dashboard() {
 
       {/* 2.7 SHARE CLIP MODAL */}
       <Dialog open={isShareModalOpen} onOpenChange={(open) => { setIsShareModalOpen(open); if (!open) { setSharingClip(null); setShareToken(null); setShareExpiry(null); } }}>
-        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-sm w-[calc(100%-2rem)] rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-          {/* Ambient decoration */}
-          <div className="absolute top-0 right-0 w-36 h-36 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-28 h-28 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <DialogHeader className="mb-4">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0">
-                <Share2 className="w-4 h-4" />
+        <DialogContent className="w-[calc(100%-1.25rem)] max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
+          <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
+                <Share2 className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-sm font-bold text-neutral-200">Share Clip</DialogTitle>
-                <DialogDescription className="text-[11px] text-neutral-500 mt-0.5">
-                  Generate a public read-only link for this clip.
+                <DialogTitle className="text-xl font-black tracking-tight text-slate-950">Share Clip</DialogTitle>
+                <DialogDescription className="mt-1 text-sm leading-6 text-slate-600">
+                  Generate a public read-only link that looks clean on every device.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          {userPlan !== 'pro' && (
-            <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20">
-              <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <p className="text-[10px] text-amber-300/80 font-medium">
-                Free users get temporary 7-day links. <button onClick={() => { setIsShareModalOpen(false); setIsUpgradeModalOpen(true); }} className="underline text-amber-400 hover:text-amber-300 font-semibold">Upgrade to Pro</button> for permanent links.
-              </p>
-            </div>
-          )}
+          <div className="space-y-4 p-5">
+            {userPlan !== 'pro' && (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <p className="text-xs font-semibold leading-5 text-amber-800">
+                  Free users get temporary 7-day links. <button type="button" onClick={() => { setIsShareModalOpen(false); setIsUpgradeModalOpen(true); }} className="font-black underline decoration-amber-400 underline-offset-2 hover:text-amber-600">Upgrade to Pro</button> for permanent links.
+                </p>
+              </div>
+            )}
 
-          {/* Clip Preview */}
-          {sharingClip && (
-            <div className="mb-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
-              <p className="text-xs font-bold text-neutral-300 mb-1 truncate">{sharingClip.title || 'Untitled Clip'}</p>
-              <p className="text-[11px] text-neutral-500 font-mono line-clamp-2 leading-relaxed break-all">
-                {sharingClip.content.substring(0, 100)}{sharingClip.content.length > 100 ? '…' : ''}
-              </p>
-            </div>
-          )}
+            {/* Clip Preview */}
+            {sharingClip && (
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-black text-slate-950">{sharingClip.title || 'Untitled Clip'}</p>
+                  <span className="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">
+                    {detectClipContentType(sharingClip.content).toUpperCase()}
+                  </span>
+                </div>
+                <p className="line-clamp-3 break-words font-mono text-xs leading-6 text-slate-600">
+                  {sharingClip.content.substring(0, 180)}{sharingClip.content.length > 180 ? '...' : ''}
+                </p>
+              </div>
+            )}
 
-          {isGeneratingShare ? (
-            <div className="flex items-center justify-center py-6 gap-3 text-neutral-400">
-              <div className="w-4 h-4 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
-              <span className="text-xs font-semibold">Generating share link...</span>
-            </div>
-          ) : shareToken ? (
-            <div className="flex flex-col gap-3">
-              {/* Share URL */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1">
-                  <Link2 className="w-3 h-3" />
-                  Public Share URL
-                </label>
+            {isGeneratingShare ? (
+              <div className="flex items-center justify-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 py-8 text-indigo-700">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm font-bold">Generating share link...</span>
+              </div>
+            ) : shareToken ? (
+              <div className="flex flex-col gap-4">
+                {/* Share URL */}
                 <div className="flex flex-col gap-2">
-                  <div className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2.5 text-[10px] text-violet-300 font-mono truncate select-all overflow-hidden">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/s/${shareToken}` : `/s/${shareToken}`}
+                  <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    <Link2 className="h-3.5 w-3.5" />
+                    Public share URL
+                  </label>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-6 text-indigo-700">
+                    <span className="block break-all select-all">
+                      {typeof window !== 'undefined' ? `${window.location.origin}/s/${shareToken}` : `/s/${shareToken}`}
+                    </span>
                   </div>
                   <button
                     onClick={handleCopyShareLink}
-                    className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black transition-all ${
                       copiedShareLink
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                        : 'bg-violet-500/10 border-violet-500/20 text-violet-300 hover:bg-violet-500/20'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-transparent bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]'
                     }`}
                   >
                     {copiedShareLink ? (
-                      <><CheckCircle2 className="w-3.5 h-3.5" />Copied to Clipboard!</>
+                      <><CheckCircle2 className="h-4 w-4" />Copied to Clipboard</>
                     ) : (
-                      <><Link2 className="w-3.5 h-3.5" />Copy Share Link</>
+                      <><Link2 className="h-4 w-4" />Copy Share Link</>
                     )}
                   </button>
                 </div>
-              </div>
 
-              {/* Expiry countdown for free users */}
-              {shareExpiry && userPlan === 'free' && (() => {
-                const msLeft = new Date(shareExpiry).getTime() - Date.now();
-                const daysLeft = Math.max(0, Math.floor(msLeft / (1000 * 60 * 60 * 24)));
-                const hoursLeft = Math.max(0, Math.floor((msLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
-                const isExpiringSoon = daysLeft < 2;
-                return (
-                  <div className={`flex items-center gap-2.5 p-3 rounded-lg border ${
-                    isExpiringSoon
-                      ? 'bg-rose-500/5 border-rose-500/20 text-rose-300'
-                      : 'bg-amber-500/5 border-amber-500/20 text-amber-300'
-                  }`}>
-                    <Clock className={`w-4 h-4 shrink-0 ${isExpiringSoon ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`} />
-                    <div className="flex-grow min-w-0">
-                      <p className="text-[11px] font-bold text-neutral-200">
-                        {daysLeft > 0 ? `Expires in ${daysLeft}d ${hoursLeft}h` : `Expires in ${hoursLeft}h`}
-                      </p>
-                      <p className="text-[10px] text-neutral-500 mt-0.5">Pro users get permanent links.</p>
+                {/* Expiry countdown for free users */}
+                {shareExpiry && userPlan === 'free' && (() => {
+                  const msLeft = new Date(shareExpiry).getTime() - Date.now();
+                  const daysLeft = Math.max(0, Math.floor(msLeft / (1000 * 60 * 60 * 24)));
+                  const hoursLeft = Math.max(0, Math.floor((msLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
+                  const isExpiringSoon = daysLeft < 2;
+                  return (
+                    <div className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center ${
+                      isExpiringSoon
+                        ? 'border-rose-200 bg-rose-50 text-rose-800'
+                        : 'border-amber-200 bg-amber-50 text-amber-800'
+                    }`}>
+                      <Clock className={`h-5 w-5 shrink-0 ${isExpiringSoon ? 'text-rose-600' : 'text-amber-600'}`} />
+                      <div className="min-w-0 flex-grow">
+                        <p className="text-sm font-black">
+                          {daysLeft > 0 ? `Expires in ${daysLeft}d ${hoursLeft}h` : `Expires in ${hoursLeft}h`}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">Pro users get permanent links.</p>
+                      </div>
+                      <button
+                        onClick={() => setIsUpgradeModalOpen(true)}
+                        className="shrink-0 rounded-xl bg-amber-500 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-950 transition-all hover:bg-amber-400"
+                      >
+                        Upgrade
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setIsUpgradeModalOpen(true)}
-                      className="shrink-0 px-2 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500 text-neutral-950 hover:bg-amber-400 transition-all shadow-md"
-                    >
-                      Upgrade
-                    </button>
+                  );
+                })()}
+
+                {/* Pro unlimited note */}
+                {userPlan === 'pro' && (
+                  <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                    <Crown className="h-4 w-4 shrink-0 text-amber-600" />
+                    <p className="text-sm font-bold text-amber-800">Pro link — never expires.</p>
                   </div>
-                );
-              })()}
+                )}
 
-              {/* Pro unlimited note */}
-              {userPlan === 'pro' && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10">
-                  <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <p className="text-[11px] text-amber-300/80 font-medium">Pro link — never expires.</p>
+                {/* Revoke link */}
+                <button
+                  onClick={handleRevokeShare}
+                  className="w-fit text-xs font-bold text-slate-500 transition-colors hover:text-rose-600"
+                >
+                  Revoke link & disable sharing
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-200 bg-white text-indigo-600 shadow-sm">
+                  <Link2 className="h-5 w-5" />
                 </div>
-              )}
-
-              {/* Revoke link */}
-              <button
-                onClick={handleRevokeShare}
-                className="text-[11px] text-neutral-600 hover:text-rose-400 transition-colors font-semibold text-left"
-              >
-                Revoke link & disable sharing
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-4 py-4">
-              <p className="text-xs text-neutral-500 text-center">No share link generated yet.</p>
-              <Button
-                onClick={async () => {
-                  if (!sharingClip) return;
-                  setIsGeneratingShare(true);
-                  const token = generateUUID();
-                  const expiresAt = userPlan === 'free'
-                    ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-                    : null;
-                  try {
-                    const { error } = await supabase
-                      .from('clips')
-                      .update({ share_token: token, share_expires_at: expiresAt })
-                      .eq('id', sharingClip.id);
-                    if (error) throw error;
-                    setShareToken(token);
-                    setShareExpiry(expiresAt);
-                    addToast('Share link generated!', 'success');
-                  } catch (err) {
-                    console.error('Error generating share link:', err);
-                    addToast('Failed to generate share link.', 'warning');
-                  } finally {
-                    setIsGeneratingShare(false);
-                  }
-                }}
-                className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 font-bold text-xs px-6 shadow-lg shadow-violet-500/20"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                Generate Share Link
-              </Button>
-            </div>
-          )}
+                <div>
+                  <p className="text-sm font-black text-slate-950">No share link generated yet</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">Create a secure public page for this clip, then copy the URL in one click.</p>
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (!sharingClip) return;
+                    setIsGeneratingShare(true);
+                    const token = generateUUID();
+                    const expiresAt = userPlan === 'free'
+                      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+                      : null;
+                    try {
+                      const { error } = await supabase
+                        .from('clips')
+                        .update({ share_token: token, share_expires_at: expiresAt })
+                        .eq('id', sharingClip.id);
+                      if (error) throw error;
+                      setShareToken(token);
+                      setShareExpiry(expiresAt);
+                      addToast('Share link generated!', 'success');
+                    } catch (err) {
+                      console.error('Error generating share link:', err);
+                      addToast('Failed to generate share link.', 'warning');
+                    } finally {
+                      setIsGeneratingShare(false);
+                    }
+                  }}
+                  className="border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Generate Share Link
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -5222,16 +5896,14 @@ export default function Dashboard() {
           }
         }}
       >
-        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-3xl w-[calc(100%-2rem)] rounded-2xl p-0 shadow-2xl relative overflow-hidden">
+        <DialogContent className="max-h-[92vh] w-[calc(100%-1.25rem)] max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
           {previewingClip && (
             <div className="relative">
-              <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-indigo-500/10 via-transparent to-violet-500/10 pointer-events-none" />
-
-              <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/5 text-left">
+              <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-2 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">
+                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
                         {new Date(previewingClip.created_at).toLocaleDateString(undefined, {
                           month: 'short',
                           day: 'numeric',
@@ -5240,7 +5912,7 @@ export default function Dashboard() {
                       </span>
                       {previewingClip.folder_id && folders.find(f => f.id === previewingClip.folder_id) && (
                         <span
-                          className="rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
+                          className="rounded-full border bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wider"
                           style={{
                             borderColor: `${folders.find(f => f.id === previewingClip.folder_id)?.color}33`,
                             color: folders.find(f => f.id === previewingClip.folder_id)?.color
@@ -5250,25 +5922,56 @@ export default function Dashboard() {
                         </span>
                       )}
                       {previewingClip.pinned && (
-                        <span className="rounded-full border border-yellow-500/15 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-300">
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">
                           Pinned
                         </span>
                       )}
+                      {isDeletedClip(previewingClip) && (
+                        <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                          Trashed
+                        </span>
+                      )}
+                      {isTaskClip(previewingClip) && (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                          Task: {getTaskStatus(previewingClip).replace('-', ' ')}
+                        </span>
+                      )}
                     </div>
-                    <DialogTitle className="text-xl font-black tracking-tight text-neutral-100">
+                    <DialogTitle className="text-2xl font-black tracking-tight text-slate-950">
                       {previewingClip.title || 'Untitled Clip'}
                     </DialogTitle>
-                    <DialogDescription className="text-sm text-neutral-500">
-                      Full clip preview with quick actions for copy, edit, sharing, and better formatting.
+                    <DialogDescription className="text-sm leading-6 text-slate-600">
+                      Unified clip preview with task controls, AI actions, formatting, copy, edit, and share.
                     </DialogDescription>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {isDeletedClip(previewingClip) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={async () => {
+                          await handleRestoreClip(previewingClip.id);
+                          setPreviewingClip({
+                            ...previewingClip,
+                            metadata: {
+                              ...normalizeClipEntities(previewingClip.metadata),
+                              is_deleted: false,
+                              deleted_at: null,
+                            },
+                          });
+                        }}
+                        className="text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                        Restore
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => copyClipText(previewingClip.id, previewingClip.content)}
-                      className="text-xs font-semibold text-neutral-300 hover:text-white hover:bg-white/5"
+                      className="text-xs font-bold text-slate-600 hover:bg-white hover:text-slate-950"
                     >
                       <Clipboard className="w-3.5 h-3.5 mr-1.5" />
                       {copiedClipId === previewingClip.id ? 'Copied' : 'Copy'}
@@ -5280,11 +5983,25 @@ export default function Dashboard() {
                         setIsClipPreviewOpen(false);
                         openEditClipModal(previewingClip);
                       }}
-                      className="text-xs font-semibold text-indigo-300 hover:text-indigo-200 hover:bg-indigo-500/10"
+                      className="text-xs font-bold text-indigo-700 hover:bg-indigo-50"
                     >
                       <Edit2 className="w-3.5 h-3.5 mr-1.5" />
                       Edit
                     </Button>
+                    {!isTaskClip(previewingClip) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={async (e) => {
+                          await handleCreateTaskFromClip(previewingClip, e);
+                          setPreviewingClip({ ...previewingClip, tags: withTaskMetadata(previewingClip.tags, 'pending') });
+                        }}
+                        className="text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                      >
+                        <ListChecks className="w-3.5 h-3.5 mr-1.5" />
+                        Task
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
@@ -5292,7 +6009,7 @@ export default function Dashboard() {
                         setIsClipPreviewOpen(false);
                         await openShareModal(previewingClip);
                       }}
-                      className="text-xs font-semibold text-violet-300 hover:text-violet-200 hover:bg-violet-500/10"
+                      className="text-xs font-bold text-violet-700 hover:bg-violet-50"
                     >
                       <Share2 className="w-3.5 h-3.5 mr-1.5" />
                       Share
@@ -5301,9 +6018,64 @@ export default function Dashboard() {
                 </div>
               </DialogHeader>
 
-              <div className="px-6 py-5 space-y-4">
+              <div className="space-y-4 px-5 py-5 sm:px-6">
+                {isTaskClip(previewingClip) && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-800">
+                      <ListChecks className="h-4 w-4" />
+                      Task status
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {(['pending', 'in-progress', 'done'] as TaskStatus[]).map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={async (e) => {
+                            await handleTaskStatusChange(previewingClip, status, e);
+                            setPreviewingClip({ ...previewingClip, tags: withTaskMetadata(previewingClip.tags, status) });
+                          }}
+                          className={`rounded-xl border px-3 py-2 text-xs font-black capitalize transition ${
+                            getTaskStatus(previewingClip) === status
+                              ? 'border-emerald-300 bg-white text-emerald-700 shadow-sm'
+                              : 'border-emerald-100 bg-emerald-50 text-emerald-700/70 hover:bg-white'
+                          }`}
+                        >
+                          {status.replace('-', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={(e) => handleSummarize(previewingClip.id, previewingClip.content, e)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Summarize
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRewrite(previewingClip.id, previewingClip.content, 'shorter')}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Reformat shorter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTranslate(previewingClip.id, previewingClip.content, 'es')}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-black text-violet-700 transition hover:bg-violet-100"
+                  >
+                    <Languages className="h-4 w-4" />
+                    Translate
+                  </button>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
                     {previewContentType}
                   </span>
                   <button
@@ -5311,8 +6083,8 @@ export default function Dashboard() {
                     onClick={() => setPreviewRenderMode('raw')}
                     className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-all ${
                       previewRenderMode === 'raw'
-                        ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300'
-                        : 'border-white/10 bg-white/[0.02] text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                        ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                        : 'border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
                     Raw
@@ -5322,8 +6094,8 @@ export default function Dashboard() {
                     onClick={() => setPreviewRenderMode('formatted')}
                     className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-all ${
                       previewRenderMode === 'formatted'
-                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
-                        : 'border-white/10 bg-white/[0.02] text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
                     Smart Format
@@ -5334,8 +6106,8 @@ export default function Dashboard() {
                       onClick={() => setPreviewRenderMode('markdown')}
                       className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-all ${
                         previewRenderMode === 'markdown'
-                          ? 'border-violet-500/20 bg-violet-500/10 text-violet-300'
-                          : 'border-white/10 bg-white/[0.02] text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                          ? 'border-violet-200 bg-violet-50 text-violet-700'
+                          : 'border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                       }`}
                     >
                       Markdown Preview
@@ -5344,26 +6116,71 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {previewingClip.tags.length > 0 ? previewingClip.tags.map((tag, idx) => (
+                  {getVisibleClipTags(previewingClip).length > 0 ? getVisibleClipTags(previewingClip).map((tag, idx) => (
                     <span
                       key={idx}
-                      className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300"
+                      className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700"
                     >
                       {tag}
                     </span>
                   )) : (
-                    <span className="text-xs text-neutral-600">No tags attached to this clip yet.</span>
+                    <span className="text-xs text-slate-500">No tags attached to this clip yet.</span>
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-white/5 bg-black/25 p-4">
+                {(previewingClip.metadata?.version_history || []).length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-900">
+                      <Clock className="h-4 w-4 text-slate-500" />
+                      Version history
+                    </div>
+                    <div className="space-y-2">
+                      {(previewingClip.metadata?.version_history || []).slice(0, 5).map((version, index) => (
+                        <div key={`${version.saved_at}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                                {new Date(version.saved_at).toLocaleString()}
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-900">
+                                {version.title || 'Untitled snapshot'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsClipPreviewOpen(false);
+                                openEditClipModal({
+                                  ...previewingClip,
+                                  content: version.content,
+                                  title: version.title || undefined,
+                                  tags: version.tags,
+                                  pinned: version.pinned,
+                                  folder_id: version.folder_id || undefined,
+                                });
+                              }}
+                              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-100"
+                            >
+                              Load into editor
+                            </button>
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-600">
+                            {version.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   {previewRenderMode === 'markdown' && previewContentType === 'markdown' ? (
                     <div
-                      className="max-h-[55vh] overflow-auto text-sm text-neutral-200 scrollbar-thin [&_a]:text-indigo-300 [&_blockquote]:border-l-[3px] [&_blockquote]:border-violet-500/30 [&_blockquote]:pl-4 [&_blockquote]:text-neutral-300 [&_code]:rounded-md [&_code]:bg-white/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-black [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:mb-3 [&_p]:leading-7 [&_pre]:mb-3 [&_pre]:overflow-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-white/5 [&_pre]:bg-black/35 [&_pre]:p-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
+                      className="max-h-[55vh] overflow-auto text-sm text-slate-800 scrollbar-thin [&_a]:text-indigo-600 [&_blockquote]:border-l-[3px] [&_blockquote]:border-violet-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-700 [&_code]:rounded-md [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-black [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:mb-3 [&_p]:leading-7 [&_pre]:mb-3 [&_pre]:overflow-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-white [&_pre]:p-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
                       dangerouslySetInnerHTML={{ __html: previewMarkdownHtml }}
                     />
                   ) : (
-                    <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words text-sm leading-7 text-neutral-200 font-mono scrollbar-thin">
+                    <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words font-mono text-sm leading-7 text-slate-800 scrollbar-thin">
                       {previewRenderMode === 'formatted' ? previewFormattedContent : previewingClip.content}
                     </pre>
                   )}
@@ -5376,32 +6193,36 @@ export default function Dashboard() {
 
       {/* 3. EDIT CLIP MODAL */}
       <Dialog open={isEditClipOpen} onOpenChange={setIsEditClipOpen}>
-        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-md w-[calc(100%-2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-base font-bold text-neutral-200">Edit Clip Details</DialogTitle>
-            <DialogDescription className="text-xs text-neutral-500">
-              Update your clipboard sync card details, tag labels, or folder.
-            </DialogDescription>
+        <DialogContent className="max-h-[92vh] w-[calc(100%-1.25rem)] max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
+          <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
+                <Edit2 className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-black tracking-tight text-slate-950">Edit Clip</DialogTitle>
+                <DialogDescription className="mt-1 text-sm leading-6 text-slate-600">
+                  Tune the clip type, task status, folder, tags, and content in one place.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <form onSubmit={handleSaveEditClip} className="flex flex-col gap-4">
-            
+          <form onSubmit={handleSaveEditClip} className="flex flex-col gap-5 p-5 sm:p-6">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Clip Title (optional)</label>
+              <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Clip title</label>
               <Input
                 type="text"
                 placeholder="React layout component, meeting logs, etc..."
                 value={editClipTitle}
                 onChange={(e) => setEditClipTitle(e.target.value)}
-                className="bg-black/30 border-white/10 text-xs focus:border-indigo-500/40 text-neutral-200 placeholder:text-neutral-600"
+                className="h-11 rounded-xl border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
                 maxLength={60}
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Content (required)</label>
+              <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Content</label>
               <Textarea
                 ref={editClipContentRef}
                 placeholder="Paste code snippet, documentation, or links here..."
@@ -5412,29 +6233,29 @@ export default function Dashboard() {
                     expandSnippetInTextarea(editClipContentRef.current, setEditClipContent);
                   }
                 }}
-                className="min-h-[140px] bg-black/30 border-white/10 text-xs focus:border-indigo-500/40 text-neutral-200 placeholder:text-neutral-600 resize-y font-mono"
+                className="min-h-[190px] resize-y rounded-2xl border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-7 text-slate-800 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Tags (comma-separated)</label>
+                <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Tags</label>
                 <Input
                   type="text"
                   placeholder="CODE, NOTES, V1"
                   value={editClipTagsString}
                   onChange={(e) => setEditClipTagsString(e.target.value)}
-                  className="bg-black/30 border-white/10 text-xs focus:border-indigo-500/40 text-neutral-200 placeholder:text-neutral-600"
+                  className="h-11 rounded-xl border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Assign Folder</label>
+                <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Folder</label>
                 <select
                   value={editClipFolderId}
                   onChange={(e) => setEditClipFolderId(e.target.value)}
-                  className="h-10 w-full rounded-md border border-white/10 bg-black/30 text-xs text-neutral-200 px-3 outline-none focus:border-indigo-500/40"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="">No Folder</option>
                   {folders.map(f => (
@@ -5444,28 +6265,65 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="checkbox"
-                id="edit-pin-on-creation"
-                checked={editClipPinned}
-                onChange={(e) => setEditClipPinned(e.target.checked)}
-                className="rounded border-white/10 bg-black/30 text-indigo-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 accent-indigo-500 cursor-pointer"
-              />
-              <label 
-                htmlFor="edit-pin-on-creation" 
-                className="text-xs text-neutral-400 select-none cursor-pointer hover:text-neutral-200 transition-colors"
-              >
-                Pin this clip to top of dashboard
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:border-amber-200 hover:bg-amber-50/50">
+                <input
+                  type="checkbox"
+                  checked={editClipPinned}
+                  onChange={(e) => setEditClipPinned(e.target.checked)}
+                  className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-slate-800">Pin to top</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">Keep this clip visible in the dashboard.</span>
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:border-emerald-200 hover:bg-emerald-50/50">
+                <input
+                  type="checkbox"
+                  checked={editClipAsTask}
+                  onChange={(e) => setEditClipAsTask(e.target.checked)}
+                  className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 accent-emerald-600"
+                />
+                <span>
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                    <ListChecks className="h-4 w-4 text-emerald-600" />
+                    Task clip
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">Show in Checklist and track progress.</span>
+                </span>
               </label>
             </div>
 
-            <DialogFooter className="mt-4 gap-2">
+            {editClipAsTask && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Task status</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['pending', 'in-progress', 'done'] as TaskStatus[]).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setEditClipTaskStatus(status)}
+                      className={`rounded-xl border px-3 py-2 text-xs font-black capitalize transition ${
+                        editClipTaskStatus === status
+                          ? 'border-emerald-300 bg-white text-emerald-700 shadow-sm'
+                          : 'border-emerald-100 bg-emerald-50 text-emerald-700/70 hover:bg-white'
+                      }`}
+                    >
+                      {status.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 pt-2">
               <Button 
                 type="button" 
                 variant="ghost" 
                 onClick={() => setIsEditClipOpen(false)}
-                className="text-neutral-400 hover:text-white hover:bg-white/5 text-xs font-semibold"
+                className="h-11 text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
               >
                 Cancel
               </Button>
@@ -5473,7 +6331,7 @@ export default function Dashboard() {
               <Button
                 type="submit"
                 disabled={!editClipContent.trim()}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-5 border-0 shadow-lg shadow-indigo-500/20"
+                className="h-11 border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50"
               >
                 Save Changes
               </Button>

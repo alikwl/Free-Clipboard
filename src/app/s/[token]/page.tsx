@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { AlertCircle, ArrowRight } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import SharedClipClient from './SharedClipClient';
 
@@ -57,34 +58,30 @@ export default async function SharedClipPage({ params }: SharedClipPageProps) {
 
     if (isFreeUser) {
       return (
-        <div className="min-h-screen bg-[#07070a] flex items-center justify-center p-6 font-sans relative overflow-hidden">
-          {/* Ambient background decoration */}
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-rose-600/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
-          <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-violet-600/5 rounded-full blur-[100px] -z-10 pointer-events-none" />
-
+        <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_50%,#eef2ff_100%)] p-4 font-sans sm:p-6">
           <div className="max-w-md w-full text-center flex flex-col items-center gap-6">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-rose-500/10 border border-rose-500/20 text-rose-400 shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 shadow-sm">
+              <AlertCircle className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-neutral-100 tracking-tight mb-2">This link has expired</h1>
-              <p className="text-sm text-neutral-400 font-bold mb-4">
+              <h1 className="mb-2 text-xl font-black tracking-tight text-slate-950">This link has expired</h1>
+              <p className="mb-4 text-sm font-bold text-slate-700">
                 Upgrade to Pro for permanent links
               </p>
-              <p className="text-xs text-neutral-500 leading-relaxed max-w-sm mx-auto">
+              <p className="mx-auto max-w-sm text-sm leading-7 text-slate-600">
                 Shared links on the free plan expire after 7 days. Upgrade to Pro to get permanent sharing links, unlimited clip history, and larger page collections.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs">
               <a
                 href="/dashboard"
-                className="w-full text-center px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-amber-500 text-neutral-950 hover:bg-amber-400 transition-all shadow-lg hover:shadow-amber-500/10"
+                className="w-full rounded-xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-4 py-2.5 text-center text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] transition-all hover:translate-y-[-1px]"
               >
                 Upgrade to Pro
               </a>
               <a
                 href="/"
-                className="w-full text-center px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-all"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-slate-700 transition-all hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
               >
                 Back to Home
               </a>
@@ -95,25 +92,23 @@ export default async function SharedClipPage({ params }: SharedClipPageProps) {
     }
 
     return (
-      <div className="min-h-screen bg-[#07070a] flex items-center justify-center p-6 font-sans relative overflow-hidden">
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_50%,#eef2ff_100%)] p-4 font-sans sm:p-6">
         <div className="max-w-md w-full text-center flex flex-col items-center gap-6">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-rose-600/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
-          <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-violet-600/5 rounded-full blur-[100px] -z-10 pointer-events-none" />
-
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-rose-500/10 border border-rose-500/20 text-rose-400 shadow-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 shadow-sm">
+            <AlertCircle className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-lg font-black text-neutral-100 tracking-tight mb-2">This link has expired</h1>
-            <p className="text-sm text-neutral-500 leading-relaxed">
+            <h1 className="mb-2 text-lg font-black tracking-tight text-slate-950">This link has expired</h1>
+            <p className="text-sm leading-7 text-slate-600">
               This shared clip link has expired. Ask the owner to generate a new share link.
             </p>
           </div>
           <a
             href="/"
-            className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-bold text-indigo-700 transition-colors hover:text-indigo-500"
           >
-            Go to FreeClipboard →
+            Go to FreeClipboard
+            <ArrowRight className="h-3.5 w-3.5" />
           </a>
         </div>
       </div>

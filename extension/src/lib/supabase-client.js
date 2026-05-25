@@ -100,55 +100,7 @@ class SupabaseClient {
 
               console.log('[Supabase OAuth] Response URL:', responseUrl);
 
-              const oauthUrl = new URL(responseUrl);
-              const queryParams = new URLSearchParams(oauthUrl.search);
-              const hashParams = new URLSearchParams(oauthUrl.hash.startsWith('#') ? oauthUrl.hash.slice(1) : oauthUrl.hash);
-              const oauthError = queryParams.get('error') || hashParams.get('error');
-              const oauthErrorDescription = queryParams.get('error_description') || hashParams.get('error_description');
-
-              if (oauthError) {
-                reject(new Error(`OAuth provider error: ${oauthErrorDescription || oauthError}`));
-                return;
-              }
-
-              const code = queryParams.get('code');
-              let accessToken = hashParams.get('access_token');
-              let refreshToken = hashParams.get('refresh_token');
-              let expiresIn = Number(hashParams.get('expires_in') || '3600');
-              let sessionPayload = null;
-
-              if (code) {
-                sessionPayload = await this.exchangeCodeForSession(code, redirectUrl);
-                accessToken = sessionPayload.access_token;
-                refreshToken = sessionPayload.refresh_token;
-                expiresIn = Number(sessionPayload.expires_in || '3600');
-              }
-
-              if (!accessToken) {
-                const diagnostic = {
-                  query: oauthUrl.search,
-                  hash: oauthUrl.hash,
-                  pathname: oauthUrl.pathname
-                };
-                reject(new Error(`No OAuth session data received from provider. Diagnostics: ${JSON.stringify(diagnostic)}`));
-                return;
-              }
-
-              const user = await this.fetchUser(accessToken);
-              const session = {
-                access_token: accessToken,
-                refresh_token: refreshToken,
-                token_type: sessionPayload?.token_type || hashParams.get('token_type') || 'bearer',
-                expires_in: expiresIn,
-                expires_at: sessionPayload?.expires_at || (Math.floor(Date.now() / 1000) + expiresIn),
-                provider_token: sessionPayload?.provider_token || hashParams.get('provider_token') || null,
-                provider_refresh_token: sessionPayload?.provider_refresh_token || hashParams.get('provider_refresh_token') || null,
-                user
-              };
-
-              await this.persistSession(session);
-              this.session = session;
-              this.authCallback?.('SIGNED_IN', session);
+              const { session, user } = await this.completeAuthFromUrl(responseUrl, redirectUrl);
               console.log('[Supabase OAuth] Success - session created');
               resolve({ data: { session, user }, error: null });
             } catch (parseErr) {
@@ -328,6 +280,79 @@ class SupabaseClient {
     }
 
     return response.json();
+  }
+
+  async completeAuthFromUrl(responseUrl, redirectTo = null) {
+    const oauthUrl = new URL(responseUrl);
+    const queryParams = new URLSearchParams(oauthUrl.search);
+    const hashParams = new URLSearchParams(oauthUrl.hash.startsWith('#') ? oauthUrl.hash.slice(1) : oauthUrl.hash);
+    const oauthError = queryParams.get('error') || hashParams.get('error');
+    const oauthErrorDescription = queryParams.get('error_description') || hashParams.get('error_description');
+
+    if (oauthError) {
+      throw new Error(`OAuth provider error: ${oauthErrorDescription || oauthError}`);
+    }
+
+    const code = queryParams.get('code');
+    let accessToken = hashParams.get('access_token') || queryParams.get('access_token');
+    let refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token');
+    let expiresIn = Number(hashParams.get('expires_in') || queryParams.get('expires_in') || '3600');
+    let sessionPayload = null;
+
+    if (code) {
+      const redirectUrl = redirectTo || (chrome.identity?.getRedirectURL ? chrome.identity.getRedirectURL() : undefined);
+      sessionPayload = await this.exchangeCodeForSession(code, redirectUrl);
+      accessToken = sessionPayload.access_token;
+      refreshToken = sessionPayload.refresh_token;
+      expiresIn = Number(sessionPayload.expires_in || '3600');
+    }
+
+    if (!accessToken) {
+      const diagnostic = {
+        query: oauthUrl.search,
+        hash: oauthUrl.hash,
+        pathname: oauthUrl.pathname
+      };
+      throw new Error(`No OAuth session data received from provider. Diagnostics: ${JSON.stringify(diagnostic)}`);
+    }
+
+    return this.createSessionFromTokens({
+      accessToken,
+      refreshToken,
+      expiresIn,
+      tokenType: sessionPayload?.token_type || hashParams.get('token_type') || queryParams.get('token_type') || 'bearer',
+      providerToken: sessionPayload?.provider_token || hashParams.get('provider_token') || queryParams.get('provider_token') || null,
+      providerRefreshToken: sessionPayload?.provider_refresh_token || hashParams.get('provider_refresh_token') || queryParams.get('provider_refresh_token') || null,
+      expiresAt: sessionPayload?.expires_at
+    });
+  }
+
+  async createSessionFromTokens({
+    accessToken,
+    refreshToken = null,
+    expiresIn = 3600,
+    tokenType = 'bearer',
+    providerToken = null,
+    providerRefreshToken = null,
+    expiresAt = null
+  }) {
+    const user = await this.fetchUser(accessToken);
+    const normalizedExpiresIn = Number(expiresIn || 3600);
+    const session = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: tokenType,
+      expires_in: normalizedExpiresIn,
+      expires_at: expiresAt || (Math.floor(Date.now() / 1000) + normalizedExpiresIn),
+      provider_token: providerToken,
+      provider_refresh_token: providerRefreshToken,
+      user
+    };
+
+    await this.persistSession(session);
+    this.session = session;
+    this.authCallback?.('SIGNED_IN', session);
+    return { session, user };
   }
 }
 
@@ -687,6 +712,24 @@ class FreeClipboardSupabase {
     return data;
   }
 
+  async completeAuthFromUrl(url) {
+    const authData = await this.client.completeAuthFromUrl(url);
+    this.session = authData.session;
+    this.startRealtimeSubscription();
+    return authData;
+  }
+
+  async completeAuthFromToken({ accessToken, refreshToken = null, expiresIn = 3600 }) {
+    const authData = await this.client.createSessionFromTokens({
+      accessToken,
+      refreshToken,
+      expiresIn
+    });
+    this.session = authData.session;
+    this.startRealtimeSubscription();
+    return authData;
+  }
+
   async signOut() {
     await this.client.auth.signOut();
     this.stopRealtimeSubscription();
@@ -756,7 +799,12 @@ class FreeClipboardSupabase {
   // ============================================
 
   async saveClip(clip) {
+    if (!this.session?.user?.id) {
+      throw new Error('Not authenticated - cannot sync clip without a Supabase user');
+    }
+
     const payload = this.toDatabaseClip(clip);
+    const metadataPayload = this.toClipMetadataPayload(clip);
     console.log('[FreeClipboard Supabase] Saving clip payload:', {
       id: payload.id,
       user_id: payload.user_id,
@@ -767,15 +815,15 @@ class FreeClipboardSupabase {
     });
 
     try {
-      const { data, error } = await this.client
+      const result = await this.client
         .from('clips')
         .upsert(payload, { onConflict: 'id' });
 
-      if (error) throw error;
-      return data;
+      await this.saveClipMetadata(metadataPayload);
+      return result;
     } catch (error) {
       console.error('[FreeClipboard Supabase] saveClip failed:', {
-        message: error?.message,
+        message: error?.message || String(error),
         payload,
         session_user_id: this.session?.user?.id || null
       });
@@ -819,22 +867,29 @@ class FreeClipboardSupabase {
     const { data, error } = await query;
     if (error) throw error;
 
+    const metadataMap = await this.getMetadataMap((data || []).map((record) => record.id));
+
     const clips = (data || [])
-      .map(record => this.fromDatabaseClip(record))
+      .map(record => this.fromDatabaseClip(record, metadataMap.get(record.id)))
       .filter(clip => !type || clip.content_type === type);
 
+    const visibleClips = clips.filter((clip) => !clip.is_deleted);
+
     return {
-      clips,
-      total: clips.length
+      clips: visibleClips,
+      total: visibleClips.length
     };
   }
 
   async deleteClip(id) {
-    return this.client
-      .from('clips')
-      .eq('id', id)
-      .eq('user_id', this.session?.user?.id)
-      .delete();
+    return this.saveClipMetadata({
+      clip_id: id,
+      clip_type: 'other',
+      entities: {
+        is_deleted: true,
+        deleted_at: new Date().toISOString()
+      }
+    });
   }
 
   async toggleFavorite(id, isFavorite) {
@@ -873,12 +928,66 @@ class FreeClipboardSupabase {
     this._session = value;
   }
 
+  async getMetadataMap(clipIds = []) {
+    if (!this.session?.user?.id || clipIds.length === 0) {
+      return new Map();
+    }
+
+    const { data, error } = await this.client
+      .from('clip_metadata')
+      .select('id, clip_id, entities, clip_type')
+      .eq('user_id', this.session.user.id);
+
+    if (error) throw error;
+
+    return new Map(
+      (data || [])
+        .filter((row) => clipIds.includes(row.clip_id))
+        .map((row) => [row.clip_id, row])
+    );
+  }
+
+  async saveClipMetadata({ clip_id, clip_type, entities }) {
+    if (!this.session?.user?.id) {
+      throw new Error('Not authenticated - cannot sync clip metadata without a Supabase user');
+    }
+
+    const { data: existingRows, error: existingError } = await this.client
+      .from('clip_metadata')
+      .select('id')
+      .eq('user_id', this.session.user.id)
+      .eq('clip_id', clip_id)
+      .limit(1);
+
+    if (existingError) throw existingError;
+
+    const normalizedEntities = this.normalizeEntities(entities);
+    const payload = {
+      user_id: this.session.user.id,
+      clip_id,
+      clip_type: clip_type || 'other',
+      entities: normalizedEntities
+    };
+
+    const existingId = existingRows?.[0]?.id;
+    if (existingId) {
+      return this.client
+        .from('clip_metadata')
+        .update(payload)
+        .eq('id', existingId);
+    }
+
+    return this.client
+      .from('clip_metadata')
+      .insert(payload);
+  }
+
   toDatabaseClip(clip) {
     const content = clip.content || '';
 
     return {
       id: clip.id,
-      user_id: clip.user_id || this.session?.user?.id,
+      user_id: this.session?.user?.id,
       content,
       title: clip.title || this.buildTitle(content),
       tags: Array.isArray(clip.tags) ? clip.tags : [],
@@ -887,8 +996,29 @@ class FreeClipboardSupabase {
     };
   }
 
-  fromDatabaseClip(record) {
+  toClipMetadataPayload(clip) {
+    const content = clip.content || '';
+    return {
+      clip_id: clip.id,
+      clip_type: clip.content_type || this.inferContentType(content),
+      entities: {
+        is_deleted: Boolean(clip.is_deleted),
+        deleted_at: clip.deleted_at || null,
+        source_url: clip.source_url || clip.metadata?.source_url || null,
+        source_title: clip.source_title || clip.metadata?.source_title || null,
+        source_app: clip.source_app || clip.metadata?.source_app || null,
+        favicon: clip.metadata?.favicon || this.inferFaviconUrl(clip.source_url || clip.metadata?.source_url || ''),
+        image_url: clip.metadata?.image_url || null,
+        capture_method: clip.metadata?.capture_method || null,
+        code_language: clip.metadata?.code_language || this.detectCodeLanguage(content),
+        version_history: Array.isArray(clip.metadata?.version_history) ? clip.metadata.version_history : [],
+      }
+    };
+  }
+
+  fromDatabaseClip(record, metadataRecord = null) {
     const content = record.content || '';
+    const entities = this.normalizeEntities(metadataRecord?.entities || {});
 
     return {
       id: record.id,
@@ -899,11 +1029,15 @@ class FreeClipboardSupabase {
       content_type: this.inferContentType(content),
       is_favorite: Boolean(record.pinned),
       pinned: Boolean(record.pinned),
-      is_deleted: false,
+      is_deleted: Boolean(entities.is_deleted),
+      deleted_at: entities.deleted_at || null,
       created_at: record.created_at,
       modified_at: record.created_at,
-      source_app: 'FreeClipboard Web',
-      metadata: {},
+      sync_status: 'synced',
+      source_url: entities.source_url || '',
+      source_title: entities.source_title || record.title || null,
+      source_app: entities.source_app || 'FreeClipboard Web',
+      metadata: entities,
       vector_clock: {},
       parent_versions: [],
       merge_conflict: false
@@ -919,6 +1053,31 @@ class FreeClipboardSupabase {
     if (/^https?:\/\//i.test(content)) return 'link';
     if (/(function|const|let|var|class|import|export)\s/m.test(content)) return 'code';
     return 'text';
+  }
+
+  detectCodeLanguage(content) {
+    const normalized = String(content || '');
+    if (!normalized) return null;
+    if (/^\s*<[^>]+>/.test(normalized) || /<\/[a-z]+>/i.test(normalized)) return 'html';
+    if (/\binterface\s+\w+|\btype\s+\w+\s*=|\bimport\s+type\b/.test(normalized)) return 'typescript';
+    if (/\bconst\b|\blet\b|\bfunction\b|\bexport\b/.test(normalized)) return 'javascript';
+    if (/\bdef\b|\bimport\b|\bclass\b/.test(normalized)) return 'python';
+    if (/\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b/i.test(normalized)) return 'sql';
+    if (/\{[\s\S]*:[\s\S]*\}/.test(normalized)) return 'json';
+    return null;
+  }
+
+  inferFaviconUrl(url) {
+    try {
+      return `${new URL(url).origin}/favicon.ico`;
+    } catch {
+      return null;
+    }
+  }
+
+  normalizeEntities(entities) {
+    if (!entities || typeof entities !== 'object') return {};
+    return { ...entities };
   }
 }
 
