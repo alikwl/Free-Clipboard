@@ -881,6 +881,29 @@ export default function Dashboard() {
     if (keep !== 'collection-share') setIsColShareModalOpen(false);
   }, [isMobileViewport]);
 
+  const closePrimaryClipModals = useCallback((keep?: 'new' | 'edit' | 'share' | 'preview') => {
+    if (keep !== 'new') {
+      setIsNewClipOpen(false);
+    }
+    if (keep !== 'edit') {
+      setIsEditClipOpen(false);
+      setEditingClip(null);
+    }
+    if (keep !== 'share') {
+      setIsShareModalOpen(false);
+      setSharingClip(null);
+      setShareToken(null);
+      setShareExpiry(null);
+      setCopiedShareLink(false);
+      setIsGeneratingShare(false);
+    }
+    if (keep !== 'preview') {
+      setIsClipPreviewOpen(false);
+      setPreviewingClip(null);
+      setPreviewRenderMode('raw');
+    }
+  }, []);
+
   const openSidebarDrawer = useCallback(() => {
     closeMobileShellSurfaces('sidebar');
     setIsSidebarOpen(true);
@@ -1891,6 +1914,7 @@ export default function Dashboard() {
 
   // --- SHARE HANDLERS ---
   const openShareModal = async (clip: Clip) => {
+    closePrimaryClipModals('share');
     setSharingClip(clip);
     setIsShareModalOpen(true);
     setCopiedShareLink(false);
@@ -2926,6 +2950,7 @@ export default function Dashboard() {
   };
 
   const openEditClipModal = (clip: Clip) => {
+    closePrimaryClipModals('edit');
     setEditingClip(clip);
     setEditClipTitle(clip.title || '');
     setEditClipContent(clip.content);
@@ -2938,6 +2963,7 @@ export default function Dashboard() {
   };
 
   const openClipPreview = (clip: Clip) => {
+    closePrimaryClipModals('preview');
     setPreviewingClip(clip);
     setPreviewRenderMode('raw');
     setIsClipPreviewOpen(true);
@@ -3454,12 +3480,13 @@ export default function Dashboard() {
       addToast('Clip limit reached! Please upgrade to Pro.', 'warning');
     } else {
       closeMobileShellSurfaces('new-clip');
+      closePrimaryClipModals('new');
       setIsNewClipOpen(true);
       if (isShortcut) {
         addToast('Quick-Add Modal opened!', 'info');
       }
     }
-  }, [clips, userPlan, addToast, closeMobileShellSurfaces]);
+  }, [clips, userPlan, addToast, closeMobileShellSurfaces, closePrimaryClipModals]);
 
   // Global Keyboard Shortcuts Effect
   useEffect(() => {
@@ -4533,6 +4560,11 @@ export default function Dashboard() {
   const newClipDuplicate = newClipContent.trim()
     ? clips.find(c => c.content.trim() === newClipContent.trim())
     : undefined;
+  const safeModalPanelClass = 'safe-modal-panel w-[calc(100vw_-_24px)] max-h-[88dvh] rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-full sm:rounded-2xl';
+  const safeModalFrameClass = 'safe-modal-frame flex max-h-[88dvh] min-h-0 flex-col overflow-hidden';
+  const safeModalHeaderClass = 'safe-modal-header sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-4 py-4 text-left sm:px-6 sm:py-5';
+  const safeModalBodyClass = 'safe-modal-body min-h-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5';
+  const safeModalFooterClass = 'safe-modal-footer sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6';
   const newClipModeOptions: { value: NewClipContentMode; label: string; icon: React.ElementType }[] = [
     { value: 'auto', label: 'Auto', icon: ScanText },
     { value: 'plain', label: 'Note', icon: FileText },
@@ -7117,30 +7149,39 @@ export default function Dashboard() {
 
       {/* 1. NEW CLIP MODAL */}
       <Dialog open={isNewClipOpen} onOpenChange={setIsNewClipOpen}>
-        <DialogContent className="max-h-[94vh] w-[calc(100%_-_1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%_-_1.25rem)] sm:rounded-2xl">
-          <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
-                  <Sparkles className="h-5 w-5" />
+        <DialogContent showCloseButton={false} className={`${safeModalPanelClass} max-w-4xl`}>
+          <div className={safeModalFrameClass}>
+            <DialogHeader className={`${safeModalHeaderClass} pr-14`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <DialogTitle className="text-xl font-black tracking-tight text-slate-950 [overflow-wrap:anywhere]">Create New Clip</DialogTitle>
+                    <DialogDescription className="mt-1 text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]">
+                      Paste once, then let AI Assist title, tag, format, and organize it.
+                    </DialogDescription>
+                  </div>
                 </div>
-                <div>
-                  <DialogTitle className="text-xl font-black tracking-tight text-slate-950">Create New Clip</DialogTitle>
-                  <DialogDescription className="mt-1 text-sm leading-6 text-slate-600">
-                    Paste once, then let AI Assist title, tag, format, and organize it.
-                  </DialogDescription>
+                <div className="flex flex-wrap items-center gap-2 pr-1 text-[11px] font-bold text-slate-500">
+                  <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-700">{newClipDetectedType.toUpperCase()}</span>
+                  <span>{newClipWordCount} words</span>
+                  <span>{newClipCharCount} chars</span>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500">
-                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-700">{newClipDetectedType.toUpperCase()}</span>
-                <span>{newClipWordCount} words</span>
-                <span>{newClipCharCount} chars</span>
-              </div>
-            </div>
-          </DialogHeader>
+              <button
+                type="button"
+                onClick={() => setIsNewClipOpen(false)}
+                className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close create clip modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </DialogHeader>
 
-          <form onSubmit={handleCreateClip} className="grid gap-0 lg:grid-cols-[1fr_17rem]">
-            <div className="flex flex-col gap-5 p-5 sm:p-6">
+            <form onSubmit={handleCreateClip} className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_17rem]">
+              <div className={`${safeModalBodyClass} flex flex-col gap-5`}>
               <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Clip title</label>
@@ -7156,7 +7197,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={inferClipTitle}
-                  className="mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
+                  className="mt-auto inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 text-xs font-black text-indigo-700 transition hover:bg-indigo-100 sm:w-auto"
                 >
                   <Wand2 className="h-4 w-4" />
                   Smart Title
@@ -7194,7 +7235,7 @@ export default function Dashboard() {
                       expandSnippetInTextarea(newClipContentRef.current, setNewClipContent);
                     }
                   }}
-                  className="min-h-[220px] resize-y rounded-2xl border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-7 text-slate-800 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
+                  className="min-h-[220px] max-w-full resize-y rounded-2xl border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-7 text-slate-800 placeholder:text-slate-400 [overflow-wrap:anywhere] focus:border-indigo-300 focus:ring-indigo-200"
                   required
                 />
                 {newClipDuplicate && (
@@ -7218,7 +7259,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={suggestClipTags}
-                      className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-emerald-700 transition hover:bg-emerald-100"
+                      className="inline-flex h-11 w-full shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-emerald-700 transition hover:bg-emerald-100 sm:w-auto"
                       title="Suggest tags"
                     >
                       <Tags className="h-4 w-4" />
@@ -7240,9 +7281,9 @@ export default function Dashboard() {
                   </select>
                 </div>
               </div>
-            </div>
+              </div>
 
-            <aside className="flex flex-col gap-4 border-t border-slate-200 bg-slate-50/80 p-5 sm:p-6 lg:border-l lg:border-t-0">
+            <aside className="safe-card flex min-h-0 flex-col gap-4 border-t border-slate-200 bg-slate-50/80 px-4 py-4 sm:px-6 sm:py-5 lg:overflow-y-auto lg:border-l lg:border-t-0">
               <div className="rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center gap-2">
                   <Bot className="h-4 w-4 text-indigo-600" />
@@ -7316,7 +7357,7 @@ export default function Dashboard() {
                 </span>
               </label>
 
-              <DialogFooter className="mt-auto flex-col-reverse gap-2 pt-2 sm:flex-row sm:space-x-0">
+              <DialogFooter className={`${safeModalFooterClass} mt-auto flex-col-reverse gap-2 rounded-[1.1rem] border border-slate-200 sm:space-x-0 lg:sticky lg:bottom-0 lg:-mx-2 lg:border-x-0 lg:border-b-0 lg:px-2 lg:pb-0`}>
                 <Button
                   type="button"
                   variant="ghost"
@@ -7334,7 +7375,8 @@ export default function Dashboard() {
                 </Button>
               </DialogFooter>
             </aside>
-          </form>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -7592,8 +7634,9 @@ export default function Dashboard() {
 
       {/* 2.7 SHARE CLIP MODAL */}
       <Dialog open={isShareModalOpen} onOpenChange={(open) => { setIsShareModalOpen(open); if (!open) { setSharingClip(null); setShareToken(null); setShareExpiry(null); } }}>
-        <DialogContent className="w-[calc(100%_-_1.25rem)] max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
-          <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left">
+        <DialogContent showCloseButton={false} className={`${safeModalPanelClass} max-w-lg`}>
+          <div className={safeModalFrameClass}>
+          <DialogHeader className={`${safeModalHeaderClass} pr-14`}>
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
                 <Share2 className="h-5 w-5" />
@@ -7605,14 +7648,22 @@ export default function Dashboard() {
                 </DialogDescription>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsShareModalOpen(false)}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Close share clip modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </DialogHeader>
 
-          <div className="space-y-4 p-5">
+          <div className={`${safeModalBodyClass} space-y-4`}>
             {userPlan !== 'pro' && (
               <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                 <p className="text-xs font-semibold leading-5 text-amber-800">
-                  Free users get temporary 7-day links. <button type="button" onClick={() => { setIsShareModalOpen(false); setIsUpgradeModalOpen(true); }} className="font-black underline decoration-amber-400 underline-offset-2 hover:text-amber-600">Upgrade to Pro</button> for permanent links.
+                  Free users get temporary 7-day links. <button type="button" onClick={() => { closePrimaryClipModals(); setIsUpgradeModalOpen(true); }} className="font-black underline decoration-amber-400 underline-offset-2 hover:text-amber-600">Upgrade to Pro</button> for permanent links.
                 </p>
               </div>
             )}
@@ -7621,14 +7672,14 @@ export default function Dashboard() {
             {sharingClip && (
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-black text-slate-950">{sharingClip.title || 'Untitled Clip'}</p>
+                  <p className="min-w-0 text-sm font-black text-slate-950 [overflow-wrap:anywhere]">{sharingClip.title || 'Untitled Clip'}</p>
                   <span className="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">
                     {detectClipContentType(sharingClip.content).toUpperCase()}
                   </span>
                 </div>
-                <p className="line-clamp-3 break-words font-mono text-xs leading-6 text-slate-600">
+                <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-600">
                   {sharingClip.content.substring(0, 180)}{sharingClip.content.length > 180 ? '...' : ''}
-                </p>
+                </pre>
               </div>
             )}
 
@@ -7686,7 +7737,7 @@ export default function Dashboard() {
                         <p className="mt-1 text-xs leading-5 text-slate-600">Pro users get permanent links.</p>
                       </div>
                       <button
-                        onClick={() => setIsUpgradeModalOpen(true)}
+                        onClick={() => { closePrimaryClipModals(); setIsUpgradeModalOpen(true); }}
                         className="shrink-0 rounded-xl bg-amber-500 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-950 transition-all hover:bg-amber-400"
                       >
                         Upgrade
@@ -7704,12 +7755,12 @@ export default function Dashboard() {
                 )}
 
                 {/* Revoke link */}
-                <button
-                  onClick={handleRevokeShare}
-                  className="w-fit text-xs font-bold text-slate-500 transition-colors hover:text-rose-600"
-                >
-                  Revoke link & disable sharing
-                </button>
+                  <button
+                    onClick={handleRevokeShare}
+                    className="w-full text-left text-xs font-bold text-slate-500 transition-colors hover:text-rose-600 sm:w-fit"
+                  >
+                    Revoke link & disable sharing
+                  </button>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-center">
@@ -7752,6 +7803,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -7766,10 +7818,10 @@ export default function Dashboard() {
           }
         }}
       >
-        <DialogContent className="max-h-[94vh] w-[calc(100%_-_1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%_-_1.25rem)] sm:rounded-2xl">
+        <DialogContent showCloseButton={false} className={`${safeModalPanelClass} max-w-4xl`}>
           {previewingClip && (
-            <div className="relative">
-              <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
+            <div className={safeModalFrameClass}>
+              <DialogHeader className={`${safeModalHeaderClass} pr-14`}>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-2 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -7823,6 +7875,7 @@ export default function Dashboard() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!isPro) {
+                            closePrimaryClipModals();
                             setIsUpgradeModalOpen(true);
                             return;
                           }
@@ -7868,10 +7921,7 @@ export default function Dashboard() {
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => {
-                        setIsClipPreviewOpen(false);
-                        openEditClipModal(previewingClip);
-                      }}
+                      onClick={() => openEditClipModal(previewingClip)}
                       className="w-full text-xs font-bold text-indigo-700 hover:bg-indigo-50 sm:w-auto"
                     >
                       <Edit2 className="w-3.5 h-3.5 mr-1.5" />
@@ -7895,7 +7945,6 @@ export default function Dashboard() {
                       type="button"
                       variant="ghost"
                       onClick={async () => {
-                        setIsClipPreviewOpen(false);
                         await openShareModal(previewingClip);
                       }}
                       className="w-full text-xs font-bold text-violet-700 hover:bg-violet-50 sm:w-auto"
@@ -7905,9 +7954,17 @@ export default function Dashboard() {
                     </Button>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsClipPreviewOpen(false)}
+                  className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  aria-label="Close clip view modal"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </DialogHeader>
 
-              <div className="space-y-4 px-5 py-5 sm:px-6">
+              <div className={`${safeModalBodyClass} space-y-4`}>
                 {isTaskClip(previewingClip) && (
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
                     <div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-800">
@@ -8033,25 +8090,24 @@ export default function Dashboard() {
                               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                                 {new Date(version.saved_at).toLocaleString()}
                               </p>
-                              <p className="mt-1 text-sm font-semibold text-slate-900">
-                                {version.title || 'Untitled snapshot'}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsClipPreviewOpen(false);
-                                openEditClipModal({
-                                  ...previewingClip,
-                                  content: version.content,
-                                  title: version.title || undefined,
-                                  tags: version.tags,
-                                  pinned: version.pinned,
-                                  folder_id: version.folder_id || undefined,
-                                });
-                              }}
-                              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-100"
-                            >
+                          <p className="mt-1 text-sm font-semibold text-slate-900">
+                            {version.title || 'Untitled snapshot'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openEditClipModal({
+                              ...previewingClip,
+                              content: version.content,
+                              title: version.title || undefined,
+                              tags: version.tags,
+                              pinned: version.pinned,
+                              folder_id: version.folder_id || undefined,
+                            });
+                          }}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-100"
+                        >
                               Load into editor
                             </button>
                           </div>
@@ -8067,11 +8123,11 @@ export default function Dashboard() {
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   {previewRenderMode === 'markdown' && previewContentType === 'markdown' ? (
                     <div
-                      className="max-h-[55vh] overflow-auto text-sm text-slate-800 scrollbar-thin [&_a]:text-indigo-600 [&_blockquote]:border-l-[3px] [&_blockquote]:border-violet-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-700 [&_code]:rounded-md [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-black [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:mb-3 [&_p]:leading-7 [&_pre]:mb-3 [&_pre]:overflow-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-white [&_pre]:p-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
+                      className="max-h-[55vh] overflow-auto text-sm text-slate-800 scrollbar-thin [overflow-wrap:anywhere] [&_a]:break-all [&_a]:text-indigo-600 [&_blockquote]:border-l-[3px] [&_blockquote]:border-violet-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-700 [&_code]:rounded-md [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-black [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-black [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:mb-3 [&_p]:leading-7 [&_pre]:mb-3 [&_pre]:max-w-full [&_pre]:overflow-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-white [&_pre]:p-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
                       dangerouslySetInnerHTML={{ __html: previewMarkdownHtml }}
                     />
                   ) : (
-                    <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words font-mono text-sm leading-7 text-slate-800 scrollbar-thin">
+                    <pre className="max-h-[55vh] max-w-full overflow-auto whitespace-pre-wrap break-words font-mono text-sm leading-7 text-slate-800 scrollbar-thin [overflow-wrap:anywhere]">
                       {previewRenderMode === 'formatted' ? previewFormattedContent : previewingClip.content}
                     </pre>
                   )}
@@ -8084,8 +8140,9 @@ export default function Dashboard() {
 
       {/* 3. EDIT CLIP MODAL */}
       <Dialog open={isEditClipOpen} onOpenChange={setIsEditClipOpen}>
-        <DialogContent className="max-h-[94vh] w-[calc(100%_-_1rem)] max-w-3xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%_-_1.25rem)] sm:rounded-2xl">
-          <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
+        <DialogContent showCloseButton={false} className={`${safeModalPanelClass} max-w-3xl`}>
+          <div className={safeModalFrameClass}>
+          <DialogHeader className={`${safeModalHeaderClass} pr-14`}>
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
                 <Edit2 className="h-5 w-5" />
@@ -8097,9 +8154,18 @@ export default function Dashboard() {
                 </DialogDescription>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsEditClipOpen(false)}
+              className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Close edit clip modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </DialogHeader>
 
-          <form onSubmit={handleSaveEditClip} className="flex flex-col gap-5 p-5 sm:p-6">
+          <form onSubmit={handleSaveEditClip} className={`${safeModalFrameClass} flex-1`}>
+            <div className={`${safeModalBodyClass} flex flex-col gap-5`}>
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Clip title</label>
               <Input
@@ -8124,7 +8190,7 @@ export default function Dashboard() {
                     expandSnippetInTextarea(editClipContentRef.current, setEditClipContent);
                   }
                 }}
-                className="min-h-[190px] resize-y rounded-2xl border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-7 text-slate-800 placeholder:text-slate-400 focus:border-indigo-300 focus:ring-indigo-200"
+                className="min-h-[190px] max-w-full resize-y rounded-2xl border-slate-200 bg-slate-50/80 p-4 font-mono text-sm leading-7 text-slate-800 placeholder:text-slate-400 [overflow-wrap:anywhere] focus:border-indigo-300 focus:ring-indigo-200"
                 required
               />
             </div>
@@ -8209,10 +8275,12 @@ export default function Dashboard() {
               </div>
             )}
 
-            <DialogFooter className="flex-col-reverse gap-2 pt-2 sm:flex-row">
+            </div>
+
+            <DialogFooter className={`${safeModalFooterClass} flex-col-reverse gap-2 sm:flex-row`}>
               <Button 
                 type="button" 
-                variant="ghost" 
+                variant="ghost"
                 onClick={() => setIsEditClipOpen(false)}
                 className="h-11 w-full text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-950 sm:w-auto"
               >
@@ -8229,6 +8297,7 @@ export default function Dashboard() {
             </DialogFooter>
 
           </form>
+          </div>
         </DialogContent>
       </Dialog>
 
