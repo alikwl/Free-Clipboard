@@ -43,6 +43,7 @@ import {
   Moon,
   MessageSquare,
   Loader2,
+  MoreHorizontal,
   ChevronDown,
   ChevronUp,
   Trash2, 
@@ -694,6 +695,7 @@ export default function Dashboard() {
 
   // Mobile sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [viewMode, setViewMode] = useState<'board' | 'grid' | 'list' | 'table' | 'checklist'>('grid');
   const [taskFilter, setTaskFilter] = useState<TaskFilter>('all');
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
@@ -714,6 +716,14 @@ export default function Dashboard() {
     setThemeMode(nextTheme);
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
     document.documentElement.style.colorScheme = nextTheme;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncViewport = () => setIsMobileViewport(window.innerWidth < 768);
+    syncViewport();
+    window.addEventListener('resize', syncViewport);
+    return () => window.removeEventListener('resize', syncViewport);
   }, []);
 
   useEffect(() => {
@@ -828,6 +838,8 @@ export default function Dashboard() {
   const [translatingClipId, setTranslatingClipId] = useState<string | null>(null);
   const [activeTranslations, setActiveTranslations] = useState<Record<string, { text: string; lang: string }>>({});
   const [showTranslateMenu, setShowTranslateMenu] = useState<string | null>(null);
+  const [mobileCardActionClip, setMobileCardActionClip] = useState<Clip | null>(null);
+  const [mobileCardActionPanel, setMobileCardActionPanel] = useState<'root' | 'rewrite' | 'translate' | 'task'>('root');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Online & sync states
@@ -852,6 +864,27 @@ export default function Dashboard() {
   const scrollClipMindToBottom = useCallback(() => {
     clipMindEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+
+  const closeMobileShellSurfaces = useCallback((keep?: 'sidebar' | 'clipmind' | 'new-clip' | 'new-folder' | 'upgrade' | 'snippets' | 'share' | 'collection-share') => {
+    if (!isMobileViewport) return;
+    if (keep !== 'sidebar') setIsSidebarOpen(false);
+    if (keep !== 'clipmind') setIsClipMindDrawerOpen(false);
+    setIsProfileOpen(false);
+    if (keep !== 'new-clip') setIsNewClipOpen(false);
+    if (keep !== 'new-folder') setIsNewFolderOpen(false);
+    if (keep !== 'upgrade') {
+      setIsUpgradeModalOpen(false);
+      setShowUpgradeModal(false);
+    }
+    if (keep !== 'snippets') setIsSnippetsModalOpen(false);
+    if (keep !== 'share') setIsShareModalOpen(false);
+    if (keep !== 'collection-share') setIsColShareModalOpen(false);
+  }, [isMobileViewport]);
+
+  const openSidebarDrawer = useCallback(() => {
+    closeMobileShellSurfaces('sidebar');
+    setIsSidebarOpen(true);
+  }, [closeMobileShellSurfaces]);
 
   useEffect(() => {
     if (isClipMindDrawerOpen) {
@@ -1907,8 +1940,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleOpenShareModal = async (clip: Clip, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleOpenShareModal = async (clip: Clip, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     await openShareModal(clip);
   };
 
@@ -1939,8 +1972,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleSummarize = async (clipId: string, content: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleSummarize = async (clipId: string, content: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     
     // Gating check
     if (userPlan === 'free') {
@@ -1979,10 +2012,10 @@ export default function Dashboard() {
             warning: data.warning,
           },
         }));
-        // By default make it expanded
+        // Keep summaries collapsed by default until the user expands them.
         setCollapsedSummaries(prev => ({
           ...prev,
-          [clipId]: false,
+          [clipId]: isMobileViewport,
         }));
         
         if (data.isFallback) {
@@ -2009,6 +2042,20 @@ export default function Dashboard() {
       [clipId]: !prev[clipId],
     }));
   };
+
+  const closeMobileCardActionSheet = useCallback(() => {
+    setMobileCardActionClip(null);
+    setMobileCardActionPanel('root');
+  }, []);
+
+  const openMobileCardActionSheet = useCallback((clip: Clip, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setShowClipMindMenu(null);
+    setShowRewriteMenu(null);
+    setShowTranslateMenu(null);
+    setMobileCardActionPanel('root');
+    setMobileCardActionClip(clip);
+  }, []);
 
   const handleClipMindAction = async (clip: Clip, action: ClipMindAction, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -2133,11 +2180,15 @@ export default function Dashboard() {
 
   const handleOpenClipMindDrawer = async () => {
     if (!isProUser(userPlan, userTrialEndsAt)) {
+      closeMobileShellSurfaces('upgrade');
       setIsUpgradeModalOpen(true);
       return;
     }
 
     const nextOpen = !isClipMindDrawerOpen;
+    if (nextOpen) {
+      closeMobileShellSurfaces('clipmind');
+    }
     setIsClipMindDrawerOpen(nextOpen);
 
     if (nextOpen && user && clipMindConversations.length === 0) {
@@ -2893,8 +2944,8 @@ export default function Dashboard() {
   };
 
   // Edit Clip Action Trigger
-  const handleOpenEditClip = (clip: Clip, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleOpenEditClip = (clip: Clip, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     openEditClipModal(clip);
   };
 
@@ -3014,8 +3065,8 @@ export default function Dashboard() {
   };
 
   // Toggle Pin
-  const handleTogglePin = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleTogglePin = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!user) return;
 
     let isPinnedNow = false;
@@ -3116,14 +3167,14 @@ export default function Dashboard() {
   };
 
   // Copy Clip Content
-  const handleCopyContent = (id: string, text: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCopyContent = (id: string, text: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     copyClipText(id, text);
   };
 
   // Delete Clip
-  const handleDeleteClip = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteClip = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!user) return;
 
     const deletedAt = new Date().toISOString();
@@ -3398,15 +3449,17 @@ export default function Dashboard() {
   const handleOpenNewClipModal = useCallback((isShortcut = false) => {
     const activeClipCount = clips.filter((clip) => !isDeletedClip(clip)).length;
     if (userPlan === 'free' && activeClipCount >= 500) {
+      closeMobileShellSurfaces('upgrade');
       setIsUpgradeModalOpen(true);
       addToast('Clip limit reached! Please upgrade to Pro.', 'warning');
     } else {
+      closeMobileShellSurfaces('new-clip');
       setIsNewClipOpen(true);
       if (isShortcut) {
         addToast('Quick-Add Modal opened!', 'info');
       }
     }
-  }, [clips, userPlan, addToast]);
+  }, [clips, userPlan, addToast, closeMobileShellSurfaces]);
 
   // Global Keyboard Shortcuts Effect
   useEffect(() => {
@@ -3529,6 +3582,7 @@ export default function Dashboard() {
   const appBgClass = isDarkTheme
     ? 'bg-[#07070a] text-neutral-100 selection:bg-indigo-500/30 selection:text-indigo-200'
     : 'bg-[radial-gradient(circle_at_top_left,_#ffffff,_#eef2ff_28%,_#f8fafc_60%,_#eef2ff_100%)] text-slate-900 selection:bg-indigo-200 selection:text-indigo-950';
+  const isMobileShellOverlayOpen = isMobileViewport && (isSidebarOpen || isClipMindDrawerOpen);
   const renderClipMindMenu = (clip: Clip, align: 'left' | 'right' = 'right') => (
     <div
       onMouseLeave={() => setShowClipMindMenu(null)}
@@ -3635,6 +3689,186 @@ export default function Dashboard() {
       </div>
     </div>
   );
+
+  const renderMobileClipCard = (clip: Clip, options?: { draggable?: boolean; onDragStart?: (e: React.DragEvent) => void; className?: string }) => {
+    const clipFolder = folders.find((folder) => folder.id === clip.folder_id);
+    const visibleTags = getVisibleClipTags(clip);
+    const isCodeClip = Boolean(clip.metadata?.code_language) || detectClipContentType(clip.content) === 'code';
+    const isTask = isTaskClip(clip);
+    const taskStatus = isTask ? getTaskStatus(clip) : null;
+    const isSelected = selectedClipIds.includes(clip.id);
+
+    return (
+      <Card
+        key={clip.id}
+        draggable={options?.draggable && !isSelectionMode}
+        onDragStart={options?.onDragStart}
+        onClick={() => {
+          if (isSelectionMode) {
+            handleToggleSelect(clip.id);
+          } else {
+            openClipPreview(clip);
+          }
+        }}
+        className={`relative overflow-hidden rounded-[22px] border p-4 transition-all ${
+          isSelectionMode
+            ? isSelected
+              ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
+              : isDarkTheme
+                ? 'border-white/6 bg-neutral-900/40 cursor-pointer'
+                : 'border-slate-200/80 bg-white/92 cursor-pointer'
+            : isDarkTheme
+              ? 'border-white/6 bg-neutral-900/40 shadow-xl'
+              : 'border-slate-200/80 bg-white/92 shadow-[0_12px_30px_rgba(148,163,184,0.14)]'
+        } ${options?.className || ''}`}
+      >
+        {isSelectionMode && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleSelect(clip.id);
+            }}
+            className={`absolute left-4 top-4 z-20 flex h-5 w-5 items-center justify-center rounded-full border transition-all ${
+              isSelected
+                ? 'border-indigo-400 bg-indigo-500 text-white'
+                : isDarkTheme
+                  ? 'border-white/20 bg-neutral-950/80'
+                  : 'border-slate-300 bg-white'
+            }`}
+          >
+            {isSelected && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </div>
+        )}
+
+        <div className={`flex flex-col gap-3 ${isSelectionMode ? 'pl-7' : ''}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h4 className={`line-clamp-2 text-sm font-black leading-5 [overflow-wrap:anywhere] ${titleTextClass}`}>
+                {clip.title || 'Untitled Clip'}
+              </h4>
+              <p className={`mt-1 text-[11px] font-bold uppercase tracking-[0.16em] ${subtleTextClass}`}>
+                {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => openClipPreview(clip)}
+                className={`inline-flex h-9 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  isDarkTheme
+                    ? 'border-indigo-500/15 bg-indigo-500/10 text-indigo-300'
+                    : 'border-indigo-100 bg-indigo-50 text-indigo-700'
+                }`}
+                title="View clip"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => handleCopyContent(clip.id, clip.content)}
+                className={`inline-flex h-9 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  copiedClipId === clip.id
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                    : isDarkTheme
+                      ? 'border-white/10 bg-black/25 text-neutral-300'
+                      : 'border-slate-200 bg-white text-slate-700'
+                }`}
+                title="Copy clip"
+              >
+                {copiedClipId === clip.id ? 'Copied' : <Clipboard className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                onClick={(e) => openMobileCardActionSheet(clip, e)}
+                className={`inline-flex h-9 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  isDarkTheme
+                    ? 'border-white/10 bg-black/25 text-neutral-300'
+                    : 'border-slate-200 bg-white text-slate-700'
+                }`}
+                title="More actions"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {clipFolder && (
+              <span
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${isDarkTheme ? 'bg-black/30' : 'bg-white/85'}`}
+                style={{ borderColor: `${clipFolder.color}33`, color: clipFolder.color }}
+              >
+                {clipFolder.name}
+              </span>
+            )}
+            {taskStatus && (
+              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
+                taskStatus === 'done'
+                  ? 'border-emerald-300/40 bg-emerald-50 text-emerald-700'
+                  : taskStatus === 'in-progress'
+                    ? 'border-amber-300/40 bg-amber-50 text-amber-700'
+                    : isDarkTheme
+                      ? 'border-slate-500/20 bg-slate-500/10 text-slate-300'
+                      : 'border-slate-200 bg-slate-50 text-slate-700'
+              }`}>
+                {taskStatus.replace('-', ' ')}
+              </span>
+            )}
+          </div>
+
+          <div className={`overflow-hidden rounded-2xl border px-3 py-2.5 ${isDarkTheme ? 'border-white/6 bg-black/20' : 'border-slate-200 bg-slate-50/85'}`}>
+            <p className={`whitespace-pre-wrap break-words ${isCodeClip ? 'line-clamp-4 font-mono text-[11px] leading-5' : 'line-clamp-3 text-[12px] leading-6'} ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
+              {clip.content}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {visibleTags.length > 0 ? visibleTags.slice(0, 3).map((tag, idx) => (
+              <span
+                key={idx}
+                className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${
+                  isDarkTheme
+                    ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300'
+                    : 'border-indigo-100 bg-indigo-50 text-indigo-600'
+                }`}
+              >
+                {tag}
+              </span>
+            )) : (
+              <span className={`text-[10px] ${subtleTextClass}`}>No tags</span>
+            )}
+            {visibleTags.length > 3 && (
+              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${isDarkTheme ? 'border-white/8 bg-white/5 text-neutral-400' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
+                +{visibleTags.length - 3}
+              </span>
+            )}
+          </div>
+
+          {clipSummaries[clip.id] && (
+            <div
+              onClick={(e) => toggleSummaryCollapse(clip.id, e)}
+              className={`rounded-2xl border px-3 py-2 text-[11px] ${summaryPanelClass} cursor-pointer`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 font-bold uppercase tracking-[0.16em] text-emerald-400">
+                  <Sparkles className="h-3 w-3" />
+                  <span>AI Summary</span>
+                </div>
+                {collapsedSummaries[clip.id] ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+              </div>
+              {!collapsedSummaries[clip.id] && (
+                <p className={`mt-2 whitespace-pre-wrap break-words rounded-2xl border p-2.5 text-[11px] leading-5 ${isDarkTheme ? 'border-emerald-500/10 bg-black/20 text-neutral-300' : 'border-emerald-200 bg-white/80 text-slate-700'}`}>
+                  {clipSummaries[clip.id]?.summary}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    );
+  };
   const renderClipMindPanel = (clip: Clip, compact = false) => {
     const output = clipMindResults[clip.id];
     if (!output) return null;
@@ -4400,10 +4634,10 @@ export default function Dashboard() {
       {isSidebarOpen && (
         <div 
           onClick={() => setIsSidebarOpen(false)}
-          className={`fixed inset-0 z-30 md:hidden animate-in fade-in duration-200 ${
+          className={`fixed inset-0 z-40 md:hidden animate-in fade-in duration-200 ${
             isDarkTheme
               ? 'bg-black/60 backdrop-blur-sm'
-              : 'bg-slate-950/20 backdrop-blur-[2px]'
+              : 'bg-slate-950/30 backdrop-blur-[2px]'
           }`}
         />
       )}
@@ -4418,10 +4652,10 @@ export default function Dashboard() {
       )}
 
       {/* --- SIDEBAR --- */}
-      <aside className={`fixed left-3 top-3 bottom-[5.25rem] z-40 w-[calc(100%_-_1.5rem)] max-w-[21rem] rounded-[28px] border backdrop-blur-xl shrink-0 flex flex-col shadow-[0_28px_70px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-in-out md:static md:inset-auto md:w-72 md:max-w-none md:rounded-none md:border-l-0 md:border-t-0 md:border-b-0 md:shadow-none md:translate-x-0 ${
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[min(88vw,360px)] max-w-[min(88vw,360px)] shrink-0 flex-col rounded-r-[28px] border-r shadow-[0_28px_70px_rgba(15,23,42,0.24)] transition-transform duration-300 ease-in-out md:static md:inset-auto md:z-auto md:w-72 md:max-w-none md:rounded-none md:border md:border-l-0 md:border-t-0 md:border-b-0 md:shadow-none md:translate-x-0 ${
         isDarkTheme
-          ? 'border-white/6 bg-neutral-950/92 md:bg-neutral-950/78'
-          : 'border-slate-200/80 bg-white/92 md:bg-white/80'
+          ? 'border-white/10 bg-neutral-950 md:bg-neutral-950/78'
+          : 'border-slate-200 bg-white md:bg-white/80'
       } ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
@@ -4576,7 +4810,10 @@ export default function Dashboard() {
               </h3>
               
               <button
-                onClick={() => setIsNewFolderOpen(true)}
+                onClick={() => {
+                  closeMobileShellSurfaces('new-folder');
+                  setIsNewFolderOpen(true);
+                }}
                 className={`transition-colors p-0.5 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-600'}`}
                 title="Create Folder"
               >
@@ -4866,16 +5103,71 @@ export default function Dashboard() {
       <div className="flex-grow flex flex-col min-w-0 z-10">
         
         {/* --- TOP BAR --- */}
-        <header className={`relative z-30 h-auto min-h-[72px] border-b backdrop-blur-xl flex flex-wrap items-center justify-between px-3 md:px-8 py-3 gap-3 shrink-0 transition-colors duration-300 ${
+        <header className={`relative z-30 h-auto min-h-[72px] border-b backdrop-blur-xl px-3 py-3 md:px-8 shrink-0 transition-colors duration-300 ${
           isDarkTheme
             ? 'border-white/6 bg-neutral-950/45'
             : 'border-slate-200/80 bg-white/70'
         }`}>
-          
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              onClick={openSidebarDrawer}
+              className={`shrink-0 rounded-xl border p-2 transition-all ${
+                isDarkTheme
+                  ? 'border-white/10 bg-neutral-900 text-neutral-300 hover:text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:text-slate-900'
+              }`}
+              title="Open sidebar menu"
+            >
+              <Menu className="w-4.5 h-4.5" />
+            </button>
+
+            <div className="relative min-w-0 flex-1">
+              <Search className={`absolute left-3 top-2.5 w-4 h-4 ${isDarkTheme ? 'text-neutral-600' : 'text-slate-400'}`} />
+              <Input
+                type="text"
+                placeholder="Search clips"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`h-10 rounded-2xl pl-9 pr-8 text-xs transition-all ${
+                  isDarkTheme
+                    ? 'bg-neutral-900 border-white/10 text-neutral-200 placeholder:text-neutral-600 focus:border-indigo-500/40'
+                    : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-indigo-400'
+                } focus:ring-0`}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className={`absolute right-2.5 top-2.5 rounded p-0.5 ${isDarkTheme ? 'text-neutral-600 hover:text-neutral-300' : 'text-slate-400 hover:text-slate-700'}`}
+                  title="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleOpenClipMindDrawer}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 px-3 text-[11px] font-bold text-indigo-400 transition-all duration-300 hover:bg-indigo-500/20"
+              title="Open ClipMind AI drawer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              AI
+            </button>
+
+            <Button
+              onClick={() => handleOpenNewClipModal()}
+              className="h-10 shrink-0 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-violet-600 px-3 text-[11px] font-bold text-white shadow-lg shadow-indigo-500/20 transition-all duration-300 hover:from-indigo-600 hover:to-violet-700"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Clip
+            </Button>
+          </div>
+
+          <div className="hidden md:flex md:flex-wrap md:items-center md:justify-between md:gap-3">
           <div className="flex items-center flex-grow md:flex-initial gap-2">
             {/* Hamburger Button for mobile */}
             <button 
-              onClick={() => setIsSidebarOpen(true)}
+              onClick={openSidebarDrawer}
               className={`md:hidden p-2 rounded-xl border transition-all shrink-0 ${
                 isDarkTheme
                   ? 'border-white/10 bg-black/25 text-neutral-400 hover:text-white'
@@ -5029,9 +5321,14 @@ export default function Dashboard() {
 
             {/* Profile Dropdown */}
             {userEmail && (
-              <div className={`relative ${isProfileOpen ? 'z-[70]' : ''}`}>
+              <div className={`relative hidden md:block ${isProfileOpen ? 'z-[70]' : ''}`}>
                 <button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  onClick={() => {
+                    if (!isProfileOpen && isMobileViewport) {
+                      closeMobileShellSurfaces();
+                    }
+                    setIsProfileOpen(!isProfileOpen);
+                  }}
                   className={`flex items-center gap-2 p-1.5 rounded-2xl border transition-all duration-300 shrink-0 ${
                     isDarkTheme
                       ? 'border-white/5 bg-black/40 hover:bg-black/60'
@@ -5091,10 +5388,11 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+          </div>
         </header>
 
         {/* --- DASHBOARD WRAPPER --- */}
-        <main className="flex-grow p-3.5 md:p-6 xl:p-8 pb-28 md:pb-8 overflow-y-auto scrollbar-thin">
+        <main className={`flex-grow p-4 md:p-6 xl:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 ${isMobileShellOverlayOpen ? 'overflow-y-hidden' : 'overflow-y-auto'} scrollbar-thin`}>
           
           {/* --- LIMIT WARNING BANNER --- */}
           {isPlanResolved && userPlan === 'free' && liveClips.length >= 450 && (
@@ -5603,6 +5901,12 @@ export default function Dashboard() {
                       clipMindResults[clip.id]
                     );
                     const visibleTags = getVisibleClipTags(clip);
+                    if (isMobileViewport) {
+                      return renderMobileClipCard(clip, {
+                        draggable: !isSelectionMode,
+                        onDragStart: (e) => handleDragStart(e, clip.id),
+                      });
+                    }
                     return (
                       <Card 
                         key={clip.id}
@@ -6106,6 +6410,12 @@ export default function Dashboard() {
                       pendingRewrites[clip.id] ||
                       activeTranslations[clip.id]
                     );
+                    if (isMobileViewport) {
+                      return renderMobileClipCard(clip, {
+                        draggable: !isSelectionMode,
+                        onDragStart: (e) => handleDragStart(e, clip.id),
+                      });
+                    }
                     return (
                       <Card 
                         key={clip.id}
@@ -6383,88 +6693,7 @@ export default function Dashboard() {
                 <>
                   <div className="md:hidden flex flex-col gap-3">
                     {sortedClips.map((clip) => {
-                      const clipFolder = folders.find(f => f.id === clip.folder_id);
-                      const isSelected = selectedClipIds.includes(clip.id);
-                      return (
-                        <Card
-                          key={clip.id}
-                          onClick={() => {
-                            if (isSelectionMode) {
-                              handleToggleSelect(clip.id);
-                            } else {
-                              openClipPreview(clip);
-                            }
-                          }}
-                          className={`rounded-[24px] border p-4 backdrop-blur-md transition-all ${
-                            isSelected
-                              ? 'border-indigo-500/40 bg-indigo-500/10'
-                              : isDarkTheme
-                                ? 'border-white/5 bg-neutral-900/35'
-                                : 'border-slate-200/80 bg-white/92 shadow-[0_12px_34px_rgba(148,163,184,0.14)]'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${subtleTextClass}`}>
-                                {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                              </p>
-                              <h4 className={`mt-2 text-base font-bold leading-snug break-words ${titleTextClass}`}>
-                                {clip.title || 'Untitled Clip'}
-                              </h4>
-                            </div>
-                            {clipFolder && (
-                              <span
-                                className={`shrink-0 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full border ${
-                                  isDarkTheme ? 'bg-black/30' : 'bg-white/90'
-                                }`}
-                                style={{ borderColor: clipFolder.color + '20', color: clipFolder.color }}
-                              >
-                                {clipFolder.name}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className={`mt-3 rounded-2xl border p-3 ${listSnippetClass}`}>
-                            <p className={`text-[13px] font-mono leading-relaxed line-clamp-3 ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
-                              {clip.content}
-                            </p>
-                          </div>
-
-                          <div className="mt-3 flex items-center justify-between gap-3">
-                            <div className="flex flex-wrap gap-1">
-                              {clip.tags.length > 0 ? clip.tags.slice(0, 2).map((tag, idx) => (
-                                <span
-                                  key={idx}
-                                  className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase border ${
-                                    isDarkTheme
-                                      ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
-                                      : 'bg-indigo-50 text-indigo-600 border-indigo-100'
-                                  }`}
-                                >
-                                  {tag}
-                                </span>
-                              )) : (
-                                <span className={`text-[10px] ${subtleTextClass}`}>No tags</span>
-                              )}
-                            </div>
-
-                            <div className={`flex items-center gap-1 p-1.5 border rounded-xl ${actionRailClass}`} onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => openClipPreview(clip)} className="p-1 rounded text-indigo-400" title="View details">
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={(e) => handleCopyContent(clip.id, clip.content, e)} className={`p-1 rounded ${listActionButtonClass}`} title="Copy content">
-                                <Clipboard className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={(e) => handleOpenEditClip(clip, e)} className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-indigo-400 hover:bg-white/5' : 'text-slate-500 hover:text-indigo-600 hover:bg-white'}`} title="Edit details">
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={(e) => handleDeleteClip(clip.id, e)} className="p-1 rounded text-rose-500 hover:text-rose-400" title="Delete">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        </Card>
-                      );
+                      return renderMobileClipCard(clip);
                     })}
                   </div>
 
@@ -6644,6 +6873,13 @@ export default function Dashboard() {
                               const truncatedContent = clip.content.length > 80 
                                 ? clip.content.substring(0, 80) + '...'
                                 : clip.content;
+                              if (isMobileViewport) {
+                                return renderMobileClipCard(clip, {
+                                  draggable: !isSelectionMode,
+                                  onDragStart: (e) => handleDragStart(e, clip.id),
+                                  className: 'min-h-0',
+                                });
+                              }
                               return (
                                 <Card
                                   key={clip.id}
@@ -6799,6 +7035,83 @@ export default function Dashboard() {
       </div>
 
       {renderClipMindDrawer()}
+
+      {mobileCardActionClip && (
+        <>
+          <div
+            className="fixed inset-0 z-[75] bg-black/55 backdrop-blur-[2px] md:hidden"
+            onClick={closeMobileCardActionSheet}
+          />
+          <div className={`fixed inset-x-0 bottom-0 z-[80] rounded-t-[28px] border p-4 shadow-[0_-24px_60px_rgba(15,23,42,0.26)] md:hidden ${
+            isDarkTheme
+              ? 'border-white/10 bg-neutral-950 text-neutral-100'
+              : 'border-slate-200 bg-white text-slate-900'
+          }`}>
+            <div className="mx-auto w-full max-w-md">
+              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/10" />
+              <div className="mb-4 min-w-0">
+                <p className={`line-clamp-2 text-sm font-black [overflow-wrap:anywhere] ${titleTextClass}`}>
+                  {mobileCardActionClip.title || 'Untitled Clip'}
+                </p>
+                <p className={`mt-1 text-[11px] font-bold uppercase tracking-[0.16em] ${subtleTextClass}`}>
+                  More Actions
+                </p>
+              </div>
+
+              {mobileCardActionPanel === 'root' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => { closeMobileCardActionSheet(); openClipPreview(mobileCardActionClip); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>View</button>
+                  <button onClick={() => { handleOpenEditClip(mobileCardActionClip); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>Edit</button>
+                  <button onClick={() => { handleOpenShareModal(mobileCardActionClip).finally(closeMobileCardActionSheet); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>Share</button>
+                  <button onClick={() => { handleTogglePin(mobileCardActionClip.id).finally(closeMobileCardActionSheet); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>{mobileCardActionClip.pinned ? 'Unpin' : 'Pin'}</button>
+                  <button onClick={() => setMobileCardActionPanel('task')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>{isTaskClip(mobileCardActionClip) ? 'Task Status' : 'Make Task'}</button>
+                  <button onClick={() => { handleSummarize(mobileCardActionClip.id, mobileCardActionClip.content); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>AI Summary</button>
+                  <button onClick={() => setMobileCardActionPanel('rewrite')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300' : 'border-indigo-200 bg-indigo-50 text-indigo-700'}`}>Rewrite</button>
+                  <button onClick={() => setMobileCardActionPanel('translate')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-violet-500/20 bg-violet-500/10 text-violet-300' : 'border-violet-200 bg-violet-50 text-violet-700'}`}>Translate</button>
+                  <button onClick={() => { handleOpenClipMindDrawer(); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border-cyan-200 bg-cyan-50 text-cyan-700'}`}>ClipMind</button>
+                  <button onClick={() => { handleDeleteClip(mobileCardActionClip.id).finally(closeMobileCardActionSheet); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-rose-500/20 bg-rose-500/10 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>Delete</button>
+                </div>
+              )}
+
+              {mobileCardActionPanel === 'rewrite' && (
+                <div className="space-y-2">
+                  <button onClick={() => setMobileCardActionPanel('root')} className={`text-[11px] font-bold ${subtleTextClass}`}>Back</button>
+                  {[
+                    { tone: 'formal', label: 'Formal' },
+                    { tone: 'casual', label: 'Casual' },
+                    { tone: 'shorter', label: 'Shorter' },
+                    { tone: 'expand', label: 'Expand' },
+                  ].map(({ tone, label }) => (
+                    <button key={tone} onClick={() => { handleRewrite(mobileCardActionClip.id, mobileCardActionClip.content, tone); closeMobileCardActionSheet(); }} className={`block w-full rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>{label}</button>
+                  ))}
+                </div>
+              )}
+
+              {mobileCardActionPanel === 'translate' && (
+                <div className="space-y-2">
+                  <button onClick={() => setMobileCardActionPanel('root')} className={`text-[11px] font-bold ${subtleTextClass}`}>Back</button>
+                  {['Spanish', 'French', 'German', 'Chinese', 'Japanese'].map((lang) => (
+                    <button key={lang} onClick={() => { handleTranslate(mobileCardActionClip.id, mobileCardActionClip.content, lang); closeMobileCardActionSheet(); }} className={`block w-full rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>{lang}</button>
+                  ))}
+                </div>
+              )}
+
+              {mobileCardActionPanel === 'task' && (
+                <div className="space-y-2">
+                  <button onClick={() => setMobileCardActionPanel('root')} className={`text-[11px] font-bold ${subtleTextClass}`}>Back</button>
+                  {isTaskClip(mobileCardActionClip) ? (
+                    (['pending', 'in-progress', 'done'] as TaskStatus[]).map((status) => (
+                      <button key={status} onClick={() => { handleTaskStatusChange(mobileCardActionClip, status); closeMobileCardActionSheet(); }} className={`block w-full rounded-2xl border px-3 py-3 text-left text-xs font-bold capitalize ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>{status.replace('-', ' ')}</button>
+                    ))
+                  ) : (
+                    <button onClick={() => { handleCreateTaskFromClip(mobileCardActionClip); closeMobileCardActionSheet(); }} className={`block w-full rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>Create Task</button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* --- DIALOG MODALS --- */}
 

@@ -102,14 +102,14 @@ export default function Page() {
       </div>
 
       <header className="sticky top-0 z-30 w-full max-w-full border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
-        <div className="safe-container mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="safe-container mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex min-w-0 items-center gap-3 self-start sm:self-auto">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_14px_34px_rgba(99,102,241,0.28)]">
               <Clipboard className="h-5 w-5 text-white" />
             </div>
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-900">FreeClipboard</p>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Smart Clipboard Hub</p>
+            <div className="min-w-0">
+              <p className="break-words text-[13px] font-black uppercase tracking-[0.12em] text-slate-900 sm:text-sm sm:tracking-[0.18em]">FreeClipboard</p>
+              <p className="break-words text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[11px] sm:tracking-[0.24em]">Smart Clipboard Hub</p>
             </div>
           </Link>
 
@@ -120,16 +120,16 @@ export default function Page() {
             <a href="#pages" className="text-sm font-semibold text-slate-600 transition hover:text-slate-950">Pages</a>
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
             <Link
               href="/login"
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+              className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 sm:w-auto"
             >
               Sign In
             </Link>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_14px_30px_rgba(99,102,241,0.28)] transition hover:translate-y-[-1px]"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_14px_30px_rgba(99,102,241,0.28)] transition hover:translate-y-[-1px] sm:w-auto"
             >
               Start Free
               <ArrowRight className="h-4 w-4" />
@@ -146,7 +146,7 @@ export default function Page() {
                 <Sparkles className="h-3.5 w-3.5" />
                 Built for fast-moving minds
               </div>
-              <h1 className="max-w-3xl text-4xl font-black leading-[0.95] tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+              <h1 className="max-w-3xl text-[clamp(2.2rem,9vw,4.5rem)] font-black leading-[0.95] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
                 Turn your clipboard chaos into a clean, searchable command center.
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
@@ -156,14 +156,14 @@ export default function Page() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/signup"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-6 py-3.5 text-sm font-black text-white shadow-[0_18px_40px_rgba(99,102,241,0.28)] transition hover:translate-y-[-1px]"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-6 py-3.5 text-sm font-black text-white shadow-[0_18px_40px_rgba(99,102,241,0.28)] transition hover:translate-y-[-1px] sm:w-auto"
                 >
                   Create Workspace
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 sm:w-auto"
                 >
                   Sign In to Dashboard
                 </Link>
