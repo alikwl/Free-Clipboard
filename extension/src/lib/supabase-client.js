@@ -900,6 +900,126 @@ class FreeClipboardSupabase {
       .update({ pinned: isFavorite });
   }
 
+  async getSnippets(limit = 40) {
+    if (!this.session?.user?.id) {
+      return [];
+    }
+
+    const { data, error } = await this.client
+      .from('snippets')
+      .select('id, trigger_key, content, use_count, created_at')
+      .eq('user_id', this.session.user.id)
+      .order('use_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async trackQuickPasteUsage({ entryKind, entryId, action = 'copy', source = 'extension' }) {
+    if (!this.session?.user?.id) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const { data: existingUsage, error: usageSelectError } = await this.client
+      .from('quick_paste_shortcuts')
+      .select('id, usage_count')
+      .eq('user_id', this.session.user.id)
+      .eq('entry_kind', entryKind)
+      .eq('entry_ref', entryId)
+      .eq('source_app', source)
+      .eq('action_kind', action)
+      .maybeSingle();
+
+    if (usageSelectError) {
+      throw usageSelectError;
+    }
+
+    if (existingUsage?.id) {
+      const { error } = await this.client
+        .from('quick_paste_shortcuts')
+        .update({
+          usage_count: (existingUsage.usage_count || 0) + 1,
+          last_used_at: now,
+          updated_at: now
+        })
+        .eq('id', existingUsage.id);
+      if (error) throw error;
+    } else {
+      const { error } = await this.client
+        .from('quick_paste_shortcuts')
+        .insert({
+          user_id: this.session.user.id,
+          entry_kind: entryKind,
+          entry_ref: entryId,
+          source_app: source,
+          action_kind: action,
+          usage_count: 1,
+          last_used_at: now,
+          updated_at: now
+        });
+      if (error) throw error;
+    }
+
+    if (entryKind === 'snippet' && (action === 'copy' || action === 'paste')) {
+      const { data: snippet, error: snippetError } = await this.client
+        .from('snippets')
+        .select('id, use_count')
+        .eq('user_id', this.session.user.id)
+        .eq('id', entryId)
+        .maybeSingle();
+
+      if (snippetError) throw snippetError;
+
+      if (snippet?.id) {
+        const { error } = await this.client
+          .from('snippets')
+          .update({ use_count: (snippet.use_count || 0) + 1 })
+          .eq('id', snippet.id);
+        if (error) throw error;
+      }
+    }
+
+    if (entryKind === 'clip') {
+      const { data: metadataRow, error: metadataError } = await this.client
+        .from('clip_metadata')
+        .select('id, clip_type, entities')
+        .eq('user_id', this.session.user.id)
+        .eq('clip_id', entryId)
+        .maybeSingle();
+
+      if (metadataError) throw metadataError;
+
+      const nextEntities = {
+        ...(metadataRow?.entities || {}),
+        last_used_at: now
+      };
+
+      if (metadataRow?.id) {
+        const { error } = await this.client
+          .from('clip_metadata')
+          .update({
+            clip_type: metadataRow.clip_type || 'other',
+            entities: nextEntities
+          })
+          .eq('id', metadataRow.id);
+        if (error) throw error;
+      } else {
+        const { error } = await this.client
+          .from('clip_metadata')
+          .insert({
+            user_id: this.session.user.id,
+            clip_id: entryId,
+            clip_type: 'other',
+            entities: nextEntities
+          });
+        if (error) throw error;
+      }
+    }
+  }
+
   // ============================================
   // AI HELPERS
   // ============================================

@@ -105,7 +105,9 @@ function handleMessage(request, sender, sendResponse) {
     'COMPLETE_WEB_AUTH_TOKEN': handleCompleteWebAuthToken,
     'CLOSE_AUTH_WINDOW': handleCloseAuthWindow,
     'SAVE_SETTINGS': handleSaveSettings,
-    'SHOW_FEEDBACK': handleShowFeedback
+    'SHOW_FEEDBACK': handleShowFeedback,
+    'PASTE_QUICK_PASTE': handlePasteQuickPaste,
+    'OPEN_WEB_ROUTE': handleOpenWebRoute
   };
 // Add new handler functions:
 
@@ -255,6 +257,67 @@ async function handleSaveSettings(data, sender) {
 
 async function handleShowFeedback(data) {
   return { shown: true, message: data?.message || '' };
+}
+
+async function handlePasteQuickPaste(data) {
+  const { content = '' } = data || {};
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || isBlockedUrl(tab.url)) {
+    return { pasted: false, reason: 'blocked-tab' };
+  }
+
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (text) => {
+        const active = document.activeElement;
+        if (!active) return { pasted: false, reason: 'no-active-element' };
+
+        if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+          const start = active.selectionStart ?? active.value.length;
+          const end = active.selectionEnd ?? active.value.length;
+          active.focus();
+          active.setRangeText(text, start, end, 'end');
+          active.dispatchEvent(new Event('input', { bubbles: true }));
+          active.dispatchEvent(new Event('change', { bubbles: true }));
+          return { pasted: true };
+        }
+
+        if (active instanceof HTMLElement && active.isContentEditable) {
+          active.focus();
+          const selection = window.getSelection();
+          if (!selection) return { pasted: false, reason: 'no-selection' };
+          if (!selection.rangeCount) {
+            const range = document.createRange();
+            range.selectNodeContents(active);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+          selection.deleteFromDocument();
+          selection.getRangeAt(0).insertNode(document.createTextNode(text));
+          selection.collapseToEnd();
+          active.dispatchEvent(new Event('input', { bubbles: true }));
+          return { pasted: true };
+        }
+
+        return { pasted: false, reason: 'unsupported-element' };
+      },
+      args: [content]
+    });
+
+    return result || { pasted: false, reason: 'unknown' };
+  } catch (error) {
+    console.error('[FreeClipboard] Paste failed:', error);
+    return { pasted: false, reason: error?.message || 'script-error' };
+  }
+}
+
+async function handleOpenWebRoute(data) {
+  const route = data?.route || '/dashboard';
+  const url = `https://freeclipboard.com${route.startsWith('/') ? route : `/${route}`}`;
+  await chrome.tabs.create({ url, active: true });
+  return { opened: true };
 }
   const handler = handlers[request.type];
   if (!handler) {

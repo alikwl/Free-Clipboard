@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { QuickPastePanel } from "@/components/quick-paste-panel";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -80,6 +81,7 @@ export default function RootLayout({
       >
         <ErrorBoundary>
           {children}
+          <QuickPastePanel />
         </ErrorBoundary>
       </body>
     </html>

@@ -1029,6 +1029,15 @@ export default function Dashboard() {
     setCopiedClipId(id);
     addToast('Copied to clipboard!', 'success');
 
+    // Trigger clip_copied automations in the background
+    fetch('/api/automations/trigger', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ trigger_type: 'clip_copied', clip_id: id }),
+    }).catch(() => null);
+
     confetti({
       particleCount: 15,
       spread: 30,
@@ -3186,6 +3195,17 @@ export default function Dashboard() {
     });
     setClips(updated);
     localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updated));
+
+    // Trigger automations if the clip was pinned
+    if (isPinnedNow) {
+      fetch('/api/automations/trigger', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ trigger_type: 'clip_pinned', clip_id: id }),
+      }).catch(() => null);
+    }
 
     if (navigator.onLine) {
       try {

@@ -383,6 +383,41 @@ Return ONLY valid JSON in this exact schema. No markdown blocks, no formatting t
           }
         }
 
+        // 6. Trigger Automations rules asynchronously
+        try {
+          // If clip was created in the last 60 seconds, fire clip_created, else clip_updated
+          const isNewClip = new Date().getTime() - new Date(clip.created_at).getTime() < 60000;
+          const triggerType = isNewClip ? 'clip_created' : 'clip_updated';
+
+          const { data: rules } = await supabase
+            .from('automations')
+            .select('*')
+            .eq('user_id', clip.user_id)
+            .eq('trigger_type', triggerType)
+            .eq('enabled', true);
+
+          if (rules && rules.length > 0) {
+            const { executeAutomation } = await import('@/lib/automations-engine');
+            for (const rule of rules) {
+              const result = await executeAutomation(rule, clip, supabase, false);
+              
+              // Insert run history log
+              await supabase
+                .from('automation_runs')
+                .insert({
+                  user_id: clip.user_id,
+                  automation_id: rule.id,
+                  clip_id: clip.id,
+                  status: result.status,
+                  logs: result.logs,
+                  error_message: result.errorMessage || null,
+                });
+            }
+          }
+        } catch (autoErr) {
+          console.error(`Automations trigger failure on clip ${clip.id}:`, autoErr);
+        }
+
         // Mark item as completed in queue
         await supabase
           .from('clip_embedding_queue')

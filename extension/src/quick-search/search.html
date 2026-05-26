@@ -3,48 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FreeClipboard - Quick Search</title>
+  <title>FreeClipboard Quick Paste</title>
   <link rel="stylesheet" href="search.css">
 </head>
 <body>
-  <div class="search-container">
-    <div class="search-header">
-      <span class="search-logo">📋 FreeClipboard</span>
-      <span class="search-hint">Press ESC to close</span>
-    </div>
+  <div class="panel-shell">
+    <header class="panel-header">
+      <div>
+        <p class="eyebrow">Quick Paste</p>
+        <h1>FreeClipboard</h1>
+        <p class="subtitle">Search, copy, paste, pin, and send saved clips to ClipMind.</p>
+      </div>
+      <button id="close-btn" class="icon-btn" type="button" aria-label="Close quick paste panel">×</button>
+    </header>
 
-    <div class="search-box">
-      <span class="search-icon">🔍</span>
-      <input 
-        type="text" 
-        id="search-input" 
-        placeholder="Search anything..."
+    <div class="search-row">
+      <span class="search-icon">⌕</span>
+      <input
+        type="text"
+        id="search-input"
+        placeholder="Search clips, snippets, notes, and secrets"
         autocomplete="off"
         autofocus
       >
     </div>
 
-    <div class="search-filters">
-      <button class="filter-btn active" data-type="all">All</button>
-      <button class="filter-btn" data-type="text">Text</button>
-      <button class="filter-btn" data-type="code">Code</button>
-      <button class="filter-btn" data-type="link">Links</button>
-      <button class="filter-btn" data-type="recent">Recent</button>
-    </div>
+    <div id="status-banner" class="status-banner hidden"></div>
+    <div id="sensitive-banner" class="sensitive-banner hidden"></div>
 
-    <div class="results-container" id="results">
-      <div class="results-empty">
-        <span>Start typing to search your clips...</span>
-      </div>
-    </div>
+    <div id="results" class="results"></div>
 
-    <div class="search-footer">
-      <span class="shortcut-hint">
-        <kbd>↑</kbd><kbd>↓</kbd> Navigate
-        <kbd>Enter</kbd> Copy
-        <kbd>⌘</kbd><kbd>K</kbd> More
-      </span>
-    </div>
+    <footer class="panel-footer">
+      <span><kbd>↑</kbd><kbd>↓</kbd> Move</span>
+      <span><kbd>Enter</kbd> Copy</span>
+      <span><kbd>Ctrl/Cmd</kbd><kbd>1-9</kbd> Quick copy</span>
+      <span><kbd>Esc</kbd> Close</span>
+    </footer>
   </div>
 
   <script src="search.js" type="module"></script>
