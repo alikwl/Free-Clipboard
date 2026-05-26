@@ -64,7 +64,7 @@ export const ClipboardInput: React.FC<ClipboardInputProps> = ({ onAddClip, isLoa
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           
           {/* Header & Title optional field */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Input
               type="text"
               placeholder="Clip Title (optional)"
@@ -75,7 +75,7 @@ export const ClipboardInput: React.FC<ClipboardInputProps> = ({ onAddClip, isLoa
             />
 
             {/* Type selector tabs */}
-            <div className="flex rounded-lg bg-black/40 p-0.5 border border-white/5 shrink-0 self-start sm:self-auto">
+            <div className="safe-scroll-x flex rounded-lg border border-white/5 bg-black/40 p-0.5 shrink-0 self-start sm:self-auto">
               <button
                 type="button"
                 onClick={() => setType('text')}
@@ -139,7 +139,7 @@ export const ClipboardInput: React.FC<ClipboardInputProps> = ({ onAddClip, isLoa
           </div>
 
           {/* Submit button */}
-          <div className="flex items-center justify-between mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-[11px] text-neutral-500">
               {content.length} characters
             </span>
@@ -147,7 +147,7 @@ export const ClipboardInput: React.FC<ClipboardInputProps> = ({ onAddClip, isLoa
             <Button
               type="submit"
               disabled={isLoading || !content.trim()}
-              className="bg-indigo-500 hover:bg-indigo-600 text-white border-0 shadow-lg shadow-indigo-500/20 font-bold text-xs px-5 py-5 gap-2 transition-all duration-300"
+              className="w-full bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all duration-300 hover:bg-indigo-600 sm:w-auto"
             >
               <Send className="w-3.5 h-3.5" />
               <span>{activeRoomCode ? 'Sync Clip' : 'Save Locally'}</span>

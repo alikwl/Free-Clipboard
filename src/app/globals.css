@@ -71,13 +71,81 @@
     --ring: 0 0% 45%;
   }
 
-  * {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
     @apply border-border;
+  }
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  body {
+    min-width: 0;
+  }
+  #__next,
+  body > div:first-child {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+  img,
+  svg,
+  canvas,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+  button,
+  input,
+  textarea,
+  select {
+    max-width: 100%;
+    min-width: 0;
+  }
+  pre,
+  code {
+    max-width: 100%;
+  }
+  pre {
+    overflow-x: auto;
+  }
+}
+
+@layer components {
+  .safe-page {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .safe-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .safe-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .safe-scroll-x {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
   }
 }

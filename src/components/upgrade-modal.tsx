@@ -43,7 +43,7 @@ export default function UpgradeModal({ open, onClose, title, message }: UpgradeM
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-neutral-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200"
+        className="safe-card relative mx-4 w-[calc(100%_-_2rem)] max-w-sm rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <button

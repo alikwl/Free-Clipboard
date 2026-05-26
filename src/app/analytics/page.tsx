@@ -150,9 +150,9 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-indigo-950/20 text-neutral-100">
+    <div className="safe-page min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-indigo-950/20 text-neutral-100">
       <header className="border-b border-white/5 bg-black/20 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-3 md:px-4 py-4 flex items-center justify-between">
+        <div className="safe-container mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-3 py-4 md:px-4">
           <button
             onClick={() => router.push('/dashboard')}
             className="flex items-center gap-2 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
@@ -167,7 +167,7 @@ export default function AnalyticsPage() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-3 md:px-4 py-4 md:py-6">
+      <div className="safe-container mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
         <ProGate isPro={isPro} feature="Analytics" message="Analytics is a Pro feature">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -218,8 +218,8 @@ export default function AnalyticsPage() {
               {data?.topTags.length ? (
                 <div className="space-y-2">
                   {data.topTags.map(({ tag, count }) => (
-                    <div key={tag} className="flex items-center justify-between">
-                      <span className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded font-bold uppercase">{tag}</span>
+                    <div key={tag} className="flex min-w-0 items-center justify-between gap-3">
+                      <span className="min-w-0 overflow-hidden rounded bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-300 [overflow-wrap:anywhere]">{tag}</span>
                       <span className="text-xs text-neutral-400 font-mono">{count}</span>
                     </div>
                   ))}
@@ -239,8 +239,8 @@ export default function AnalyticsPage() {
             {data?.clipsByType.length ? (
               <div className="space-y-2">
                 {data.clipsByType.map(({ type, count }) => (
-                  <div key={type} className="flex items-center gap-3">
-                    <span className="text-[10px] text-neutral-400 w-20 font-mono uppercase">{type}</span>
+                  <div key={type} className="flex min-w-0 items-center gap-3">
+                    <span className="w-20 min-w-0 overflow-hidden text-[10px] font-mono uppercase text-neutral-400 [overflow-wrap:anywhere]">{type}</span>
                     <div className="flex-1 bg-white/5 rounded-full h-2 overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full"

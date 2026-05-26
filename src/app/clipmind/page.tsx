@@ -733,11 +733,11 @@ export default function ClipMindPage() {
   }
 
   return (
-    <div className={`relative h-screen overflow-hidden ${isDarkTheme ? 'bg-[#08111f] text-neutral-100' : 'bg-[#F8F8FC] text-slate-900'}`}>
+    <div className={`safe-page relative h-screen ${isDarkTheme ? 'bg-[#08111f] text-neutral-100' : 'bg-[#F8F8FC] text-slate-900'}`}>
       <div className={`pointer-events-none absolute inset-0 ${isDarkTheme ? 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.14),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.12),_transparent_24%)]' : 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.10),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.08),_transparent_20%)]'}`} />
 
-      <ProGate isPro={isPro} feature="ClipMind" message="Unlock ClipMind" className="relative z-10 flex h-screen overflow-hidden">
-        <aside className={`fixed inset-y-0 left-0 z-40 h-screen w-[280px] min-w-[280px] transition-transform duration-200 md:static md:translate-x-0 ${
+      <ProGate isPro={isPro} feature="ClipMind" message="Unlock ClipMind" className="relative z-10 flex h-screen w-full max-w-full overflow-hidden">
+        <aside className={`fixed inset-y-0 left-0 z-40 h-screen w-[min(280px,calc(100vw_-_1rem))] max-w-[calc(100vw_-_1rem)] transition-transform duration-200 md:static md:w-[280px] md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
           <div className={`flex h-full flex-col overflow-hidden border-r ${isDarkTheme ? 'border-white/8 bg-[#0b1426]' : 'border-[#EBEBF0] bg-white'}`}>
@@ -781,14 +781,14 @@ export default function ClipMindPage() {
                       key={section.id}
                       type="button"
                       onClick={() => handleSidebarPrompt(section.id)}
-                      className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm transition ${
+                      className={`flex w-full min-w-0 items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm transition ${
                         isActive
                           ? isDarkTheme ? 'border-indigo-400/25 bg-indigo-500/10 text-white' : 'border-indigo-200 bg-indigo-50 text-slate-950'
                           : isDarkTheme ? 'border-white/8 bg-white/[0.02] text-neutral-300 hover:bg-white/[0.04]' : 'border-[#EBEBF0] bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       <Icon className={`h-4 w-4 shrink-0 ${isActive ? (isDarkTheme ? 'text-indigo-300' : 'text-indigo-600') : (isDarkTheme ? 'text-neutral-500' : 'text-slate-400')}`} />
-                      <span className="font-medium">{section.label}</span>
+                      <span className="min-w-0 [overflow-wrap:anywhere] font-medium">{section.label}</span>
                     </button>
                   );
                 })}
@@ -902,8 +902,8 @@ export default function ClipMindPage() {
           />
         )}
 
-        <main className={`flex h-screen flex-1 flex-col overflow-hidden ${isDarkTheme ? 'bg-[#08111f]' : 'bg-[#F8F8FC]'}`}>
-          <header className={`flex h-14 min-h-14 shrink-0 items-center justify-between border-b px-3 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white'}`}>
+        <main className={`flex h-screen min-w-0 flex-1 flex-col overflow-hidden ${isDarkTheme ? 'bg-[#08111f]' : 'bg-[#F8F8FC]'}`}>
+          <header className={`flex h-14 min-h-14 shrink-0 items-center justify-between gap-3 border-b px-3 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white'}`}>
             <div className="flex min-w-0 items-center gap-3">
               <button
                 onClick={() => setSidebarOpen(true)}
@@ -940,7 +940,7 @@ export default function ClipMindPage() {
           >
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
               {messages.length === 0 ? (
-                <div className={`self-start rounded-[10px] border p-5 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-[#EBEBF0] bg-white'}`}>
+                <div className={`safe-card self-start rounded-[10px] border p-5 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-[#EBEBF0] bg-white'}`}>
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white">
                       <Bot className="h-5 w-5" />
@@ -960,7 +960,7 @@ export default function ClipMindPage() {
                   const saveTaskId = `${message.created_at}-task`;
                   return (
                     <div key={`${message.created_at}-${index}`} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`w-full ${isUser ? 'max-w-[75%]' : 'max-w-[80%]'}`}>
+                      <div className={`w-full min-w-0 ${isUser ? 'max-w-[92%] sm:max-w-[75%]' : 'max-w-[94%] sm:max-w-[80%]'}`}>
                         <div className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
                           {!isUser && (
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white">
@@ -968,7 +968,7 @@ export default function ClipMindPage() {
                             </div>
                           )}
 
-                          <div className={`min-w-0 rounded-[10px] border px-4 py-3 ${
+                          <div className={`safe-card min-w-0 rounded-[10px] border px-4 py-3 ${
                             isUser
                               ? 'border-[#6B5CE7] bg-[#6B5CE7] text-white'
                               : isDarkTheme
@@ -981,7 +981,7 @@ export default function ClipMindPage() {
                                 ClipMind is searching your saved clips...
                               </div>
                             ) : isUser ? (
-                              <p className="whitespace-pre-wrap text-[14px] leading-6">{message.content}</p>
+                              <p className="whitespace-pre-wrap break-words text-[14px] leading-6">{message.content}</p>
                             ) : (
                               renderMarkdown(message.content)
                             )}
@@ -1043,12 +1043,12 @@ export default function ClipMindPage() {
           </div>
 
           <div className={`shrink-0 border-t px-3 py-2 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white'}`}>
-            <div className="mx-auto flex max-w-4xl gap-2 overflow-x-auto [scrollbar-width:none]">
+            <div className="safe-scroll-x mx-auto flex max-w-4xl gap-2 [scrollbar-width:none]">
               {QUICK_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => setInputText(prompt)}
-                  className={`h-8 shrink-0 whitespace-nowrap rounded-full border px-3 text-[12px] transition ${isDarkTheme ? 'border-white/8 bg-white/[0.03] text-neutral-300 hover:border-indigo-400/30 hover:bg-indigo-500/10 hover:text-indigo-200' : 'border-[#EBEBF0] bg-[#FAFAFA] text-slate-600 hover:border-[#6B5CE7] hover:bg-[#F0EFFE] hover:text-[#6B5CE7]'}`}
+                  className={`h-8 shrink-0 rounded-full border px-3 text-[12px] transition ${isDarkTheme ? 'border-white/8 bg-white/[0.03] text-neutral-300 hover:border-indigo-400/30 hover:bg-indigo-500/10 hover:text-indigo-200' : 'border-[#EBEBF0] bg-[#FAFAFA] text-slate-600 hover:border-[#6B5CE7] hover:bg-[#F0EFFE] hover:text-[#6B5CE7]'}`}
                 >
                   {prompt}
                 </button>
@@ -1057,7 +1057,7 @@ export default function ClipMindPage() {
           </div>
 
           <div className={`shrink-0 border-t px-3 py-3 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white'}`}>
-            <div className="mx-auto flex max-w-4xl items-center gap-2">
+            <div className="mx-auto flex w-full max-w-4xl min-w-0 items-center gap-2">
               <button
                 type="button"
                 onClick={() => addToast('Attachments are coming next.', 'info')}
@@ -1106,7 +1106,7 @@ export default function ClipMindPage() {
                   </button>
 
                   {showActionMenu && (
-                    <div className={`absolute bottom-11 right-0 z-20 min-w-44 rounded-[10px] border p-1.5 shadow-lg ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-[#EBEBF0] bg-white'}`}>
+                    <div className={`absolute bottom-11 right-0 z-20 w-[min(11rem,calc(100vw_-_2rem))] max-w-full rounded-[10px] border p-1.5 shadow-lg ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-[#EBEBF0] bg-white'}`}>
                       {AI_ACTION_PRESETS.map((action) => (
                         <button
                           key={action.id}
@@ -1155,7 +1155,7 @@ export default function ClipMindPage() {
         </main>
       </ProGate>
 
-      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex max-w-sm flex-col gap-2.5">
+      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[calc(100%_-_2rem)] max-w-sm flex-col gap-2.5">
         {toasts.map((toast) => {
           const isSuccess = toast.type === 'success';
           const isWarning = toast.type === 'warning';

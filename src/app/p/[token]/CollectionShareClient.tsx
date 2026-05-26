@@ -70,12 +70,12 @@ export default function CollectionShareClient({
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900 flex flex-col">
+    <div className="safe-page flex min-h-screen flex-col bg-white font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
       <title>{`Collection (${clips.length} clips) — FreeClipboard`}</title>
 
       {/* Header bar */}
       <header className="sticky top-0 z-30 shrink-0 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+        <div className="safe-container mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
         <a href="/" className="flex items-center gap-2.5 group">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_12px_26px_rgba(99,102,241,0.24)]">
             <Clipboard className="h-4 w-4 text-white" />
@@ -115,7 +115,7 @@ export default function CollectionShareClient({
 
       {/* Main content grid */}
       <main className="flex-grow bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_48%,#eef2ff_100%)] px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div className="safe-container mx-auto flex w-full max-w-6xl flex-col gap-6">
         
         {/* Collection summary header */}
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(148,163,184,0.14)] md:flex-row md:items-center md:justify-between">
@@ -132,7 +132,7 @@ export default function CollectionShareClient({
           </div>
 
           {shareExpiresAt && mounted && (
-            <div className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[11px] font-bold ${
+            <div className={`safe-card flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[11px] font-bold ${
               timeLeft === 'Expired'
                 ? 'border-rose-200 bg-rose-50 text-rose-700'
                 : 'border-amber-200 bg-amber-50 text-amber-800'
@@ -183,7 +183,7 @@ export default function CollectionShareClient({
 
                 {/* Content area */}
                 <div className="flex-grow p-4 sm:p-5">
-                  <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-[12px] leading-6 text-slate-700 select-text">
+                  <pre className="safe-card max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-[12px] leading-6 text-slate-700 select-text">
                     {clip.content}
                   </pre>
                 </div>

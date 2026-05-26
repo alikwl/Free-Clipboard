@@ -161,7 +161,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
       <DialogPortal>
         <DialogOverlay />
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden p-2 sm:p-4"
           onClick={() => setOpen(false)}
         >
           <div
@@ -169,7 +169,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
             role="dialog"
             aria-modal="true"
             className={cn(
-              "relative z-50 grid w-full max-w-lg gap-4 border bg-background p-4 md:p-6 shadow-lg duration-200 rounded-xl sm:rounded-lg my-auto mx-2 sm:mx-0",
+              "relative z-50 my-auto grid w-full min-w-0 max-w-[calc(100vw_-_1rem)] gap-4 rounded-xl border bg-background p-4 shadow-lg duration-200 sm:max-w-[calc(100vw_-_2rem)] sm:rounded-lg md:p-6",
               className
             )}
             onClick={(e) => e.stopPropagation()}

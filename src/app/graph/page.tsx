@@ -175,9 +175,9 @@ export default function KnowledgeGraphPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-indigo-950/20 text-neutral-100">
+    <div className="safe-page min-h-screen bg-gradient-to-br from-neutral-950 via-neutral-900 to-indigo-950/20 text-neutral-100">
       <header className="border-b border-white/5 bg-black/20 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-3 md:px-4 py-4 flex items-center justify-between">
+        <div className="safe-container mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-4 md:px-4">
           <button
             onClick={() => router.push('/dashboard')}
             className="flex items-center gap-2 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
@@ -192,7 +192,7 @@ export default function KnowledgeGraphPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-3 md:px-4 py-4 md:py-6">
+      <div className="safe-container mx-auto max-w-7xl px-3 py-4 md:px-4 md:py-6">
         <ProGate isPro={isPro} feature="Knowledge Graph" message="Knowledge Graph is a Pro feature" className="rounded-2xl">
         <div className="relative bg-neutral-900/30 border border-white/5 rounded-2xl overflow-hidden" style={{ height: 'clamp(300px, 60vh, 600px)' }}>
           <div>

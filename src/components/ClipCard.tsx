@@ -75,10 +75,10 @@ export const ClipCard: React.FC<ClipCardProps> = ({ clip, onDeleteClip, isLoadin
     <Card className="border border-white/5 bg-neutral-900/40 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/5 hover:border-white/10 group">
       
       {/* Top Header Section */}
-      <div className="flex items-center justify-between p-4 border-b border-white/5 bg-black/20">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 border-b border-white/5 bg-black/20 p-4">
+        <div className="flex min-w-0 items-center gap-3">
           {getTypeIcon()}
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-semibold text-neutral-200 tracking-tight max-w-[200px] sm:max-w-[320px] truncate">
               {clip.title || (clip.type === 'url' ? 'Shared Link' : clip.type === 'code' ? 'Code Snippet' : 'Shared Text')}
             </h3>
@@ -90,7 +90,7 @@ export const ClipCard: React.FC<ClipCardProps> = ({ clip, onDeleteClip, isLoadin
         </div>
 
         {/* Top Control Buttons */}
-        <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+        <div className="flex shrink-0 items-center gap-1.5 opacity-60 transition-opacity group-hover:opacity-100">
           <Button
             variant="ghost"
             size="icon"

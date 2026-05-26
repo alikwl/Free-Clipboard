@@ -107,12 +107,12 @@ function LoginContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#07070a] text-foreground flex items-center justify-center p-4 overflow-hidden">
+    <div className="safe-page relative flex min-h-screen items-center justify-center bg-[#07070a] p-4 text-foreground">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none translate-x-1/2 translate-y-1/2" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="safe-card relative z-10 w-full max-w-md">
         {/* Brand */}
         <div className="flex flex-col items-center gap-2 mb-8 text-center">
           <div className="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 shadow-xl shadow-indigo-500/20">
@@ -157,7 +157,7 @@ function LoginContent() {
             </div>
 
             {/* Tabs */}
-            <div className="grid grid-cols-2 p-1 bg-black/60 border border-white/5 rounded-xl">
+            <div className="grid grid-cols-1 gap-1 rounded-xl border border-white/5 bg-black/60 p-1 min-[360px]:grid-cols-2">
               <button
                 type="button"
                 onClick={() => { setActiveTab('password'); setErrorMsg(null); setSuccessMsg(null); }}
@@ -256,9 +256,9 @@ function LoginContent() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="border-t border-white/5 pt-4 pb-4 flex justify-center text-xs text-neutral-500">
+          <CardFooter className="flex flex-wrap justify-center gap-1 border-t border-white/5 pb-4 pt-4 text-center text-xs text-neutral-500">
             <span>Don&apos;t have an account?</span>
-            <Link href="/signup" className="text-indigo-400 font-bold ml-1 hover:underline flex items-center gap-0.5">
+            <Link href="/signup" className="flex items-center gap-0.5 font-bold text-indigo-400 hover:underline">
               Create one <Sparkles className="w-3 h-3 text-indigo-400/80" />
             </Link>
           </CardFooter>

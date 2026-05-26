@@ -68,7 +68,7 @@ export function OnboardingModal() {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={dismiss}>
       <div
-        className="bg-neutral-900 border border-white/10 rounded-t-2xl sm:rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300 relative"
+        className="safe-card relative w-full max-w-sm rounded-t-2xl border border-white/10 bg-neutral-900 p-6 shadow-2xl animate-in slide-in-from-bottom-10 duration-300 sm:rounded-2xl sm:slide-in-from-bottom-0 sm:zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         <button onClick={dismiss} className="absolute top-4 right-4 text-neutral-500 hover:text-neutral-300">

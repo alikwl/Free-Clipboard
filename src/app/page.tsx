@@ -94,15 +94,15 @@ const footerLinks = [
 
 export default function Page() {
   return (
-    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_#ffffff,_#eef2ff_22%,_#f8fafc_52%,_#eef7ff_100%)] text-slate-900">
-      <div className="pointer-events-none absolute inset-0">
+    <div className="safe-page min-h-screen bg-[radial-gradient(circle_at_top_left,_#ffffff,_#eef2ff_22%,_#f8fafc_52%,_#eef7ff_100%)] text-slate-900">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-8rem] top-[-5rem] h-80 w-80 rounded-full bg-indigo-200/50 blur-3xl" />
         <div className="absolute right-[-6rem] top-28 h-72 w-72 rounded-full bg-fuchsia-200/35 blur-3xl" />
         <div className="absolute bottom-[-6rem] left-1/3 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl" />
       </div>
 
-      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 w-full max-w-full border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
+        <div className="safe-container mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_14px_34px_rgba(99,102,241,0.28)]">
               <Clipboard className="h-5 w-5 text-white" />
@@ -138,7 +138,7 @@ export default function Page() {
         </div>
       </header>
 
-      <main>
+      <main className="safe-page">
         <section className="relative">
           <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-20">
             <div className="flex flex-col justify-center">
@@ -191,7 +191,7 @@ export default function Page() {
             <div className="relative">
               <div className="rounded-[32px] border border-slate-200 bg-white/88 p-4 shadow-[0_24px_70px_rgba(148,163,184,0.18)] backdrop-blur-xl sm:p-5">
                 <div className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-900 p-5 text-white">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-200/80">Workspace Preview</p>
                       <h2 className="mt-2 text-2xl font-black">All Synced Clips</h2>
@@ -199,7 +199,7 @@ export default function Page() {
                         Save important snippets, collect references, and let AI make your clipboard useful instead of noisy.
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-right">
+                    <div className="max-w-full rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-left sm:text-right">
                       <p className="text-[10px] font-black uppercase tracking-[0.24em] text-indigo-100/70">Sync Status</p>
                       <p className="mt-1 text-sm font-bold text-emerald-300">All devices connected</p>
                     </div>
@@ -422,7 +422,7 @@ export default function Page() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="rounded-[36px] border border-slate-200 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-900 px-6 py-10 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-8 lg:px-10">
+          <div className="safe-card rounded-[36px] border border-slate-200 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-900 px-6 py-10 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-8 lg:px-10">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-2xl">
                 <p className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-200/80">Ready To Use</p>

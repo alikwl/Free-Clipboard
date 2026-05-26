@@ -14,7 +14,7 @@ export const Header: React.FC<HeaderProps> = ({ isConfigured, activeRoomCode }) 
       {/* Background glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-12 bg-indigo-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
 
-      <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="safe-container mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-4 py-4 sm:flex-row">
         {/* Logo and Brand */}
         <div className="flex items-center gap-2">
           <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
@@ -30,7 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ isConfigured, activeRoomCode }) 
         </div>
 
         {/* Sync Status Info */}
-        <div className="flex items-center gap-3">
+        <div className="flex max-w-full flex-wrap items-center gap-3">
           {isConfigured ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-xs font-semibold shadow-inner animate-pulse">
               <Wifi className="w-3.5 h-3.5" />
@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({ isConfigured, activeRoomCode }) 
           )}
 
           {activeRoomCode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-xs font-bold font-mono tracking-wider">
+            <div className="flex max-w-full items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/5 px-3 py-1.5 text-xs font-bold tracking-wider text-indigo-300">
               <Sparkles className="w-3 h-3 text-indigo-400 animate-spin-slow" />
               Room: {activeRoomCode}
             </div>

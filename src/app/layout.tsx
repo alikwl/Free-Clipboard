@@ -50,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geistSans.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn("font-sans h-full w-full max-w-full overflow-x-hidden", geistSans.variable)} suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -76,7 +76,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen w-full max-w-full overflow-x-hidden bg-background text-foreground antialiased`}
       >
         <ErrorBoundary>
           {children}

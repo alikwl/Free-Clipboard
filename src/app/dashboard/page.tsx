@@ -3532,7 +3532,7 @@ export default function Dashboard() {
   const renderClipMindMenu = (clip: Clip, align: 'left' | 'right' = 'right') => (
     <div
       onMouseLeave={() => setShowClipMindMenu(null)}
-      className={`absolute top-full z-40 mt-2 max-h-[min(72vh,34rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[1.6rem] border p-3 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl ${
+      className={`absolute top-full z-40 mt-2 max-h-[min(72vh,34rem)] w-[min(22rem,calc(100%_-_0.5rem),calc(100vw_-_1.5rem))] max-w-[calc(100vw_-_1.5rem)] overflow-y-auto rounded-[1.6rem] border p-3 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl ${
         align === 'right' ? 'left-0 sm:left-auto sm:right-0' : 'left-0 sm:right-auto'
       } ${dropdownSurfaceClass}`}
     >
@@ -3828,7 +3828,7 @@ export default function Dashboard() {
 
     return (
       <aside
-        className={`fixed right-3 top-3 bottom-[5.25rem] z-50 flex w-[calc(100vw-1.5rem)] max-w-[56rem] flex-col overflow-hidden rounded-[30px] border shadow-[0_28px_90px_rgba(15,23,42,0.24)] transition-transform duration-300 ease-out md:bottom-3 ${
+        className={`fixed right-3 top-3 bottom-[5.25rem] z-50 flex w-[calc(100%_-_1.5rem)] max-w-[56rem] min-w-0 flex-col overflow-hidden rounded-[30px] border shadow-[0_28px_90px_rgba(15,23,42,0.24)] transition-transform duration-300 ease-out md:bottom-3 ${
           isDarkTheme
             ? 'border-white/8 bg-neutral-950 text-neutral-100'
             : 'border-slate-200/80 bg-white text-slate-900'
@@ -4388,7 +4388,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className={`min-h-screen flex font-sans relative overflow-hidden transition-colors duration-300 ${appBgClass}`}>
+    <div className={`safe-page relative flex min-h-screen font-sans transition-colors duration-300 ${appBgClass}`}>
       
       {/* Dynamic Background Ambient Blurs */}
       <div className={`absolute top-0 left-0 w-[500px] h-[500px] rounded-full blur-[120px] -z-10 pointer-events-none ${isDarkTheme ? 'bg-violet-600/5' : 'bg-indigo-300/35'}`} />
@@ -4418,7 +4418,7 @@ export default function Dashboard() {
       )}
 
       {/* --- SIDEBAR --- */}
-      <aside className={`fixed left-3 top-3 bottom-[5.25rem] z-40 w-[calc(100vw-1.5rem)] max-w-[21rem] rounded-[28px] border backdrop-blur-xl shrink-0 flex flex-col shadow-[0_28px_70px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-in-out md:static md:inset-auto md:w-72 md:max-w-none md:rounded-none md:border-l-0 md:border-t-0 md:border-b-0 md:shadow-none md:translate-x-0 ${
+      <aside className={`fixed left-3 top-3 bottom-[5.25rem] z-40 w-[calc(100%_-_1.5rem)] max-w-[21rem] rounded-[28px] border backdrop-blur-xl shrink-0 flex flex-col shadow-[0_28px_70px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-in-out md:static md:inset-auto md:w-72 md:max-w-none md:rounded-none md:border-l-0 md:border-t-0 md:border-b-0 md:shadow-none md:translate-x-0 ${
         isDarkTheme
           ? 'border-white/6 bg-neutral-950/92 md:bg-neutral-950/78'
           : 'border-slate-200/80 bg-white/92 md:bg-white/80'
@@ -4788,7 +4788,7 @@ export default function Dashboard() {
                   )}
                 </button>
                 {userPlan !== 'pro' && (
-                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-neutral-950 border border-white/10 px-2 py-1 text-[10px] font-bold text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 shadow-xl flex items-center gap-1">
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 max-w-[min(12rem,calc(100vw_-_2rem))] -translate-x-1/2 rounded border border-white/10 bg-neutral-950 px-2 py-1 text-[10px] font-bold text-neutral-300 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 flex items-center gap-1 text-center [overflow-wrap:anywhere]">
                     <Lock className="w-2.5 h-2.5 text-amber-500" />
                     Upgrade to Pro to export JSON
                   </div>
@@ -4814,7 +4814,7 @@ export default function Dashboard() {
                   )}
                 </button>
                 {userPlan !== 'pro' && (
-                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-neutral-950 border border-white/10 px-2 py-1 text-[10px] font-bold text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 shadow-xl flex items-center gap-1">
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 max-w-[min(12rem,calc(100vw_-_2rem))] -translate-x-1/2 rounded border border-white/10 bg-neutral-950 px-2 py-1 text-[10px] font-bold text-neutral-300 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 flex items-center gap-1 text-center [overflow-wrap:anywhere]">
                     <Lock className="w-2.5 h-2.5 text-amber-500" />
                     Upgrade to Pro to export Markdown
                   </div>
@@ -5051,7 +5051,7 @@ export default function Dashboard() {
                 {isProfileOpen && (
                   <>
                     <div className="fixed inset-0 z-[60]" onClick={() => setIsProfileOpen(false)} />
-                    <div className={`absolute right-0 z-[70] mt-2 w-[calc(100vw-2rem)] max-w-[18rem] rounded-2xl border p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 ${dropdownSurfaceClass}`}>
+                    <div className={`absolute right-0 z-[70] mt-2 w-[min(18rem,calc(100vw_-_2rem))] max-w-[calc(100vw_-_2rem)] rounded-2xl border p-2 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 ${dropdownSurfaceClass}`}>
                       <div className={`px-3 py-2 border-b text-left mb-1 ${isDarkTheme ? 'border-white/5' : 'border-slate-200/80'}`}>
                         <p className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${subtleTextClass}`}>Workspace</p>
                         <p className={`text-xs font-medium truncate ${titleTextClass}`}>{userEmail}</p>
@@ -6468,8 +6468,8 @@ export default function Dashboard() {
                     })}
                   </div>
 
-                  <div className={`hidden md:block overflow-x-auto rounded-[24px] border backdrop-blur-md shadow-2xl ${isDarkTheme ? 'border-white/5 bg-[#0b0c10]/45' : 'border-slate-200/80 bg-gradient-to-b from-white/95 to-slate-50/85'}`}>
-                  <table className={`w-full border-collapse text-left text-xs ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
+                  <div className={`safe-scroll-x hidden md:block rounded-[24px] border backdrop-blur-md shadow-2xl ${isDarkTheme ? 'border-white/5 bg-[#0b0c10]/45' : 'border-slate-200/80 bg-gradient-to-b from-white/95 to-slate-50/85'}`}>
+                  <table className={`min-w-[52rem] w-full border-collapse text-left text-xs ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
                     <thead>
                       <tr className={`border-b text-[10px] font-bold uppercase tracking-wider ${isDarkTheme ? 'border-white/5 bg-black/40 text-neutral-500' : 'border-slate-200/80 bg-slate-50/90 text-slate-500'}`}>
                         {isSelectionMode && <th className="py-3.5 px-4 w-10">Select</th>}
@@ -6804,7 +6804,7 @@ export default function Dashboard() {
 
       {/* 1. NEW CLIP MODAL */}
       <Dialog open={isNewClipOpen} onOpenChange={setIsNewClipOpen}>
-        <DialogContent className="max-h-[94vh] w-[calc(100%-1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%-1.25rem)] sm:rounded-2xl">
+        <DialogContent className="max-h-[94vh] w-[calc(100%_-_1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%_-_1.25rem)] sm:rounded-2xl">
           <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-start gap-3">
@@ -7027,7 +7027,7 @@ export default function Dashboard() {
 
       {/* 2. NEW FOLDER MODAL */}
       <Dialog open={isNewFolderOpen} onOpenChange={setIsNewFolderOpen}>
-        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-sm w-[calc(100%-2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
+        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-sm w-[calc(100%_-_2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
           <DialogHeader className="mb-4">
@@ -7103,7 +7103,7 @@ export default function Dashboard() {
 
       {/* 2.5 RENAME FOLDER MODAL */}
       <Dialog open={isRenameFolderOpen} onOpenChange={setIsRenameFolderOpen}>
-        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-sm w-[calc(100%-2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
+        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-sm w-[calc(100%_-_2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
           <DialogHeader className="mb-4">
@@ -7179,7 +7179,7 @@ export default function Dashboard() {
 
       {/* 2.8 COLLECTION SHARE SUCCESS MODAL */}
       <Dialog open={isColShareModalOpen} onOpenChange={(open) => { setIsColShareModalOpen(open); if (!open) { setColShareToken(null); setColShareExpiry(null); } }}>
-        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-sm w-[calc(100%-2rem)] rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <DialogContent className="border border-white/5 bg-neutral-950/95 text-white max-w-sm w-[calc(100%_-_2rem)] rounded-2xl p-5 shadow-2xl relative overflow-hidden">
           {/* Ambient decoration */}
           <div className="absolute top-0 right-0 w-36 h-36 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-28 h-28 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -7279,7 +7279,7 @@ export default function Dashboard() {
 
       {/* 2.7 SHARE CLIP MODAL */}
       <Dialog open={isShareModalOpen} onOpenChange={(open) => { setIsShareModalOpen(open); if (!open) { setSharingClip(null); setShareToken(null); setShareExpiry(null); } }}>
-        <DialogContent className="w-[calc(100%-1.25rem)] max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
+        <DialogContent className="w-[calc(100%_-_1.25rem)] max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
           <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
@@ -7453,7 +7453,7 @@ export default function Dashboard() {
           }
         }}
       >
-        <DialogContent className="max-h-[94vh] w-[calc(100%-1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%-1.25rem)] sm:rounded-2xl">
+        <DialogContent className="max-h-[94vh] w-[calc(100%_-_1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%_-_1.25rem)] sm:rounded-2xl">
           {previewingClip && (
             <div className="relative">
               <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
@@ -7771,7 +7771,7 @@ export default function Dashboard() {
 
       {/* 3. EDIT CLIP MODAL */}
       <Dialog open={isEditClipOpen} onOpenChange={setIsEditClipOpen}>
-        <DialogContent className="max-h-[94vh] w-[calc(100%-1rem)] max-w-3xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%-1.25rem)] sm:rounded-2xl">
+        <DialogContent className="max-h-[94vh] w-[calc(100%_-_1rem)] max-w-3xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%_-_1.25rem)] sm:rounded-2xl">
           <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
@@ -7921,7 +7921,7 @@ export default function Dashboard() {
 
       {/* 4. DUPLICATE CLIP WARNING MODAL */}
       <Dialog open={isDuplicateWarningOpen} onOpenChange={setIsDuplicateWarningOpen}>
-        <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-sm w-[calc(100%-2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
+        <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-sm w-[calc(100%_-_2rem)] md:w-full rounded-xl p-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
           <DialogHeader className="mb-4">
@@ -7964,7 +7964,7 @@ export default function Dashboard() {
 
       {/* 6. PRO UPGRADE MODAL */}
       <Dialog open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen}>
-        <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-md w-[calc(100%-2rem)] md:w-full rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+        <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-md w-[calc(100%_-_2rem)] md:w-full rounded-2xl p-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -8063,7 +8063,7 @@ export default function Dashboard() {
           setIsMigrationModalOpen(open);
         }}
       >
-        <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-md w-[calc(100%-2rem)] md:w-full rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+        <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-md w-[calc(100%_-_2rem)] md:w-full rounded-2xl p-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -8141,7 +8141,7 @@ export default function Dashboard() {
 
       {/* Snippets Modal */}
       <Dialog open={isSnippetsModalOpen} onOpenChange={setIsSnippetsModalOpen}>
-        <ProGate isPro={isPro} feature="Snippet Triggers" className="max-w-2xl w-[calc(100%-2rem)] md:w-full">
+        <ProGate isPro={isPro} feature="Snippet Triggers" className="max-w-2xl w-[calc(100%_-_2rem)] md:w-full">
           <DialogContent className="border border-white/5 bg-neutral-950 text-white max-w-2xl w-full rounded-2xl p-6 shadow-2xl relative overflow-hidden max-h-[90vh] flex flex-col">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -8182,7 +8182,7 @@ export default function Dashboard() {
           )}
 
           {/* Snippets table */}
-          <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <div className="safe-scroll-x flex-1 overflow-y-auto scrollbar-thin">
             {snippetsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
@@ -8190,7 +8190,7 @@ export default function Dashboard() {
             ) : snippets.length === 0 ? (
               <p className="text-center text-xs text-neutral-500 py-8">No snippets yet. Add one above!</p>
             ) : (
-              <table className="w-full text-xs">
+              <table className="min-w-[32rem] w-full text-xs">
                 <thead className="text-neutral-500 border-b border-white/5">
                   <tr>
                     <th className="text-left py-2 px-3 font-bold uppercase tracking-wider text-[10px]">Trigger</th>
@@ -8232,7 +8232,7 @@ export default function Dashboard() {
       <UpgradeModal open={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
 
       {/* Toast container with safe area for mobile nav */}
-      <div className="fixed bottom-16 md:bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2.5rem)] sm:w-[350px] pointer-events-none">
+      <div className="fixed bottom-16 md:bottom-5 right-5 z-50 flex w-[calc(100%_-_2.5rem)] max-w-sm flex-col gap-2 sm:w-[350px] pointer-events-none">
         {toasts.map(toast => (
           <div
             key={toast.id}
