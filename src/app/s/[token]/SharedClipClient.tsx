@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Clipboard, Clock3, Copy, Lock } from 'lucide-react';
 
 interface SharedClipClientProps {
@@ -22,8 +22,8 @@ export default function SharedClipClient({
 }: SharedClipClientProps) {
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+  const [mounted, setMounted] = useState(false);
 
-  // Live countdown
   useEffect(() => {
     if (!shareExpiresAt) return;
 
@@ -33,10 +33,12 @@ export default function SharedClipClient({
         setTimeLeft('Expired');
         return;
       }
+
       const d = Math.floor(ms / (1000 * 60 * 60 * 24));
       const h = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
       const s = Math.floor((ms % (1000 * 60)) / 1000);
+
       if (d > 0) setTimeLeft(`${d}d ${h}h ${m}m remaining`);
       else if (h > 0) setTimeLeft(`${h}h ${m}m ${s}s remaining`);
       else setTimeLeft(`${m}m ${s}s remaining`);
@@ -46,8 +48,6 @@ export default function SharedClipClient({
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [shareExpiresAt]);
-
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -60,46 +60,45 @@ export default function SharedClipClient({
     });
   };
 
-  const formattedDate = mounted 
+  const formattedDate = mounted
     ? new Date(createdAt).toLocaleDateString(undefined, {
-        month: 'long', day: 'numeric', year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
       })
     : '';
 
   return (
     <div className="safe-page flex min-h-screen flex-col bg-white font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
-      {/* Meta */}
-      <title>{title ? `${title} — FreeClipboard` : 'Shared Clip — FreeClipboard'}</title>
+      <title>{title ? `${title} - FreeClipboard` : 'Shared Clip - FreeClipboard'}</title>
 
-      {/* Top nav bar */}
       <header className="border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
         <div className="safe-container mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3">
-        <a href="/" className="flex items-center gap-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_12px_26px_rgba(99,102,241,0.24)]">
-            <Clipboard className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-sm font-black tracking-tight text-slate-950 transition-colors group-hover:text-indigo-600">FreeClipboard</span>
-        </a>
+          <a href="/" className="group flex min-w-0 items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_12px_26px_rgba(99,102,241,0.24)]">
+              <Clipboard className="h-4 w-4 text-white" />
+            </div>
+            <span className="truncate text-sm font-black tracking-tight text-slate-950 transition-colors group-hover:text-indigo-600">
+              FreeClipboard
+            </span>
+          </a>
 
-        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-          <Lock className="h-3 w-3" />
-          Read-Only
-        </div>
+          <div className="max-w-full shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Lock className="h-3 w-3 shrink-0" />
+              <span>Read-Only</span>
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Content */}
       <main className="flex-grow bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_48%,#eef2ff_100%)] px-4 py-8 sm:px-6 sm:py-12">
         <div className="safe-container mx-auto w-full max-w-2xl">
-          
-          {/* Card */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(148,163,184,0.18)]">
-            
-            {/* Card Header */}
             <div className="border-b border-slate-200 bg-slate-50/80 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
               <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex-grow min-w-0">
-                  <h1 className="break-words text-xl font-black leading-tight tracking-tight text-slate-950 sm:text-2xl">
+                <div className="min-w-0 flex-grow">
+                  <h1 className="text-xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere] sm:text-2xl">
                     {title || 'Untitled Clip'}
                   </h1>
                   <p className="mt-2 text-xs font-semibold text-slate-500">
@@ -111,11 +110,10 @@ export default function SharedClipClient({
                     )}
                   </p>
                 </div>
-                
-                {/* Copy button */}
+
                 <button
                   onClick={handleCopy}
-                  className={`inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all duration-300 sm:w-auto ${
+                  className={`inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold leading-5 transition-all duration-300 sm:w-auto ${
                     copied
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                       : 'border-transparent bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]'
@@ -135,13 +133,12 @@ export default function SharedClipClient({
                 </button>
               </div>
 
-              {/* Tags */}
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {tags.map((tag, i) => (
                     <span
                       key={i}
-                      className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700"
+                      className="max-w-full rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-indigo-700 [overflow-wrap:anywhere]"
                     >
                       {tag}
                     </span>
@@ -150,21 +147,23 @@ export default function SharedClipClient({
               )}
             </div>
 
-            {/* Content body */}
             <div className="p-4 sm:p-6">
-              <pre className="safe-card max-h-[64vh] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-[13px] leading-7 text-slate-700 select-text sm:p-5 sm:text-sm">
-                {content}
-              </pre>
+              <div className="safe-scroll-x rounded-xl border border-slate-200 bg-slate-50">
+                <pre className="safe-card max-h-[64vh] overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-7 text-slate-700 select-text [overflow-wrap:anywhere] sm:p-5 sm:text-sm">
+                  {content}
+                </pre>
+              </div>
             </div>
 
-            {/* Footer with expiry */}
             {shareExpiresAt && (
               <div className="px-4 pb-5 sm:px-6">
-                <div className={`safe-card flex flex-wrap items-center gap-2.5 rounded-xl border p-3 text-xs font-semibold ${
-                  timeLeft === 'Expired'
-                    ? 'border-rose-200 bg-rose-50 text-rose-700'
-                    : 'border-amber-200 bg-amber-50 text-amber-800'
-                }`}>
+                <div
+                  className={`safe-card flex flex-wrap items-center gap-2.5 rounded-xl border p-3 text-xs font-semibold ${
+                    timeLeft === 'Expired'
+                      ? 'border-rose-200 bg-rose-50 text-rose-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-800'
+                  }`}
+                >
                   <Clock3 className="h-3.5 w-3.5 shrink-0" />
                   <span>{timeLeft}</span>
                   <span className="text-slate-400">•</span>
@@ -174,10 +173,9 @@ export default function SharedClipClient({
             )}
           </div>
 
-          {/* CTA footer */}
-          <div className="mt-8 text-center flex flex-col items-center gap-3">
+          <div className="mt-8 flex flex-col items-center gap-3 text-center">
             <p className="text-xs text-slate-500">
-              Shared via <span className="font-bold text-indigo-600">FreeClipboard</span> — your premium cloud clipboard
+              Shared via <span className="font-bold text-indigo-600">FreeClipboard</span> - your premium cloud clipboard
             </p>
             <a
               href="/"
@@ -187,7 +185,6 @@ export default function SharedClipClient({
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
           </div>
-
         </div>
       </main>
     </div>

@@ -2209,6 +2209,11 @@ export default function Dashboard() {
       return;
     }
 
+    if (isMobileViewport) {
+      router.push('/clipmind');
+      return;
+    }
+
     const nextOpen = !isClipMindDrawerOpen;
     if (nextOpen) {
       closeMobileShellSurfaces('clipmind');
@@ -7670,23 +7675,23 @@ export default function Dashboard() {
 
             {/* Clip Preview */}
             {sharingClip && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="min-w-0 text-sm font-black text-slate-950 [overflow-wrap:anywhere]">{sharingClip.title || 'Untitled Clip'}</p>
+              <div className="safe-card overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="line-clamp-2 min-w-0 text-sm font-black leading-6 text-slate-950 [overflow-wrap:anywhere]">{sharingClip.title || 'Untitled Clip'}</p>
                   <span className="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">
                     {detectClipContentType(sharingClip.content).toUpperCase()}
                   </span>
                 </div>
-                <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-600">
+                <pre className="line-clamp-4 max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-slate-600 [overflow-wrap:anywhere]">
                   {sharingClip.content.substring(0, 180)}{sharingClip.content.length > 180 ? '...' : ''}
                 </pre>
               </div>
             )}
 
             {isGeneratingShare ? (
-              <div className="flex items-center justify-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 py-8 text-indigo-700">
+              <div className="flex min-h-[132px] flex-col items-center justify-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-8 text-center text-indigo-700">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-sm font-bold">Generating share link...</span>
+                <span className="max-w-[18rem] text-sm font-bold leading-6 [overflow-wrap:anywhere]">Generating share link...</span>
               </div>
             ) : shareToken ? (
               <div className="flex flex-col gap-4">
@@ -7696,14 +7701,14 @@ export default function Dashboard() {
                     <Link2 className="h-3.5 w-3.5" />
                     Public share URL
                   </label>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-6 text-indigo-700">
+                  <div className="safe-card rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-6 text-indigo-700">
                     <span className="block break-all select-all">
                       {typeof window !== 'undefined' ? `${window.location.origin}/s/${shareToken}` : `/s/${shareToken}`}
                     </span>
                   </div>
                   <button
                     onClick={handleCopyShareLink}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black transition-all ${
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black leading-5 transition-all ${
                       copiedShareLink
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                         : 'border-transparent bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]'
@@ -7795,7 +7800,7 @@ export default function Dashboard() {
                       setIsGeneratingShare(false);
                     }
                   }}
-                  className="border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]"
+                  className="w-full border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]"
                 >
                   <Share2 className="h-4 w-4" />
                   Generate Share Link

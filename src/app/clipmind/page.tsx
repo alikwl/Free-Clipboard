@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
 import {
   AlertCircle,
+  ArrowLeft,
   Bot,
   Bug,
   CheckCircle2,
@@ -721,23 +722,54 @@ export default function ClipMindPage() {
     return { label: 'Chat', icon: Sparkles };
   };
 
+  const handleBackToDashboard = () => {
+    router.push('/dashboard');
+  };
+
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-neutral-950">
-        <div className="flex items-center gap-3 text-sm text-neutral-400">
-          <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
-          Loading ClipMind...
+      <div className={`safe-page relative h-[100dvh] overflow-hidden ${isDarkTheme ? 'bg-[#08111f] text-neutral-100' : 'bg-[#F8F8FC] text-slate-900'}`}>
+        <div className={`pointer-events-none absolute inset-0 ${isDarkTheme ? 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.14),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.12),_transparent_24%)]' : 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.10),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.08),_transparent_20%)]'}`} />
+        <div className="relative z-10 flex h-full flex-col">
+          <div className={`flex h-16 shrink-0 items-center justify-between border-b px-4 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white/95'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-2xl ${isDarkTheme ? 'bg-white/8' : 'bg-slate-100'} animate-pulse`} />
+              <div className="space-y-2">
+                <div className={`h-3 w-24 rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-200'} animate-pulse`} />
+                <div className={`h-2.5 w-32 rounded-full ${isDarkTheme ? 'bg-white/8' : 'bg-slate-100'} animate-pulse`} />
+              </div>
+            </div>
+            <div className={`h-9 w-9 rounded-xl ${isDarkTheme ? 'bg-white/8' : 'bg-slate-100'} animate-pulse`} />
+          </div>
+
+          <div className="flex-1 overflow-hidden px-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] pt-20 sm:px-5 md:px-6">
+            <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-4 overflow-hidden">
+              <div className="flex justify-start">
+                <div className={`w-full max-w-[92%] rounded-[18px] border px-4 py-4 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-[#EBEBF0] bg-white'}`}>
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                    Loading ClipMind...
+                  </div>
+                  <div className="space-y-2">
+                    <div className={`h-3 rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-100'} animate-pulse`} />
+                    <div className={`h-3 w-[88%] rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-100'} animate-pulse`} />
+                    <div className={`h-3 w-[70%] rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-100'} animate-pulse`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`safe-page relative h-screen ${isDarkTheme ? 'bg-[#08111f] text-neutral-100' : 'bg-[#F8F8FC] text-slate-900'}`}>
+    <div className={`safe-page relative h-[100dvh] overflow-hidden ${isDarkTheme ? 'bg-[#08111f] text-neutral-100' : 'bg-[#F8F8FC] text-slate-900'}`}>
       <div className={`pointer-events-none absolute inset-0 ${isDarkTheme ? 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.14),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.12),_transparent_24%)]' : 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.10),_transparent_24%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.08),_transparent_20%)]'}`} />
 
-      <ProGate isPro={isPro} feature="ClipMind" message="Unlock ClipMind" className="relative z-10 flex h-screen w-full max-w-full overflow-hidden">
-        <aside className={`fixed inset-y-0 left-0 z-40 h-screen w-[min(280px,calc(100vw_-_1rem))] max-w-[calc(100vw_-_1rem)] transition-transform duration-200 md:static md:w-[280px] md:translate-x-0 ${
+      <ProGate isPro={isPro} feature="ClipMind" message="Unlock ClipMind" className="relative z-10 flex h-[100dvh] w-full max-w-full overflow-hidden">
+        <aside className={`fixed inset-y-0 left-0 z-40 h-screen w-[82vw] max-w-[82vw] transition-transform duration-200 md:static md:w-[280px] md:max-w-[280px] md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
           <div className={`flex h-full flex-col overflow-hidden border-r ${isDarkTheme ? 'border-white/8 bg-[#0b1426]' : 'border-[#EBEBF0] bg-white'}`}>
@@ -760,6 +792,19 @@ export default function ClipMindPage() {
                   <Home className="h-4 w-4" />
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className={`mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border text-xs font-semibold transition md:hidden ${
+                  isDarkTheme
+                    ? 'border-white/8 text-neutral-300 hover:bg-white/6 hover:text-white'
+                    : 'border-[#EBEBF0] text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Close Menu
+              </button>
 
               <button
                 onClick={handleNewChat}
@@ -802,7 +847,7 @@ export default function ClipMindPage() {
                   <button
                     type="button"
                     onClick={() => setChatTab('recent')}
-                    className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition ${
+                    className={`h-6 rounded-full px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
                       chatTab === 'recent'
                         ? isDarkTheme ? 'bg-white text-slate-950' : 'bg-slate-900 text-white'
                         : isDarkTheme ? 'bg-white/6 text-neutral-400' : 'bg-slate-100 text-slate-500'
@@ -813,7 +858,7 @@ export default function ClipMindPage() {
                   <button
                     type="button"
                     onClick={() => setChatTab('pinned')}
-                    className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition ${
+                    className={`h-6 rounded-full px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
                       chatTab === 'pinned'
                         ? isDarkTheme ? 'bg-white text-slate-950' : 'bg-slate-900 text-white'
                         : isDarkTheme ? 'bg-white/6 text-neutral-400' : 'bg-slate-100 text-slate-500'
@@ -878,7 +923,7 @@ export default function ClipMindPage() {
               </div>
             </div>
 
-            <div className={`mt-auto shrink-0 border-t p-4 ${isDarkTheme ? 'border-white/8 bg-black/20' : 'border-[#EBEBF0] bg-slate-50/70'}`}>
+            <div className={`sticky bottom-0 mt-auto shrink-0 border-t p-4 ${isDarkTheme ? 'border-white/8 bg-[#0b1426]' : 'border-[#EBEBF0] bg-white/95'} backdrop-blur-xl`}>
               <div className="flex items-center gap-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${isDarkTheme ? 'bg-indigo-500/10 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
                   <UserIcon className="h-4 w-4" />
@@ -898,23 +943,32 @@ export default function ClipMindPage() {
         {sidebarOpen && (
           <div
             onClick={() => setSidebarOpen(false)}
-            className={`fixed inset-0 z-30 md:hidden ${isDarkTheme ? 'bg-black/50' : 'bg-slate-950/20'}`}
+            className={`fixed inset-0 z-30 md:hidden ${isDarkTheme ? 'bg-black/60' : 'bg-slate-950/35'}`}
           />
         )}
 
-        <main className={`flex h-screen min-w-0 flex-1 flex-col overflow-hidden ${isDarkTheme ? 'bg-[#08111f]' : 'bg-[#F8F8FC]'}`}>
-          <header className={`flex h-14 min-h-14 shrink-0 items-center justify-between gap-3 border-b px-3 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white'}`}>
+        <main className={`relative flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden ${isDarkTheme ? 'bg-[#08111f]' : 'bg-[#F8F8FC]'}`}>
+          <header className={`fixed inset-x-0 top-0 z-20 flex h-16 min-h-16 shrink-0 items-center justify-between gap-3 border-b px-3 sm:px-5 md:static md:h-14 md:min-h-14 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]/98' : 'border-[#EBEBF0] bg-white/96'} backdrop-blur-xl`}>
             <div className="flex min-w-0 items-center gap-3">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className={`rounded-xl p-2 md:hidden ${isDarkTheme ? 'text-neutral-400' : 'text-slate-500'}`}
-                title="Open sidebar"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className={`rounded-xl p-2 md:hidden ${isDarkTheme ? 'text-neutral-400 hover:bg-white/6 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+                  title="Open menu"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleBackToDashboard}
+                  className={`rounded-xl p-2 transition ${isDarkTheme ? 'text-neutral-400 hover:bg-white/6 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+                  title="Back to dashboard"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              </div>
               <div className="min-w-0">
-                <p className={`truncate text-[14px] font-semibold ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>ClipMind AI</p>
-                <p className={`truncate text-[12px] ${isDarkTheme ? 'text-neutral-400' : 'text-[#8888A0]'}`}>Search, summarize, organize</p>
+                <p className={`truncate text-[15px] font-semibold ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>ClipMind AI</p>
+                <p className={`truncate text-[12px] ${isDarkTheme ? 'text-neutral-400' : 'text-[#8888A0]'}`}>Search, summarize, organize your saved work</p>
               </div>
             </div>
 
@@ -936,16 +990,16 @@ export default function ClipMindPage() {
 
           <div
             ref={chatMessagesRef}
-            className={`flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-5 ${isDarkTheme ? 'bg-[#08111f]' : 'bg-[#F8F8FC]'}`}
+            className={`flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[calc(11.5rem+env(safe-area-inset-bottom))] pt-20 sm:px-5 md:px-5 md:py-4 ${isDarkTheme ? 'bg-[#08111f]' : 'bg-[#F8F8FC]'}`}
           >
-            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 md:gap-5">
               {messages.length === 0 ? (
                 <div className={`safe-card self-start rounded-[10px] border p-5 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-[#EBEBF0] bg-white'}`}>
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white">
                       <Bot className="h-5 w-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className={`text-[15px] font-semibold ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>Ask ClipMind anything from your saved work</h3>
                       <p className={`mt-1 text-[14px] leading-7 ${isDarkTheme ? 'text-neutral-400' : 'text-[#8888A0]'}`}>
                         Search notes, summarize research, find links, or turn saved ideas into tasks.
@@ -968,7 +1022,7 @@ export default function ClipMindPage() {
                             </div>
                           )}
 
-                          <div className={`safe-card min-w-0 rounded-[10px] border px-4 py-3 ${
+                          <div className={`safe-card min-w-0 rounded-[18px] border px-4 py-3.5 ${
                             isUser
                               ? 'border-[#6B5CE7] bg-[#6B5CE7] text-white'
                               : isDarkTheme
@@ -976,9 +1030,16 @@ export default function ClipMindPage() {
                                 : 'border-[#EBEBF0] bg-white text-slate-800'
                           }`}>
                             {message.content === '' && isStreaming && index === messages.length - 1 ? (
-                              <div className={`flex items-center gap-2 text-[13px] ${isDarkTheme ? 'text-neutral-400' : 'text-[#8888A0]'}`}>
-                                <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
-                                ClipMind is searching your saved clips...
+                              <div className={`space-y-3 text-[13px] ${isDarkTheme ? 'text-neutral-400' : 'text-[#8888A0]'}`}>
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                                  ClipMind is searching your saved clips...
+                                </div>
+                                <div className="space-y-2">
+                                  <div className={`h-3 rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-100'} animate-pulse`} />
+                                  <div className={`h-3 w-[88%] rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-100'} animate-pulse`} />
+                                  <div className={`h-3 w-[64%] rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-slate-100'} animate-pulse`} />
+                                </div>
                               </div>
                             ) : isUser ? (
                               <p className="whitespace-pre-wrap break-words text-[14px] leading-6">{message.content}</p>
@@ -1000,10 +1061,10 @@ export default function ClipMindPage() {
                           </p>
 
                           {!isUser && message.content.trim() && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
+                            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
                               <button
                                 onClick={() => navigator.clipboard.writeText(message.content).then(() => addToast('Copied assistant reply.', 'success'))}
-                                className={`inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-indigo-300' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7]'}`}
+                                className={`inline-flex h-8 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-indigo-300' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7]'}`}
                               >
                                 <Clipboard className="h-3.5 w-3.5" />
                                 Copy
@@ -1011,7 +1072,7 @@ export default function ClipMindPage() {
                               <button
                                 onClick={() => handleSaveAssistantMessage(message, 'clip')}
                                 disabled={savingMessageId === saveClipId}
-                                className={`inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-cyan-300 disabled:text-neutral-600' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7] disabled:text-slate-300'}`}
+                                className={`inline-flex h-8 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-cyan-300 disabled:text-neutral-600' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7] disabled:text-slate-300'}`}
                               >
                                 {savingMessageId === saveClipId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
                                 Save Clip
@@ -1019,14 +1080,14 @@ export default function ClipMindPage() {
                               <button
                                 onClick={() => handleSaveAssistantMessage(message, 'task')}
                                 disabled={savingMessageId === saveTaskId}
-                                className={`inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-emerald-300 disabled:text-neutral-600' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7] disabled:text-slate-300'}`}
+                                className={`inline-flex h-8 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-emerald-300 disabled:text-neutral-600' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7] disabled:text-slate-300'}`}
                               >
                                 {savingMessageId === saveTaskId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListChecks className="h-3.5 w-3.5" />}
                                 Create Task
                               </button>
                               <button
                                 onClick={() => handleShareAssistantMessage(message)}
-                                className={`inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-indigo-300' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7]'}`}
+                                className={`inline-flex h-8 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/6 hover:text-indigo-300' : 'border-[#EBEBF0] text-[#8888A0] hover:bg-[#F5F5FA] hover:text-[#6B5CE7]'}`}
                               >
                                 <Share2 className="h-3.5 w-3.5" />
                                 Share
@@ -1042,7 +1103,8 @@ export default function ClipMindPage() {
             </div>
           </div>
 
-          <div className={`shrink-0 border-t px-3 py-2 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white'}`}>
+          <div className={`fixed inset-x-0 bottom-0 z-20 md:static md:z-auto ${isDarkTheme ? 'bg-[#0d172b]/98' : 'bg-white/98'} backdrop-blur-xl`}>
+            <div className={`border-t px-3 py-2 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-transparent' : 'border-[#EBEBF0] bg-transparent'}`}>
             <div className="safe-scroll-x mx-auto flex max-w-4xl gap-2 [scrollbar-width:none]">
               {QUICK_PROMPTS.map((prompt) => (
                 <button
@@ -1054,9 +1116,9 @@ export default function ClipMindPage() {
                 </button>
               ))}
             </div>
-          </div>
+            </div>
 
-          <div className={`shrink-0 border-t px-3 py-3 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-[#0d172b]' : 'border-[#EBEBF0] bg-white'}`}>
+          <div className={`border-t px-3 py-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-5 md:pb-3 ${isDarkTheme ? 'border-white/8 bg-transparent' : 'border-[#EBEBF0] bg-transparent'}`}>
             <div className="mx-auto flex w-full max-w-4xl min-w-0 items-center gap-2">
               <button
                 type="button"
@@ -1071,7 +1133,7 @@ export default function ClipMindPage() {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();
                   }
@@ -1151,6 +1213,7 @@ export default function ClipMindPage() {
                 <span className="hidden sm:inline">Send</span>
               </button>
             </div>
+          </div>
           </div>
         </main>
       </ProGate>
