@@ -188,6 +188,19 @@ export default function ClipMindPage() {
     }
   }, []);
 
+  // Read ?prompt=... from URL to support immediate graph query bridging
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const promptParam = params.get('prompt');
+    if (promptParam) {
+      setInputText(promptParam);
+      // Clean up parameters in address bar to prevent prompt re-triggering on refreshes
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
+
   useEffect(() => {
     const checkAuthAndFetchData = async () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
