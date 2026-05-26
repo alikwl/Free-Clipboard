@@ -534,6 +534,52 @@ const CLIP_MIND_ACTION_ICONS: Record<ClipMindAction, React.ComponentType<{ class
   'detect-sensitive-data': AlertCircle,
 };
 
+const MOBILE_CLIP_MIND_ACTION_GROUPS: {
+  title: string;
+  description: string;
+  accent: string;
+  actions: { id: ClipMindAction; label: string; hint: string }[];
+}[] = [
+  {
+    title: 'Write',
+    description: 'Improve wording, clarity, and tone.',
+    accent: 'from-fuchsia-500/20 via-violet-500/10 to-transparent',
+    actions: [
+      { id: 'summarize', label: 'Summarize', hint: 'Quick highlights' },
+      { id: 'rewrite', label: 'Rewrite', hint: 'Cleaner phrasing' },
+      { id: 'fix-grammar', label: 'Fix grammar', hint: 'Correct and smooth' },
+      { id: 'make-professional', label: 'Make professional', hint: 'Sharper tone' },
+      { id: 'make-short', label: 'Make short', hint: 'Condense fast' },
+    ],
+  },
+  {
+    title: 'Organize',
+    description: 'Turn raw text into useful structure.',
+    accent: 'from-cyan-500/20 via-sky-500/10 to-transparent',
+    actions: [
+      { id: 'extract-tasks', label: 'Extract tasks', hint: 'Action items' },
+      { id: 'generate-tags', label: 'Generate tags', hint: 'Smart labels' },
+    ],
+  },
+  {
+    title: 'Transform',
+    description: 'Rework the clip into another format.',
+    accent: 'from-amber-500/20 via-orange-500/10 to-transparent',
+    actions: [
+      { id: 'translate', label: 'Translate', hint: 'Another language' },
+      { id: 'convert-checklist', label: 'Convert to checklist', hint: 'Task format' },
+    ],
+  },
+  {
+    title: 'Developer',
+    description: 'Explain or unpack technical text.',
+    accent: 'from-emerald-500/20 via-teal-500/10 to-transparent',
+    actions: [
+      { id: 'explain-text', label: 'Explain', hint: 'Break it down' },
+    ],
+  },
+];
+
 const normalizeClipEntities = (value: unknown): ClipEntities => {
   if (!value || typeof value !== 'object') return {};
   const raw = value as Record<string, unknown>;
@@ -2081,6 +2127,13 @@ export default function Dashboard() {
     setMobileCardActionClip(clip);
   }, []);
 
+  const handleToggleClipMindMenu = useCallback((clip: Clip, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setShowRewriteMenu(null);
+    setShowTranslateMenu(null);
+    setShowClipMindMenu((current) => (current === clip.id ? null : clip.id));
+  }, []);
+
   const handleClipMindAction = async (clip: Clip, action: ClipMindAction, e?: React.MouseEvent) => {
     e?.stopPropagation();
 
@@ -2096,7 +2149,9 @@ export default function Dashboard() {
     }
 
     setClipMindLoadingId(clip.id);
-    setShowClipMindMenu(null);
+    if (!isMobileViewport) {
+      setShowClipMindMenu(null);
+    }
 
     try {
       const response = await fetch('/api/ai/clipmind-action', {
@@ -2223,6 +2278,27 @@ export default function Dashboard() {
     if (nextOpen && user && clipMindConversations.length === 0) {
       await loadClipMindConversations();
     }
+  };
+
+  const handleCopyClipMindResult = async (clipId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const output = clipMindResults[clipId];
+    if (!output?.result) return;
+
+    try {
+      await navigator.clipboard.writeText(output.result);
+      addToast('ClipMind result copied.', 'success');
+    } catch (error) {
+      console.error('Failed to copy ClipMind result:', error);
+      addToast('Could not copy this ClipMind result.', 'warning');
+    }
+  };
+
+  const handleSaveClipMindResultAsClip = async (clipId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const output = clipMindResults[clipId];
+    if (!output?.result) return;
+    await handleSaveClipMindMessage(`${clipId}-${output.action}-result`, output.result);
   };
 
   const handleSelectClipMindConversation = (conversationId: string) => {
@@ -3615,7 +3691,17 @@ export default function Dashboard() {
     ? 'bg-[#07070a] text-neutral-100 selection:bg-indigo-500/30 selection:text-indigo-200'
     : 'bg-[radial-gradient(circle_at_top_left,_#ffffff,_#eef2ff_28%,_#f8fafc_60%,_#eef2ff_100%)] text-slate-900 selection:bg-indigo-200 selection:text-indigo-950';
   const isMobileShellOverlayOpen = isMobileViewport && (isSidebarOpen || isClipMindDrawerOpen);
+  const mobileClipMindActionClip = showClipMindMenu
+    ? (
+        previewingClip?.id === showClipMindMenu
+          ? previewingClip
+          : mobileCardActionClip?.id === showClipMindMenu
+            ? mobileCardActionClip
+            : clips.find((clip) => clip.id === showClipMindMenu) || null
+      )
+    : null;
   const renderClipMindMenu = (clip: Clip, align: 'left' | 'right' = 'right') => (
+    isMobileViewport ? null : (
     <div
       onMouseLeave={() => setShowClipMindMenu(null)}
       className={`absolute top-full z-40 mt-2 max-h-[min(72vh,34rem)] w-[min(22rem,calc(100%_-_0.5rem),calc(100vw_-_1.5rem))] max-w-[calc(100vw_-_1.5rem)] overflow-y-auto rounded-[1.6rem] border p-3 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl ${
@@ -3720,6 +3806,7 @@ export default function Dashboard() {
         ))}
       </div>
     </div>
+    )
   );
 
   const renderMobileClipCard = (clip: Clip, options?: { draggable?: boolean; onDragStart?: (e: React.DragEvent) => void; className?: string }) => {
@@ -3933,6 +4020,24 @@ export default function Dashboard() {
                 Apply
               </button>
             )}
+            <button
+              type="button"
+              onClick={(e) => handleSaveClipMindResultAsClip(clip.id, e)}
+              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] ${
+                isDarkTheme ? 'bg-indigo-400/10 text-indigo-300 hover:bg-indigo-400/20' : 'bg-white text-indigo-700 hover:bg-indigo-100'
+              }`}
+            >
+              Save as new clip
+            </button>
+            <button
+              type="button"
+              onClick={(e) => handleCopyClipMindResult(clip.id, e)}
+              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] ${
+                isDarkTheme ? 'bg-white/6 text-neutral-200 hover:bg-white/10' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              Copy
+            </button>
             <button
               type="button"
               onClick={(e) => dismissClipMindResult(clip.id, e)}
@@ -5903,7 +6008,7 @@ export default function Dashboard() {
                                     setShowUpgradeModal(true);
                                     return;
                                   }
-                                  setShowClipMindMenu(showClipMindMenu === clip.id ? null : clip.id);
+                                  handleToggleClipMindMenu(clip);
                                 }}
                                 className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700 transition hover:bg-cyan-100"
                               >
@@ -6000,7 +6105,7 @@ export default function Dashboard() {
                                   setShowUpgradeModal(true);
                                   return;
                                 }
-                                setShowClipMindMenu(showClipMindMenu === clip.id ? null : clip.id);
+                                handleToggleClipMindMenu(clip);
                               }}
                               className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition ${
                                 isDarkTheme
@@ -6630,7 +6735,7 @@ export default function Dashboard() {
                                 <button
                                   onClick={() => {
                                     if (!isPro) { setShowUpgradeModal(true); return; }
-                                    setShowClipMindMenu(showClipMindMenu === clip.id ? null : clip.id);
+                                    handleToggleClipMindMenu(clip);
                                     setShowRewriteMenu(null);
                                     setShowTranslateMenu(null);
                                   }}
@@ -7073,6 +7178,153 @@ export default function Dashboard() {
 
       {renderClipMindDrawer()}
 
+      {isMobileViewport && mobileClipMindActionClip && (
+        <>
+          <div
+            className="fixed inset-0 z-[85] bg-slate-950/70 backdrop-blur-sm md:hidden"
+            onClick={() => setShowClipMindMenu(null)}
+          />
+          <div className={`fixed inset-x-0 bottom-0 z-[90] max-h-[85dvh] overflow-hidden rounded-t-[30px] border md:hidden ${
+            isDarkTheme
+              ? 'border-white/10 bg-neutral-950 text-neutral-100'
+              : 'border-slate-200 bg-white text-slate-900'
+          }`}>
+            <div className="flex max-h-[85dvh] min-h-0 flex-col overflow-hidden">
+              <div className={`shrink-0 border-b px-4 pb-4 pt-3 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-slate-200 bg-white'}`}>
+                <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-black/10 dark:bg-white/10" />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${isDarkTheme ? 'text-cyan-300' : 'text-cyan-700'}`}>AI Actions</p>
+                    <h3 className={`mt-1 text-base font-black ${titleTextClass}`}>ClipMind for this clip</h3>
+                    <p className={`mt-1 text-xs leading-5 ${subtleTextClass}`}>Run a focused action, then apply or save the result.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowClipMindMenu(null)}
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${isDarkTheme ? 'border-white/8 text-neutral-300' : 'border-slate-200 text-slate-600'}`}
+                    aria-label="Close AI actions"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                <div className={`mb-4 overflow-hidden rounded-[22px] border px-3 py-3 ${isDarkTheme ? 'border-white/8 bg-white/[0.03]' : 'border-slate-200 bg-slate-50/80'}`}>
+                  <p className={`line-clamp-2 text-sm font-black [overflow-wrap:anywhere] ${titleTextClass}`}>
+                    {mobileClipMindActionClip.title || 'Untitled Clip'}
+                  </p>
+                  <p className={`mt-2 line-clamp-3 whitespace-pre-wrap break-words text-xs leading-5 ${subtleTextClass}`}>
+                    {mobileClipMindActionClip.content}
+                  </p>
+                </div>
+
+                {clipMindLoadingId === mobileClipMindActionClip.id && (
+                  <div className={`mb-4 rounded-[22px] border p-4 ${isDarkTheme ? 'border-cyan-500/20 bg-cyan-500/8' : 'border-cyan-200 bg-cyan-50/90'}`}>
+                    <div className="flex items-center gap-2 text-sm font-bold">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Working on it...
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <div className={`h-3 rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-white'} animate-pulse`} />
+                      <div className={`h-3 w-[82%] rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-white'} animate-pulse`} />
+                      <div className={`h-3 w-[65%] rounded-full ${isDarkTheme ? 'bg-white/10' : 'bg-white'} animate-pulse`} />
+                    </div>
+                  </div>
+                )}
+
+                {clipMindResults[mobileClipMindActionClip.id] && (
+                  <div className={`mb-4 rounded-[22px] border p-4 ${isDarkTheme ? 'border-cyan-500/20 bg-cyan-500/8' : 'border-cyan-200 bg-cyan-50/90'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${isDarkTheme ? 'text-cyan-300' : 'text-cyan-700'}`}>
+                          Result • {clipMindResults[mobileClipMindActionClip.id].label}
+                        </p>
+                        {clipMindResults[mobileClipMindActionClip.id].isFallback && (
+                          <p className={`mt-1 text-[11px] leading-5 ${isDarkTheme ? 'text-amber-300' : 'text-amber-700'}`}>
+                            {clipMindResults[mobileClipMindActionClip.id].warning || 'Local fallback generated.'}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => dismissClipMindResult(mobileClipMindActionClip.id, e)}
+                        className={`rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${subtleTextClass}`}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <pre className={`mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-2xl border p-3 text-xs leading-6 ${isDarkTheme ? 'border-white/8 bg-black/20 text-neutral-200' : 'border-slate-200 bg-white text-slate-700'}`}>
+                      {clipMindResults[mobileClipMindActionClip.id].result}
+                    </pre>
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {clipMindResults[mobileClipMindActionClip.id].applyTarget && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleApplyClipMindResult(mobileClipMindActionClip, e)}
+                          className={`rounded-xl px-3 py-2.5 text-xs font-black ${isDarkTheme ? 'bg-cyan-400/10 text-cyan-300' : 'bg-white text-cyan-700 border border-cyan-200'}`}
+                        >
+                          Apply
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleSaveClipMindResultAsClip(mobileClipMindActionClip.id, e)}
+                        className={`rounded-xl px-3 py-2.5 text-xs font-black ${isDarkTheme ? 'bg-indigo-400/10 text-indigo-300' : 'bg-white text-indigo-700 border border-indigo-200'}`}
+                      >
+                        Save as new clip
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyClipMindResult(mobileClipMindActionClip.id, e)}
+                        className={`rounded-xl px-3 py-2.5 text-xs font-black ${isDarkTheme ? 'bg-white/6 text-neutral-200' : 'bg-white text-slate-700 border border-slate-200'}`}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3 pb-4">
+                  {MOBILE_CLIP_MIND_ACTION_GROUPS.map((group) => (
+                    <div
+                      key={group.title}
+                      className={`overflow-hidden rounded-[22px] border ${isDarkTheme ? 'border-white/8 bg-white/[0.03]' : 'border-slate-200 bg-white'}`}
+                    >
+                      <div className={`bg-gradient-to-r px-4 py-3 ${group.accent}`}>
+                        <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>{group.title}</p>
+                        <p className={`mt-1 text-[11px] leading-5 ${subtleTextClass}`}>{group.description}</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 p-3">
+                        {group.actions.map((item) => {
+                          const Icon = CLIP_MIND_ACTION_ICONS[item.id];
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={(e) => handleClipMindAction(mobileClipMindActionClip, item.id, e)}
+                              className={`flex items-start gap-3 rounded-2xl border px-3 py-3 text-left ${isDarkTheme ? 'border-white/8 bg-black/10 text-neutral-200' : 'border-slate-200 bg-slate-50/80 text-slate-800'}`}
+                            >
+                              <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isDarkTheme ? 'bg-white/6 text-cyan-200' : 'bg-white text-indigo-600'}`}>
+                                <Icon className="h-4 w-4" />
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-xs font-black">{item.label}</span>
+                                <span className={`mt-1 block text-[11px] leading-5 ${subtleTextClass}`}>{item.hint}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {mobileCardActionClip && (
         <>
           <div
@@ -7105,7 +7357,7 @@ export default function Dashboard() {
                   <button onClick={() => { handleSummarize(mobileCardActionClip.id, mobileCardActionClip.content); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>AI Summary</button>
                   <button onClick={() => setMobileCardActionPanel('rewrite')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300' : 'border-indigo-200 bg-indigo-50 text-indigo-700'}`}>Rewrite</button>
                   <button onClick={() => setMobileCardActionPanel('translate')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-violet-500/20 bg-violet-500/10 text-violet-300' : 'border-violet-200 bg-violet-50 text-violet-700'}`}>Translate</button>
-                  <button onClick={() => { handleOpenClipMindDrawer(); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border-cyan-200 bg-cyan-50 text-cyan-700'}`}>ClipMind</button>
+                  <button onClick={() => { setShowClipMindMenu(mobileCardActionClip.id); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border-cyan-200 bg-cyan-50 text-cyan-700'}`}>ClipMind</button>
                   <button onClick={() => { handleDeleteClip(mobileCardActionClip.id).finally(closeMobileCardActionSheet); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-rose-500/20 bg-rose-500/10 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>Delete</button>
                 </div>
               )}
@@ -7884,7 +8136,7 @@ export default function Dashboard() {
                             setIsUpgradeModalOpen(true);
                             return;
                           }
-                          setShowClipMindMenu(showClipMindMenu === previewingClip.id ? null : previewingClip.id);
+                          handleToggleClipMindMenu(previewingClip);
                         }}
                         className="w-full text-xs font-bold text-cyan-700 hover:bg-cyan-50 sm:w-auto"
                       >
