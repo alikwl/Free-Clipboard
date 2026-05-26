@@ -41,6 +41,7 @@ import {
   Star, 
   SunMedium,
   Moon,
+  MessageSquare,
   Loader2,
   ChevronDown,
   ChevronUp,
@@ -58,7 +59,9 @@ import {
   FileText,
   ListChecks,
   ScanText,
+  Send,
   Tags,
+  User as UserIcon,
   Wand2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -168,6 +171,100 @@ type DetectedClipContentType = 'markdown' | 'json' | 'html' | 'code' | 'list' | 
 type NewClipContentMode = 'auto' | DetectedClipContentType;
 type TaskStatus = 'pending' | 'in-progress' | 'done';
 type TaskFilter = 'all' | TaskStatus;
+type ClipMindAction =
+  | 'summarize'
+  | 'rewrite'
+  | 'translate'
+  | 'fix-grammar'
+  | 'make-professional'
+  | 'make-short'
+  | 'make-friendly'
+  | 'extract-tasks'
+  | 'extract-keywords'
+  | 'generate-title'
+  | 'generate-tags'
+  | 'detect-language'
+  | 'explain-text'
+  | 'convert-email'
+  | 'convert-thread'
+  | 'convert-blog-outline'
+  | 'convert-checklist'
+  | 'convert-json'
+  | 'convert-table'
+  | 'detect-sensitive-data';
+
+interface ClipMindResult {
+  action: ClipMindAction;
+  label: string;
+  result: string;
+  applyTarget: 'content' | 'title' | 'tags' | null;
+  isFallback?: boolean;
+  warning?: string | null;
+  parsedTags?: string[] | null;
+}
+
+interface ClipMindChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+interface ClipMindConversation {
+  id: string;
+  title: string;
+  messages: ClipMindChatMessage[];
+  created_at: string;
+  updated_at: string;
+}
+
+type ClipMindSidebarCategory = 'notes' | 'tasks' | 'bugs' | 'features' | 'ai-actions';
+type ClipMindQuickFilter = 'pinned' | 'shared' | 'ai-generated';
+type ClipMindChatTab = 'recent' | 'pinned';
+type ClipMindComposerAction = 'summarize' | 'convert-task' | 'translate' | 'ai-edit';
+
+const CLIP_MIND_DRAWER_STARTERS = [
+  'Show me the links I copied last week.',
+  'Summarize the clips related to this project.',
+  'Create a task list from my development notes.',
+  'Search my saved snippets for Stripe-related code.',
+  'Generate an email draft from my clips.',
+  'Combine all notes pertaining to this client.',
+];
+
+const CLIP_MIND_SIDEBAR_SECTIONS: {
+  id: ClipMindSidebarCategory;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  prompt: string;
+}[] = [
+  { id: 'notes', label: 'Notes', icon: FileText, prompt: 'Summarize my notes clips and highlight key takeaways.' },
+  { id: 'tasks', label: 'Tasks', icon: ListChecks, prompt: 'Create a task list from my recent task-related clips.' },
+  { id: 'bugs', label: 'Bugs', icon: AlertCircle, prompt: 'Show bug-related clips and summarize recurring issues.' },
+  { id: 'features', label: 'Features', icon: Sparkles, prompt: 'Collect feature ideas from my clips and organize them clearly.' },
+  { id: 'ai-actions', label: 'AI Actions', icon: Bot, prompt: 'Suggest the best AI actions to run on my recent clips.' },
+];
+
+const CLIP_MIND_QUICK_FILTERS: {
+  id: ClipMindQuickFilter;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { id: 'pinned', label: 'Pinned', icon: Star },
+  { id: 'shared', label: 'Shared', icon: Share2 },
+  { id: 'ai-generated', label: 'AI-Generated', icon: Bot },
+];
+
+const CLIP_MIND_COMPOSER_ACTIONS: {
+  id: ClipMindComposerAction;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  prompt: string;
+}[] = [
+  { id: 'summarize', label: 'Summarize', icon: Brain, prompt: 'Summarize the most relevant clips for this topic.' },
+  { id: 'convert-task', label: 'Convert to Task', icon: ListChecks, prompt: 'Turn my relevant clips into a concise task list.' },
+  { id: 'translate', label: 'Translate', icon: Languages, prompt: 'Translate the relevant clips and preserve their meaning clearly.' },
+  { id: 'ai-edit', label: 'AI Edit', icon: Wand2, prompt: 'Rewrite and polish the relevant clips in a cleaner professional style.' },
+];
 
 const escapeHtml = (value: string) =>
   value
@@ -364,6 +461,78 @@ const getVisibleClipTags = (clip: Clip) => clip.tags.filter(tag => {
   return upper !== TASK_TYPE_TAG && !upper.startsWith(TASK_STATUS_PREFIX);
 });
 
+const CLIP_MIND_ACTION_GROUPS: {
+  title: string;
+  description: string;
+  accent: string;
+  actions: { id: ClipMindAction; label: string; hint: string }[];
+}[] = [
+  {
+    title: 'Write',
+    description: 'Polish, shorten, or shift the tone instantly.',
+    accent: 'from-fuchsia-500/20 via-violet-500/10 to-transparent',
+    actions: [
+      { id: 'summarize', label: 'Summarize', hint: 'Quick highlights' },
+      { id: 'rewrite', label: 'Rewrite', hint: 'Cleaner phrasing' },
+      { id: 'fix-grammar', label: 'Fix grammar', hint: 'Correct and smooth' },
+      { id: 'make-professional', label: 'Make professional', hint: 'Sharper tone' },
+      { id: 'make-short', label: 'Make short', hint: 'Condense fast' },
+      { id: 'make-friendly', label: 'Make friendly', hint: 'Warmer style' },
+      { id: 'translate', label: 'Translate', hint: 'Another language' },
+    ],
+  },
+  {
+    title: 'Extract',
+    description: 'Pull structure, signals, and useful metadata.',
+    accent: 'from-cyan-500/20 via-sky-500/10 to-transparent',
+    actions: [
+      { id: 'extract-tasks', label: 'Extract tasks', hint: 'Action items' },
+      { id: 'extract-keywords', label: 'Extract keywords', hint: 'Key themes' },
+      { id: 'generate-title', label: 'Generate title', hint: 'Better headline' },
+      { id: 'generate-tags', label: 'Generate tags', hint: 'Smart labels' },
+      { id: 'detect-language', label: 'Detect language', hint: 'Auto identify' },
+      { id: 'detect-sensitive-data', label: 'Detect sensitive data', hint: 'Privacy scan' },
+    ],
+  },
+  {
+    title: 'Convert',
+    description: 'Turn one clip into a more useful output format.',
+    accent: 'from-amber-500/20 via-orange-500/10 to-transparent',
+    actions: [
+      { id: 'explain-text', label: 'Explain text', hint: 'Break it down' },
+      { id: 'convert-email', label: 'Convert to email', hint: 'Ready to send' },
+      { id: 'convert-thread', label: 'Convert to tweet/thread', hint: 'Social format' },
+      { id: 'convert-blog-outline', label: 'Convert to blog outline', hint: 'Draft structure' },
+      { id: 'convert-checklist', label: 'Convert to checklist', hint: 'Task format' },
+      { id: 'convert-json', label: 'Convert to JSON', hint: 'Structured data' },
+      { id: 'convert-table', label: 'Convert to table', hint: 'Tabular view' },
+    ],
+  },
+];
+
+const CLIP_MIND_ACTION_ICONS: Record<ClipMindAction, React.ComponentType<{ className?: string }>> = {
+  summarize: Brain,
+  rewrite: Wand2,
+  translate: Languages,
+  'fix-grammar': ScanText,
+  'make-professional': Sparkles,
+  'make-short': RefreshCw,
+  'make-friendly': Bot,
+  'extract-tasks': ListChecks,
+  'extract-keywords': Tags,
+  'generate-title': FileText,
+  'generate-tags': Tags,
+  'detect-language': Languages,
+  'explain-text': Info,
+  'convert-email': FileText,
+  'convert-thread': Share2,
+  'convert-blog-outline': FileText,
+  'convert-checklist': ListChecks,
+  'convert-json': Code2,
+  'convert-table': BarChart3,
+  'detect-sensitive-data': AlertCircle,
+};
+
 const normalizeClipEntities = (value: unknown): ClipEntities => {
   if (!value || typeof value !== 'object') return {};
   const raw = value as Record<string, unknown>;
@@ -393,6 +562,33 @@ const normalizeClipEntities = (value: unknown): ClipEntities => {
 };
 
 const isDeletedClip = (clip: Clip) => clip.metadata?.is_deleted === true;
+
+const deriveClipTitleFromContent = (content: string) => {
+  const trimmed = content.trim();
+  if (!trimmed) return 'Saved Clip';
+  const firstLine = trimmed.split('\n').map((line) => line.trim()).find(Boolean) || '';
+  const urlMatch = trimmed.match(/https?:\/\/[^\s)]+/);
+  const titleSource = urlMatch
+    ? urlMatch[0].replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0]
+    : firstLine.replace(/^#{1,6}\s*/, '').replace(/^[-*]\s*/, '');
+  const normalized = titleSource || 'Saved Clip';
+  return normalized.length > 60 ? `${normalized.slice(0, 57).trim()}...` : normalized;
+};
+
+const deriveClipTagsFromContent = (content: string) => {
+  const lowered = content.toLowerCase();
+  const detectedType = detectClipContentType(content);
+  const tagCandidates = new Set<string>();
+  if (detectedType !== 'plain') tagCandidates.add(detectedType.toUpperCase());
+  if (/https?:\/\//.test(lowered)) tagCandidates.add('LINK');
+  if (/(meeting|agenda|notes|action item|follow up)/.test(lowered)) tagCandidates.add('NOTES');
+  if (/(todo|task|checklist|deadline)/.test(lowered)) tagCandidates.add('TASKS');
+  if (/(react|next\.?js|typescript|javascript|css|tailwind|api|function|const )/.test(lowered)) tagCandidates.add('CODE');
+  if (/(research|source|paper|citation|reference)/.test(lowered)) tagCandidates.add('RESEARCH');
+  if (/(prompt|ai|model|openai|gemini|claude|clipmind)/.test(lowered)) tagCandidates.add('AI');
+  if (tagCandidates.size === 0) tagCandidates.add('CLIP');
+  return Array.from(tagCandidates).slice(0, 6);
+};
 
 const buildVersionSnapshot = (clip: Clip): ClipVersionSnapshot => ({
   content: clip.content,
@@ -520,6 +716,24 @@ export default function Dashboard() {
     document.documentElement.style.colorScheme = nextTheme;
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedCompactMode = localStorage.getItem('fc_clipmind_compact_mode');
+    setClipMindCompactMode(storedCompactMode === 'true');
+
+    const storedPinnedIds = localStorage.getItem('fc_clipmind_pinned_chats');
+    if (storedPinnedIds) {
+      try {
+        const parsed = JSON.parse(storedPinnedIds);
+        if (Array.isArray(parsed)) {
+          setClipMindPinnedConversationIds(parsed.filter((id): id is string => typeof id === 'string'));
+        }
+      } catch {
+        localStorage.removeItem('fc_clipmind_pinned_chats');
+      }
+    }
+  }, []);
+
   const handleSetViewMode = (mode: 'board' | 'grid' | 'list' | 'table' | 'checklist') => {
     setViewMode(mode);
     localStorage.setItem('fc_view_mode', mode);
@@ -531,6 +745,14 @@ export default function Dashboard() {
     localStorage.setItem('fc_dashboard_theme', nextTheme);
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
     document.documentElement.style.colorScheme = nextTheme;
+  };
+
+  const handleToggleClipMindCompactMode = () => {
+    setClipMindCompactMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('fc_clipmind_compact_mode', String(next));
+      return next;
+    });
   };
 
   // Debounce search
@@ -580,6 +802,25 @@ export default function Dashboard() {
   const [clipSummaries, setClipSummaries] = useState<Record<string, { summary: string; isFallback?: boolean; warning?: string }>>({});
   const [summarizingClipId, setSummarizingClipId] = useState<string | null>(null);
   const [collapsedSummaries, setCollapsedSummaries] = useState<Record<string, boolean>>({});
+  const [clipMindResults, setClipMindResults] = useState<Record<string, ClipMindResult>>({});
+  const [clipMindLoadingId, setClipMindLoadingId] = useState<string | null>(null);
+  const [showClipMindMenu, setShowClipMindMenu] = useState<string | null>(null);
+  const [isClipMindDrawerOpen, setIsClipMindDrawerOpen] = useState(false);
+  const [clipMindConversations, setClipMindConversations] = useState<ClipMindConversation[]>([]);
+  const [activeClipMindConversationId, setActiveClipMindConversationId] = useState<string | null>(null);
+  const [clipMindMessages, setClipMindMessages] = useState<ClipMindChatMessage[]>([]);
+  const [clipMindInput, setClipMindInput] = useState('');
+  const [clipMindSidebarCategory, setClipMindSidebarCategory] = useState<ClipMindSidebarCategory>('notes');
+  const [clipMindQuickFilter, setClipMindQuickFilter] = useState<ClipMindQuickFilter | null>(null);
+  const [clipMindChatTab, setClipMindChatTab] = useState<ClipMindChatTab>('recent');
+  const [clipMindCompactMode, setClipMindCompactMode] = useState(false);
+  const [clipMindPinnedConversationIds, setClipMindPinnedConversationIds] = useState<string[]>([]);
+  const [clipMindMobileQuickAction, setClipMindMobileQuickAction] = useState<ClipMindComposerAction>('summarize');
+  const [isClipMindStreaming, setIsClipMindStreaming] = useState(false);
+  const [isClipMindHistoryLoading, setIsClipMindHistoryLoading] = useState(false);
+  const clipMindEndRef = useRef<HTMLDivElement>(null);
+  const clipMindHistoryLoadedRef = useRef(false);
+  const [savingClipMindMessageId, setSavingClipMindMessageId] = useState<string | null>(null);
   const [copiedTranslationId, setCopiedTranslationId] = useState<string | null>(null);
   const [rewritingClipId, setRewritingClipId] = useState<string | null>(null);
   const [pendingRewrites, setPendingRewrites] = useState<Record<string, string>>({});
@@ -607,6 +848,79 @@ export default function Dashboard() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3500);
   }, []);
+
+  const scrollClipMindToBottom = useCallback(() => {
+    clipMindEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    if (isClipMindDrawerOpen) {
+      scrollClipMindToBottom();
+    }
+  }, [clipMindMessages, isClipMindDrawerOpen, scrollClipMindToBottom]);
+
+  const loadClipMindConversations = useCallback(async () => {
+    if (!user) return;
+    if (isClipMindHistoryLoading) return;
+    setIsClipMindHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('clipmind_conversations')
+        .select('id, title, messages, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(8);
+
+      if (error) throw error;
+
+      const conversations = (data || []).map((item) => ({
+        id: item.id,
+        title: typeof item.title === 'string' && item.title.trim() ? item.title : 'New chat',
+        messages: Array.isArray(item.messages)
+          ? item.messages.filter((msg): msg is ClipMindChatMessage => {
+              if (!msg || typeof msg !== 'object') return false;
+              const candidate = msg as Record<string, unknown>;
+              return (candidate.role === 'user' || candidate.role === 'assistant') && typeof candidate.content === 'string';
+            }).map((msg) => ({
+              role: msg.role,
+              content: msg.content,
+              created_at: typeof msg.created_at === 'string' ? msg.created_at : new Date().toISOString(),
+            }))
+          : [],
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+
+      setClipMindConversations(conversations);
+      clipMindHistoryLoadedRef.current = true;
+
+      setActiveClipMindConversationId((currentId) => {
+        const nextId = currentId && conversations.some((conversation) => conversation.id === currentId)
+          ? currentId
+          : conversations[0]?.id || null;
+
+        const activeConversation = conversations.find((conversation) => conversation.id === nextId);
+        setClipMindMessages(activeConversation?.messages || []);
+        return nextId;
+      });
+    } catch (error) {
+      console.error('Failed to load ClipMind conversations:', error);
+      addToast('Could not load ClipMind history.', 'warning');
+    } finally {
+      setIsClipMindHistoryLoading(false);
+    }
+  }, [addToast, isClipMindHistoryLoading, supabase, user]);
+
+  useEffect(() => {
+    if (
+      isClipMindDrawerOpen &&
+      user &&
+      isProUser(userPlan, userTrialEndsAt) &&
+      !clipMindHistoryLoadedRef.current
+    ) {
+      loadClipMindConversations();
+    }
+  }, [isClipMindDrawerOpen, loadClipMindConversations, user, userPlan, userTrialEndsAt]);
 
   const copyClipText = useCallback((id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -1694,6 +2008,432 @@ export default function Dashboard() {
       ...prev,
       [clipId]: !prev[clipId],
     }));
+  };
+
+  const handleClipMindAction = async (clip: Clip, action: ClipMindAction, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+
+    if (userPlan === 'free') {
+      addToast('ClipMind actions are a Pro feature. Upgrade to unlock AI workflows.', 'warning');
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+
+    if (!clip.content.trim()) {
+      addToast('Cannot run ClipMind on empty content.', 'warning');
+      return;
+    }
+
+    setClipMindLoadingId(clip.id);
+    setShowClipMindMenu(null);
+
+    try {
+      const response = await fetch('/api/ai/clipmind-action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: clip.content, action }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.result) {
+        throw new Error('Invalid ClipMind response.');
+      }
+
+      setClipMindResults((prev) => ({
+        ...prev,
+        [clip.id]: {
+          action,
+          label: data.label || 'ClipMind',
+          result: data.result,
+          applyTarget: data.applyTarget || null,
+          isFallback: data.isFallback,
+          warning: data.warning,
+          parsedTags: Array.isArray(data.parsedTags) ? data.parsedTags : null,
+        },
+      }));
+
+      if (data.isFallback) {
+        addToast(data.warning || `${data.label || 'ClipMind'} used a local fallback.`, 'warning');
+      } else {
+        addToast(`${data.label || 'ClipMind'} complete.`, 'success');
+      }
+    } catch (err: unknown) {
+      console.error('ClipMind action error:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      addToast(`ClipMind failed: ${msg}`, 'warning');
+    } finally {
+      setClipMindLoadingId(null);
+    }
+  };
+
+  const handleApplyClipMindResult = async (clip: Clip, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const output = clipMindResults[clip.id];
+    if (!output || !output.applyTarget || !user) return;
+
+    if (output.applyTarget === 'title') {
+      const nextTitle = output.result.trim();
+      const updated = clips.map((item) => item.id === clip.id ? { ...item, title: nextTitle } : item);
+      setClips(updated);
+      if (previewingClip?.id === clip.id) {
+        setPreviewingClip({ ...previewingClip, title: nextTitle });
+      }
+      localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updated));
+      try {
+        const { error } = await supabase.from('clips').update({ title: nextTitle }).eq('id', clip.id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to save ClipMind title:', err);
+        enqueueAction('clips', 'update', { id: clip.id, title: nextTitle });
+      }
+    }
+
+    if (output.applyTarget === 'tags') {
+      const nextTags = (output.parsedTags || output.result.split(',').map((tag) => tag.trim().toUpperCase()).filter(Boolean)).slice(0, 12);
+      if (previewingClip?.id === clip.id) {
+        setPreviewingClip({ ...previewingClip, tags: nextTags });
+      }
+      await persistClipTags(clip.id, nextTags, 'ClipMind tags applied.');
+    }
+
+    if (output.applyTarget === 'content') {
+      const updated = clips.map((item) => item.id === clip.id ? { ...item, content: output.result } : item);
+      setClips(updated);
+      if (previewingClip?.id === clip.id) {
+        setPreviewingClip({ ...previewingClip, content: output.result });
+      }
+      localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updated));
+      try {
+        const { error } = await supabase.from('clips').update({ content: output.result }).eq('id', clip.id);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Failed to save ClipMind content:', err);
+        enqueueAction('clips', 'update', { id: clip.id, content: output.result });
+      }
+    }
+
+    addToast(`${output.label} applied to clip.`, 'success');
+  };
+
+  const dismissClipMindResult = (clipId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setClipMindResults((prev) => {
+      const next = { ...prev };
+      delete next[clipId];
+      return next;
+    });
+  };
+
+  const handleOpenClipMindDrawer = async () => {
+    if (!isProUser(userPlan, userTrialEndsAt)) {
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+
+    const nextOpen = !isClipMindDrawerOpen;
+    setIsClipMindDrawerOpen(nextOpen);
+
+    if (nextOpen && user && clipMindConversations.length === 0) {
+      await loadClipMindConversations();
+    }
+  };
+
+  const handleSelectClipMindConversation = (conversationId: string) => {
+    setActiveClipMindConversationId(conversationId);
+    const selected = clipMindConversations.find((conversation) => conversation.id === conversationId);
+    setClipMindMessages(selected?.messages || []);
+  };
+
+  const handleTogglePinnedClipMindConversation = (conversationId: string) => {
+    setClipMindPinnedConversationIds((prev) => {
+      const next = prev.includes(conversationId)
+        ? prev.filter((id) => id !== conversationId)
+        : [conversationId, ...prev].slice(0, 8);
+      localStorage.setItem('fc_clipmind_pinned_chats', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleClipMindSidebarPrompt = (prompt: string) => {
+    setClipMindInput(prompt);
+  };
+
+  const handleClipMindQuickComposerAction = (actionId: ClipMindComposerAction) => {
+    const action = CLIP_MIND_COMPOSER_ACTIONS.find((item) => item.id === actionId);
+    if (!action) return;
+    setClipMindInput(action.prompt);
+  };
+
+  const handleNewClipMindConversation = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('clipmind_conversations')
+        .insert({
+          user_id: user.id,
+          title: 'New Chat',
+          messages: [],
+        })
+        .select('id, title, messages, created_at, updated_at')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create conversation.');
+
+      const nextConversation: ClipMindConversation = {
+        id: data.id,
+        title: data.title || 'New chat',
+        messages: [],
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      setClipMindConversations((prev) => [nextConversation, ...prev]);
+      setActiveClipMindConversationId(nextConversation.id);
+      setClipMindMessages([]);
+      setClipMindInput('');
+    } catch (error) {
+      console.error('Failed to create ClipMind conversation:', error);
+      addToast('Could not start a new ClipMind chat.', 'warning');
+    }
+  };
+
+  const handleSendClipMindMessage = async (textToSend?: string) => {
+    const text = (textToSend || clipMindInput).trim();
+    if (!text || isClipMindStreaming || !user) return;
+
+    let conversationId = activeClipMindConversationId;
+
+    if (!conversationId) {
+      try {
+        const { data, error } = await supabase
+          .from('clipmind_conversations')
+          .insert({
+            user_id: user.id,
+            title: text.length > 36 ? `${text.slice(0, 36)}...` : text,
+            messages: [],
+          })
+          .select('id, title, messages, created_at, updated_at')
+          .single();
+
+        if (error || !data) throw error || new Error('Conversation bootstrap failed.');
+
+        conversationId = data.id;
+        setActiveClipMindConversationId(data.id);
+        setClipMindConversations((prev) => [
+          {
+            id: data.id,
+            title: data.title || 'New chat',
+            messages: [],
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+          },
+          ...prev,
+        ]);
+      } catch (error) {
+        console.error('Failed to initialize ClipMind conversation:', error);
+        addToast('Could not start ClipMind right now.', 'warning');
+        return;
+      }
+    }
+
+    setClipMindInput('');
+    const userMessage: ClipMindChatMessage = {
+      role: 'user',
+      content: text,
+      created_at: new Date().toISOString(),
+    };
+    const assistantPlaceholder: ClipMindChatMessage = {
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    };
+
+    setClipMindMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
+    setIsClipMindStreaming(true);
+
+    try {
+      const response = await fetch('/api/clipmind/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: text,
+          conversationId,
+          history: clipMindMessages,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP Error ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response stream returned.');
+      }
+
+      const decoder = new TextDecoder();
+      let assistantText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter((line) => line.trim().startsWith('data:'));
+
+        for (const line of lines) {
+          const payload = line.replace(/^data:\s*/, '').trim();
+          if (!payload || payload === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(payload);
+            const nextText = typeof parsed.text === 'string' ? parsed.text : '';
+            if (!nextText) continue;
+
+            assistantText += nextText;
+            setClipMindMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === 'assistant') {
+                last.content = assistantText;
+              }
+              return copy;
+            });
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      const { data: updatedConversation } = await supabase
+        .from('clipmind_conversations')
+        .select('id, title, messages, created_at, updated_at')
+        .eq('id', conversationId)
+        .single();
+
+      if (updatedConversation) {
+        const normalizedConversation: ClipMindConversation = {
+          id: updatedConversation.id,
+          title: updatedConversation.title || 'New chat',
+          messages: Array.isArray(updatedConversation.messages)
+            ? updatedConversation.messages as ClipMindChatMessage[]
+            : [],
+          created_at: updatedConversation.created_at,
+          updated_at: updatedConversation.updated_at,
+        };
+
+        setClipMindConversations((prev) =>
+          [normalizedConversation, ...prev.filter((conversation) => conversation.id !== normalizedConversation.id)]
+        );
+        setClipMindMessages(normalizedConversation.messages);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to contact ClipMind.';
+      console.error('ClipMind drawer message failed:', error);
+      addToast(message, 'warning');
+      setClipMindMessages((prev) => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        if (last?.role === 'assistant' && !last.content) {
+          next.pop();
+        }
+        return next;
+      });
+    } finally {
+      setIsClipMindStreaming(false);
+    }
+  };
+
+  const handleSaveClipMindMessage = async (messageId: string, content: string) => {
+    const trimmed = content.trim();
+    if (!trimmed || !user) return;
+
+    setSavingClipMindMessageId(messageId);
+
+    try {
+      await navigator.clipboard.writeText(trimmed);
+
+      const formattedContent = smartFormatContent(trimmed, detectClipContentType(trimmed));
+      const generatedTitle = deriveClipTitleFromContent(trimmed);
+      const generatedTags = deriveClipTagsFromContent(trimmed);
+
+      const newClip: Clip = {
+        id: generateUUID(),
+        content: formattedContent,
+        title: generatedTitle,
+        tags: generatedTags,
+        pinned: false,
+        created_at: new Date().toISOString(),
+        metadata: {
+          source_app: 'clipmind',
+          capture_method: 'ai_generated',
+        },
+      };
+
+      const updated = [newClip, ...clips];
+      setClips(updated);
+      localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(updated));
+
+      if (navigator.onLine) {
+        try {
+          const { error } = await supabase
+            .from('clips')
+            .insert({
+              id: newClip.id,
+              user_id: user.id,
+              content: newClip.content,
+              title: newClip.title || null,
+              tags: newClip.tags,
+              pinned: newClip.pinned,
+              folder_id: null,
+            });
+          if (error) throw error;
+
+          await persistClipMetadata(user, newClip.id, normalizeClipEntities(newClip.metadata), detectClipContentType(newClip.content));
+        } catch (error) {
+          console.error('Failed to save ClipMind output to cloud:', error);
+          enqueueAction('clips', 'insert', newClip);
+          enqueueAction('clip_metadata', 'insert', {
+            id: newClip.id,
+            clip_id: newClip.id,
+            entities: normalizeClipEntities(newClip.metadata),
+            clip_type: detectClipContentType(newClip.content),
+          });
+          addToast('Saved locally. Will sync when online.', 'info');
+        }
+      } else {
+        enqueueAction('clips', 'insert', newClip);
+        enqueueAction('clip_metadata', 'insert', {
+          id: newClip.id,
+          clip_id: newClip.id,
+          entities: normalizeClipEntities(newClip.metadata),
+          clip_type: detectClipContentType(newClip.content),
+        });
+        addToast('Saved locally. Will sync when online.', 'info');
+      }
+
+      if (isProUser(userPlan, userTrialEndsAt)) {
+        triggerSilentAutoTag(newClip.id, newClip.content);
+        triggerRAGAnalyze(newClip.id, newClip.content);
+      }
+
+      addToast('ClipMind answer copied and saved as a clip.', 'success');
+    } catch (error) {
+      console.error('Failed to save ClipMind answer:', error);
+      addToast('Could not save this ClipMind answer.', 'warning');
+    } finally {
+      setSavingClipMindMessageId(null);
+    }
   };
 
   const handleRewrite = async (clipId: string, content: string, tone: string) => {
@@ -2789,6 +3529,757 @@ export default function Dashboard() {
   const appBgClass = isDarkTheme
     ? 'bg-[#07070a] text-neutral-100 selection:bg-indigo-500/30 selection:text-indigo-200'
     : 'bg-[radial-gradient(circle_at_top_left,_#ffffff,_#eef2ff_28%,_#f8fafc_60%,_#eef2ff_100%)] text-slate-900 selection:bg-indigo-200 selection:text-indigo-950';
+  const renderClipMindMenu = (clip: Clip, align: 'left' | 'right' = 'right') => (
+    <div
+      onMouseLeave={() => setShowClipMindMenu(null)}
+      className={`absolute top-full z-40 mt-2 max-h-[min(72vh,34rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[1.6rem] border p-3 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl ${
+        align === 'right' ? 'left-0 sm:left-auto sm:right-0' : 'left-0 sm:right-auto'
+      } ${dropdownSurfaceClass}`}
+    >
+      <div
+        className={`mb-3 overflow-hidden rounded-[1.35rem] border px-3 py-3 ${
+          isDarkTheme
+            ? 'border-white/10 bg-[linear-gradient(135deg,rgba(34,211,238,0.12),rgba(168,85,247,0.12),rgba(255,255,255,0.02))]'
+            : 'border-slate-200 bg-[linear-gradient(135deg,rgba(103,80,240,0.08),rgba(56,189,248,0.08),rgba(255,255,255,0.95))]'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+              isDarkTheme ? 'bg-white/8 text-cyan-200' : 'bg-white text-indigo-600 shadow-sm'
+            }`}
+          >
+            <Bot className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${isDarkTheme ? 'text-cyan-200' : 'text-indigo-700'}`}>
+              ClipMind
+            </p>
+            <h4 className="mt-1 text-sm font-black leading-tight">
+              One-click AI actions for this clip
+            </h4>
+            <p className={`mt-1 text-[11px] leading-relaxed ${subtleTextClass}`}>
+              Pick a section, run an action, and apply the result when it fits.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {CLIP_MIND_ACTION_GROUPS.map((group) => (
+          <div
+            key={group.title}
+            className={`overflow-hidden rounded-[1.35rem] border ${
+              isDarkTheme ? 'border-white/8 bg-white/[0.03]' : 'border-slate-200/90 bg-white/80'
+            }`}
+          >
+            <div className={`bg-gradient-to-r px-3 py-2.5 ${group.accent}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className={`text-[10px] font-black uppercase tracking-[0.22em] ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>
+                    {group.title}
+                  </div>
+                  <p className={`mt-1 text-[11px] leading-relaxed ${subtleTextClass}`}>
+                    {group.description}
+                  </p>
+                </div>
+                <div
+                  className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                    isDarkTheme ? 'bg-black/20 text-neutral-200' : 'bg-white/90 text-slate-600'
+                  }`}
+                >
+                  {group.actions.length}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2">
+            {group.actions.map((item) => (
+                (() => {
+                  const Icon = CLIP_MIND_ACTION_ICONS[item.id];
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={(e) => handleClipMindAction(clip, item.id, e)}
+                      className={`group rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
+                        isDarkTheme
+                          ? 'border-white/8 bg-black/10 text-neutral-200 hover:border-cyan-400/30 hover:bg-cyan-400/8 hover:text-white'
+                          : 'border-slate-200 bg-white text-slate-800 hover:border-indigo-200 hover:bg-indigo-50/70 hover:text-slate-950'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div
+                          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                            isDarkTheme
+                              ? 'bg-white/6 text-cyan-200 group-hover:bg-cyan-400/12'
+                              : 'bg-slate-100 text-indigo-600 group-hover:bg-white'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold leading-tight">
+                            {item.label}
+                          </div>
+                          <div className={`mt-1 text-[10px] leading-relaxed ${subtleTextClass}`}>
+                            {item.hint}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })()
+            ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  const renderClipMindPanel = (clip: Clip, compact = false) => {
+    const output = clipMindResults[clip.id];
+    if (!output) return null;
+
+    return (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={`rounded-2xl border ${compact ? 'mt-2 p-3' : 'mt-3 p-4'} ${isDarkTheme ? 'border-cyan-500/20 bg-cyan-500/8' : 'border-cyan-200 bg-cyan-50/90'}`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${isDarkTheme ? 'text-cyan-300' : 'text-cyan-700'}`}>
+              ClipMind {output.label}
+            </p>
+            {output.isFallback && (
+              <p className={`mt-1 text-[11px] ${isDarkTheme ? 'text-amber-300' : 'text-amber-700'}`}>
+                {output.warning || 'Local fallback generated.'}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {output.applyTarget && (
+              <button
+                type="button"
+                onClick={(e) => handleApplyClipMindResult(clip, e)}
+                className={`rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] ${
+                  isDarkTheme ? 'bg-cyan-400/10 text-cyan-300 hover:bg-cyan-400/20' : 'bg-white text-cyan-700 hover:bg-cyan-100'
+                }`}
+              >
+                Apply
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => dismissClipMindResult(clip.id, e)}
+              className={`rounded-lg px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] ${subtleTextClass}`}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+        <pre className={`mt-2 whitespace-pre-wrap break-words font-sans text-xs leading-6 ${isDarkTheme ? 'text-neutral-200' : 'text-slate-700'}`}>
+          {output.result}
+        </pre>
+      </div>
+    );
+  };
+  const renderClipMindMessageBody = (content: string) => {
+    const lines = content.replace(/\r\n/g, '\n').split('\n');
+    const nodes: React.ReactNode[] = [];
+    let bulletBuffer: string[] = [];
+    let numberedBuffer: string[] = [];
+    let paragraphBuffer: string[] = [];
+
+    const flushParagraph = () => {
+      if (!paragraphBuffer.length) return;
+      nodes.push(
+        <p key={`p-${nodes.length}`} className={`text-[13px] leading-7 ${isDarkTheme ? 'text-neutral-200' : 'text-slate-700'}`}>
+          {paragraphBuffer.join(' ')}
+        </p>
+      );
+      paragraphBuffer = [];
+    };
+
+    const flushBullets = () => {
+      if (!bulletBuffer.length) return;
+      nodes.push(
+        <ul key={`ul-${nodes.length}`} className={`space-y-2 pl-5 text-[13px] leading-7 list-disc ${isDarkTheme ? 'text-neutral-200 marker:text-cyan-300' : 'text-slate-700 marker:text-indigo-500'}`}>
+          {bulletBuffer.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      );
+      bulletBuffer = [];
+    };
+
+    const flushNumbered = () => {
+      if (!numberedBuffer.length) return;
+      nodes.push(
+        <ol key={`ol-${nodes.length}`} className={`space-y-2 pl-5 text-[13px] leading-7 list-decimal ${isDarkTheme ? 'text-neutral-200 marker:text-cyan-300' : 'text-slate-700 marker:text-indigo-500'}`}>
+          {numberedBuffer.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ol>
+      );
+      numberedBuffer = [];
+    };
+
+    lines.forEach((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) {
+        flushParagraph();
+        flushBullets();
+        flushNumbered();
+        return;
+      }
+
+      if (/^#{1,4}\s/.test(line)) {
+        flushParagraph();
+        flushBullets();
+        flushNumbered();
+        nodes.push(
+          <h4 key={`h-${nodes.length}`} className={`text-[11px] font-black uppercase tracking-[0.18em] ${isDarkTheme ? 'text-cyan-200' : 'text-indigo-700'}`}>
+            {line.replace(/^#{1,4}\s*/, '')}
+          </h4>
+        );
+        return;
+      }
+
+      if (/^(-|\*)\s+/.test(line)) {
+        flushParagraph();
+        flushNumbered();
+        bulletBuffer.push(line.replace(/^(-|\*)\s+/, ''));
+        return;
+      }
+
+      if (/^\d+\.\s+/.test(line)) {
+        flushParagraph();
+        flushBullets();
+        numberedBuffer.push(line.replace(/^\d+\.\s+/, ''));
+        return;
+      }
+
+      paragraphBuffer.push(line);
+    });
+
+    flushParagraph();
+    flushBullets();
+    flushNumbered();
+
+    return nodes.length > 0 ? nodes : (
+      <p className={`text-[13px] leading-7 ${isDarkTheme ? 'text-neutral-200' : 'text-slate-700'}`}>
+        {content}
+      </p>
+    );
+  };
+  const getClipMindConversationType = (conversation: ClipMindConversation) => {
+    const haystack = `${conversation.title} ${conversation.messages.map((message) => message.content).join(' ')}`.toLowerCase();
+    if (/(task|todo|checklist|deadline)/.test(haystack)) {
+      return { icon: ListChecks, label: 'Task' };
+    }
+    if (/(summary|summarize|overview)/.test(haystack)) {
+      return { icon: Brain, label: 'Summary' };
+    }
+    if (/(draft|email|proposal|reply)/.test(haystack)) {
+      return { icon: FileText, label: 'Draft' };
+    }
+    return { icon: MessageSquare, label: 'Chat' };
+  };
+
+  const getClipMindConversationTimestamp = (value: string) =>
+    new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  const categoryKeywords: Record<ClipMindSidebarCategory, RegExp> = {
+    notes: /(note|notes|meeting|research|summary|document)/i,
+    tasks: /(task|todo|checklist|deadline|action item)/i,
+    bugs: /(bug|issue|error|crash|fix)/i,
+    features: /(feature|roadmap|enhancement|improve|launch)/i,
+    'ai-actions': /(ai|rewrite|translate|summarize|prompt|clipmind)/i,
+  };
+
+  const filteredClipMindConversations = clipMindConversations.filter((conversation) => {
+    const haystack = `${conversation.title} ${conversation.messages.map((message) => message.content).join(' ')}`;
+    if (!categoryKeywords[clipMindSidebarCategory].test(haystack)) return false;
+
+    if (clipMindQuickFilter === 'pinned') {
+      return clipMindPinnedConversationIds.includes(conversation.id);
+    }
+    if (clipMindQuickFilter === 'shared') {
+      return /(share|shared|link|send)/i.test(haystack);
+    }
+    if (clipMindQuickFilter === 'ai-generated') {
+      return /(ai|rewrite|translate|summary|generated)/i.test(haystack);
+    }
+
+    return true;
+  });
+
+  const pinnedClipMindConversations = filteredClipMindConversations.filter((conversation) =>
+    clipMindPinnedConversationIds.includes(conversation.id)
+  );
+
+  const visibleClipMindConversations =
+    clipMindChatTab === 'pinned'
+      ? pinnedClipMindConversations
+      : filteredClipMindConversations;
+  const renderClipMindDrawer = () => {
+    const activeConversation = clipMindConversations.find(
+      (conversation) => conversation.id === activeClipMindConversationId
+    );
+
+    return (
+      <aside
+        className={`fixed right-3 top-3 bottom-[5.25rem] z-50 flex w-[calc(100vw-1.5rem)] max-w-[56rem] flex-col overflow-hidden rounded-[30px] border shadow-[0_28px_90px_rgba(15,23,42,0.24)] transition-transform duration-300 ease-out md:bottom-3 ${
+          isDarkTheme
+            ? 'border-white/8 bg-neutral-950 text-neutral-100'
+            : 'border-slate-200/80 bg-white text-slate-900'
+        } ${isClipMindDrawerOpen ? 'translate-x-0' : 'translate-x-[calc(100%+1.5rem)]'}`}
+      >
+        <div className={`shrink-0 border-b px-4 py-3 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-slate-200 bg-white'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                isDarkTheme
+                  ? 'bg-gradient-to-br from-indigo-500/30 via-violet-500/20 to-cyan-500/20 text-indigo-200'
+                  : 'bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.22)]'
+              }`}>
+                <Bot className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className={`text-[10px] font-black uppercase tracking-[0.28em] ${isDarkTheme ? 'text-indigo-300' : 'text-indigo-700'}`}>
+                  ClipMind
+                </p>
+                <h3 className={`mt-1 text-base font-black leading-tight ${titleTextClass}`}>
+                  AI Assistant
+                </h3>
+                <p className={`mt-1 max-w-xl text-xs leading-5 ${subtleTextClass}`}>
+                  Search, summarize, organize, or create from your clips.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleTheme}
+                className={`hidden rounded-xl border p-2 transition sm:inline-flex ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/5 hover:text-white' : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                title={isDarkTheme ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDarkTheme ? <SunMedium className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleClipMindCompactMode}
+                className={`hidden rounded-xl border px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition md:inline-flex ${isDarkTheme ? 'border-white/8 text-neutral-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                title="Toggle compact mode"
+              >
+                {clipMindCompactMode ? 'Comfort' : 'Compact'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsClipMindDrawerOpen(false)}
+                className={`rounded-xl border p-2 transition ${isDarkTheme ? 'border-white/8 text-neutral-400 hover:bg-white/5 hover:text-white' : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                title="Close ClipMind"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              { label: 'Saved Clips', value: liveClips.length },
+              { label: 'Visible Clips', value: filteredClips.length },
+              { label: 'Chats', value: clipMindConversations.length },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className={`rounded-2xl border px-3 py-2 ${isDarkTheme ? 'border-white/8 bg-neutral-900' : 'border-slate-200 bg-slate-50'}`}
+              >
+                <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${subtleTextClass}`}>{stat.label}</p>
+                <p className={`mt-1 text-lg font-black leading-none ${titleTextClass}`}>{stat.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <aside className={`hidden shrink-0 border-r px-2 py-3 md:flex md:w-[4.5rem] md:flex-col md:items-center md:gap-2 xl:w-[11rem] xl:items-stretch xl:px-3 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-slate-200 bg-slate-50/70'}`}>
+            <div className="w-full">
+              <p className={`mb-2 hidden text-[10px] font-black uppercase tracking-[0.22em] xl:block ${subtleTextClass}`}>Categories</p>
+              <div className="flex flex-col gap-2">
+                {CLIP_MIND_SIDEBAR_SECTIONS.map((section) => {
+                  const Icon = section.icon;
+                  const isActive = clipMindSidebarCategory === section.id;
+                  return (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => {
+                        setClipMindSidebarCategory(section.id);
+                        handleClipMindSidebarPrompt(section.prompt);
+                      }}
+                      className={`flex items-center justify-center gap-2 rounded-2xl border px-2.5 py-2 text-[11px] font-bold transition xl:justify-start ${
+                        isActive
+                          ? isDarkTheme
+                            ? 'border-indigo-400/30 bg-indigo-500/10 text-white'
+                            : 'border-indigo-200 bg-indigo-50 text-slate-900'
+                          : isDarkTheme
+                            ? 'border-white/8 bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                      title={section.label}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="hidden xl:inline">{section.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="w-full pt-1">
+              <p className={`mb-2 hidden text-[10px] font-black uppercase tracking-[0.22em] xl:block ${subtleTextClass}`}>Quick Filters</p>
+              <div className="flex flex-col gap-2">
+                {CLIP_MIND_QUICK_FILTERS.map((filter) => {
+                  const Icon = filter.icon;
+                  const isActive = clipMindQuickFilter === filter.id;
+                  return (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setClipMindQuickFilter(isActive ? null : filter.id)}
+                      className={`flex items-center justify-center gap-2 rounded-2xl border px-2.5 py-2 text-[11px] font-bold transition xl:justify-start ${
+                        isActive
+                          ? isDarkTheme
+                            ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200'
+                            : 'border-cyan-200 bg-cyan-50 text-cyan-700'
+                          : isDarkTheme
+                            ? 'border-white/8 bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                      title={filter.label}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="hidden xl:inline">{filter.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <div className={`shrink-0 border-b px-4 py-3 sm:px-5 ${isDarkTheme ? 'border-white/8 bg-neutral-950' : 'border-slate-200 bg-white'}`}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setClipMindChatTab('recent')}
+                    className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] transition ${
+                      clipMindChatTab === 'recent'
+                        ? isDarkTheme ? 'bg-white text-neutral-950' : 'bg-slate-900 text-white'
+                        : isDarkTheme ? 'bg-neutral-900 text-neutral-400' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    Recent Chats
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClipMindChatTab('pinned')}
+                    className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] transition ${
+                      clipMindChatTab === 'pinned'
+                        ? isDarkTheme ? 'bg-white text-neutral-950' : 'bg-slate-900 text-white'
+                        : isDarkTheme ? 'bg-neutral-900 text-neutral-400' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    Pinned Chats
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleNewClipMindConversation}
+                  className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-2xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-3.5 text-[11px] font-black uppercase tracking-[0.16em] text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] transition hover:translate-y-[-1px] lg:self-auto"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Chat
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden px-4 py-3 sm:px-5">
+              <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
+                <div className="flex min-h-0 flex-col gap-3">
+                  <div className={`rounded-[1.35rem] border p-2 ${isDarkTheme ? 'border-white/8 bg-neutral-900' : 'border-slate-200 bg-slate-50'}`}>
+                    <div className="max-h-56 space-y-2 overflow-y-auto">
+                      {isClipMindHistoryLoading && visibleClipMindConversations.length === 0 ? (
+                        <div className={`rounded-2xl border px-3 py-2 text-xs ${mutedSurfaceClass}`}>Loading history...</div>
+                      ) : visibleClipMindConversations.length > 0 ? (
+                        visibleClipMindConversations.map((conversation) => {
+                          const meta = getClipMindConversationType(conversation);
+                          const Icon = meta.icon;
+                          const isPinned = clipMindPinnedConversationIds.includes(conversation.id);
+                          const isActive = activeClipMindConversationId === conversation.id;
+                          return (
+                            <div
+                              key={conversation.id}
+                              className={`min-w-0 rounded-2xl border px-3 py-2 transition ${
+                                isActive
+                                  ? isDarkTheme
+                                    ? 'border-indigo-400/30 bg-indigo-500/10'
+                                    : 'border-indigo-200 bg-indigo-50'
+                                  : isDarkTheme
+                                    ? 'border-white/8 bg-neutral-950'
+                                    : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectClipMindConversation(conversation.id)}
+                                  className="min-w-0 flex-1 text-left"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${isDarkTheme ? 'bg-white/6 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
+                                      <Icon className="h-4 w-4" />
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className={`truncate text-[13px] font-bold ${titleTextClass}`}>{conversation.title}</p>
+                                      <div className={`mt-0.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] ${subtleTextClass}`}>
+                                        <span>{meta.label}</span>
+                                        <span>{getClipMindConversationTimestamp(conversation.updated_at)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <p className={`mt-1 line-clamp-2 break-words text-[11px] leading-4 ${subtleTextClass}`}>
+                                    {conversation.messages.at(-1)?.content || 'Start a new idea thread'}
+                                  </p>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePinnedClipMindConversation(conversation.id)}
+                                  className={`rounded-xl p-2 transition ${
+                                    isPinned
+                                      ? isDarkTheme
+                                        ? 'bg-amber-500/10 text-amber-300'
+                                        : 'bg-amber-50 text-amber-600'
+                                      : isDarkTheme
+                                        ? 'text-neutral-500 hover:bg-white/5 hover:text-neutral-200'
+                                        : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                                  }`}
+                                  title={isPinned ? 'Unpin chat' : 'Pin chat'}
+                                >
+                                  <Star className={`h-4 w-4 ${isPinned ? 'fill-current' : ''}`} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className={`rounded-2xl border px-3 py-3 text-xs ${mutedSurfaceClass}`}>
+                          No chats found for this view yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className={`mb-2 text-[10px] font-black uppercase tracking-[0.22em] ${subtleTextClass}`}>AI Suggestions</p>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {CLIP_MIND_DRAWER_STARTERS.slice(0, 4).map((prompt) => (
+                        <button
+                          key={prompt}
+                          type="button"
+                          onClick={() => handleSendClipMindMessage(prompt)}
+                          className={`min-w-[13rem] rounded-full border px-3 py-2 text-left text-[11px] font-semibold leading-4 transition ${
+                            isDarkTheme ? 'border-white/8 bg-neutral-900 text-neutral-200 hover:bg-neutral-800' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`flex min-h-0 flex-col overflow-hidden rounded-[1.45rem] border ${isDarkTheme ? 'border-white/8 bg-neutral-900' : 'border-slate-200 bg-slate-50/70'}`}>
+                  <div className={`shrink-0 border-b px-4 py-3 ${isDarkTheme ? 'border-white/8 bg-neutral-900' : 'border-slate-200 bg-white/80'}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${subtleTextClass}`}>Conversation</p>
+                    <div className="mt-1 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h4 className={`truncate text-sm font-black ${titleTextClass}`}>
+                          {activeConversation?.title || 'Start a new ClipMind chat'}
+                        </h4>
+                        <p className={`mt-0.5 text-[11px] ${subtleTextClass}`}>
+                          {clipMindMessages.length > 0 ? `${clipMindMessages.length} messages in this thread` : 'The main chat stays here.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`min-h-0 flex-1 overflow-y-auto px-4 py-3 ${isDarkTheme ? 'bg-neutral-900' : 'bg-white/60'}`}>
+                    {clipMindMessages.length === 0 ? (
+                      <div className={`rounded-[1.35rem] border p-4 ${softPanelClass}`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isDarkTheme ? 'bg-indigo-500/10 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
+                            <Sparkles className="h-4.5 w-4.5" />
+                          </div>
+                          <div>
+                            <p className={`text-sm font-black ${titleTextClass}`}>Built for your saved clips</p>
+                            <p className={`mt-1 text-xs leading-6 ${subtleTextClass}`}>
+                              Ask for links, summaries, tasks, cleanup, organization, or drafts. ClipMind only works with your saved workspace context.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`${clipMindCompactMode ? 'space-y-2' : 'space-y-3'} min-w-0`}>
+                        {clipMindMessages.map((message, index) => (
+                          <div
+                            key={`${message.created_at}-${index}`}
+                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div className={`min-w-0 w-full ${message.role === 'user' ? 'sm:max-w-[72%]' : 'sm:max-w-[88%]'} rounded-[1.2rem] border ${
+                              clipMindCompactMode ? 'px-3 py-2.5' : 'px-3.5 py-3'
+                            } ${
+                              message.role === 'user'
+                                ? isDarkTheme
+                                  ? 'border-indigo-400/20 bg-indigo-500/10 text-neutral-100'
+                                  : 'border-indigo-200 bg-indigo-50 text-slate-900'
+                                : isDarkTheme
+                                  ? 'border-white/8 bg-neutral-950 text-neutral-200'
+                                  : 'border-slate-200 bg-white text-slate-700'
+                            }`}>
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
+                                  <span className={`flex h-6 w-6 items-center justify-center rounded-full ${message.role === 'user' ? (isDarkTheme ? 'bg-indigo-400/15 text-indigo-200' : 'bg-indigo-100 text-indigo-700') : (isDarkTheme ? 'bg-cyan-400/12 text-cyan-200' : 'bg-cyan-100 text-cyan-700')}`}>
+                                    {message.role === 'user' ? <UserIcon className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+                                  </span>
+                                  <span>{message.role === 'user' ? 'You' : 'ClipMind'}</span>
+                                </div>
+                                {message.role === 'assistant' && message.content.trim() && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveClipMindMessage(`${message.created_at}-${index}`, message.content)}
+                                    disabled={savingClipMindMessageId === `${message.created_at}-${index}`}
+                                    className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+                                      isDarkTheme
+                                        ? 'bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15 disabled:bg-white/6 disabled:text-neutral-500'
+                                        : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100 disabled:bg-slate-100 disabled:text-slate-400'
+                                    }`}
+                                  >
+                                    {savingClipMindMessageId === `${message.created_at}-${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clipboard className="h-3 w-3" />}
+                                    Copy + Save
+                                  </button>
+                                )}
+                              </div>
+                              <div className={`rounded-2xl border ${clipMindCompactMode ? 'p-2.5' : 'p-3'} ${
+                                isDarkTheme ? 'border-white/8 bg-black/20' : 'border-slate-200 bg-slate-50/80'
+                              }`}>
+                                <div className={`min-w-0 break-words ${clipMindCompactMode ? 'space-y-2' : 'space-y-3'}`}>
+                                  {message.content
+                                    ? renderClipMindMessageBody(message.content)
+                                    : message.role === 'assistant'
+                                      ? <p className={`text-[13px] leading-7 ${subtleTextClass}`}>Thinking...</p>
+                                      : null}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={clipMindEndRef} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`shrink-0 border-t p-3 ${isDarkTheme ? 'border-white/8 bg-neutral-900' : 'border-slate-200 bg-white'}`}>
+                    <Textarea
+                      value={clipMindInput}
+                      onChange={(e) => setClipMindInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendClipMindMessage();
+                        }
+                      }}
+                      placeholder="Ask ClipMind..."
+                      className={`min-h-[56px] max-h-[96px] resize-none rounded-2xl border px-3 py-2 text-sm leading-6 shadow-none focus-visible:ring-0 ${
+                        isDarkTheme
+                          ? 'border-white/8 bg-neutral-950 text-neutral-100 placeholder:text-neutral-500'
+                          : 'border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400'
+                      }`}
+                    />
+
+                    <div className="mt-2 hidden flex-wrap gap-2 sm:flex">
+                      {CLIP_MIND_COMPOSER_ACTIONS.map((action) => {
+                        const Icon = action.icon;
+                        return (
+                          <button
+                            key={action.id}
+                            type="button"
+                            onClick={() => handleClipMindQuickComposerAction(action.id)}
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] transition ${
+                              isDarkTheme ? 'border-white/8 bg-neutral-950 text-neutral-300 hover:bg-neutral-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {action.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2 sm:hidden">
+                      <select
+                        value={clipMindMobileQuickAction}
+                        onChange={(e) => setClipMindMobileQuickAction(e.target.value as ClipMindComposerAction)}
+                        className={`h-10 flex-1 rounded-2xl border px-3 text-xs font-bold ${
+                          isDarkTheme ? 'border-white/8 bg-neutral-950 text-neutral-200' : 'border-slate-200 bg-white text-slate-700'
+                        }`}
+                      >
+                        {CLIP_MIND_COMPOSER_ACTIONS.map((action) => (
+                          <option key={action.id} value={action.id}>{action.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleClipMindQuickComposerAction(clipMindMobileQuickAction)}
+                        className={`h-10 rounded-2xl border px-3 text-[10px] font-black uppercase tracking-[0.16em] ${
+                          isDarkTheme ? 'border-white/8 bg-neutral-950 text-neutral-300' : 'border-slate-200 bg-white text-slate-600'
+                        }`}
+                      >
+                        Apply
+                      </button>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className={`text-[10px] leading-5 ${subtleTextClass}`}>
+                        Uses your saved clips as context.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleSendClipMindMessage()}
+                        disabled={!clipMindInput.trim() || isClipMindStreaming}
+                        className={`inline-flex h-9 items-center justify-center gap-2 rounded-2xl px-3.5 text-[11px] font-black transition ${
+                          !clipMindInput.trim() || isClipMindStreaming
+                            ? isDarkTheme
+                              ? 'bg-white/6 text-neutral-500'
+                              : 'bg-slate-100 text-slate-400'
+                            : 'bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_28px_rgba(99,102,241,0.24)] hover:translate-y-[-1px]'
+                        }`}
+                      >
+                        {isClipMindStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    );
+  };
   const previewContentType = previewingClip ? detectClipContentType(previewingClip.content) : 'plain';
   const previewFormattedContent = previewingClip ? smartFormatContent(previewingClip.content, previewContentType) : '';
   const previewMarkdownHtml = previewingClip ? markdownToHtml(previewingClip.content) : '';
@@ -2917,6 +4408,15 @@ export default function Dashboard() {
         />
       )}
 
+      {isClipMindDrawerOpen && (
+        <div
+          onClick={() => setIsClipMindDrawerOpen(false)}
+          className={`fixed inset-0 z-40 xl:hidden animate-in fade-in duration-200 ${
+            isDarkTheme ? 'bg-black/45 backdrop-blur-[2px]' : 'bg-slate-950/15 backdrop-blur-[2px]'
+          }`}
+        />
+      )}
+
       {/* --- SIDEBAR --- */}
       <aside className={`fixed left-3 top-3 bottom-[5.25rem] z-40 w-[calc(100vw-1.5rem)] max-w-[21rem] rounded-[28px] border backdrop-blur-xl shrink-0 flex flex-col shadow-[0_28px_70px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-in-out md:static md:inset-auto md:w-72 md:max-w-none md:rounded-none md:border-l-0 md:border-t-0 md:border-b-0 md:shadow-none md:translate-x-0 ${
         isDarkTheme
@@ -3018,7 +4518,7 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => router.push('/clipmind')}
+              onClick={handleOpenClipMindDrawer}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-transparent transition-all ${
                 isDarkTheme
                   ? 'text-neutral-400 hover:text-indigo-300 hover:bg-indigo-500/5 hover:border-indigo-500/10'
@@ -3498,9 +4998,9 @@ export default function Dashboard() {
             </div>
 
             <button
-              onClick={() => router.push('/clipmind')}
+              onClick={handleOpenClipMindDrawer}
               className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-[11px] font-bold transition-all duration-300 bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/30"
-              title="Open ClipMind AI Chat"
+              title="Open ClipMind AI drawer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">ClipMind</span>
@@ -4060,11 +5560,25 @@ export default function Dashboard() {
                                 {nextStatus.replace('-', ' ')}
                               </button>
                             ))}
-                            <button onClick={(e) => handleSummarize(clip.id, clip.content, e)} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100">
-                              <Sparkles className="mr-1 inline h-3.5 w-3.5" />
-                              Summary
-                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isPro) {
+                                    setShowUpgradeModal(true);
+                                    return;
+                                  }
+                                  setShowClipMindMenu(showClipMindMenu === clip.id ? null : clip.id);
+                                }}
+                                className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700 transition hover:bg-cyan-100"
+                              >
+                                {clipMindLoadingId === clip.id ? <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1 inline h-3.5 w-3.5" />}
+                                ClipMind
+                              </button>
+                              {showClipMindMenu === clip.id && renderClipMindMenu(clip, 'right')}
+                            </div>
                           </div>
+                          {renderClipMindPanel(clip, true)}
                         </div>
                       </Card>
                     );
@@ -4085,7 +5599,8 @@ export default function Dashboard() {
                     const hasAiOutput = Boolean(
                       clipSummaries[clip.id] ||
                       pendingRewrites[clip.id] ||
-                      activeTranslations[clip.id]
+                      activeTranslations[clip.id] ||
+                      clipMindResults[clip.id]
                     );
                     const visibleTags = getVisibleClipTags(clip);
                     return (
@@ -4100,7 +5615,9 @@ export default function Dashboard() {
                             openClipPreview(clip);
                           }
                         }}
-                        className={`border backdrop-blur-md relative overflow-hidden group flex flex-col min-h-[184px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
+                        className={`border backdrop-blur-md relative group flex flex-col min-h-[184px] h-auto animate-in fade-in zoom-in-95 duration-200 transition-all ${
+                          showClipMindMenu === clip.id ? 'overflow-visible z-20' : 'overflow-hidden'
+                        } ${
                           isSelectionMode 
                             ? isSelected
                               ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
@@ -4134,10 +5651,32 @@ export default function Dashboard() {
                         <div className="absolute -top-12 -right-12 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
                         <CardContent className="p-4 flex flex-col flex-grow gap-3">
+                          <div className="relative self-end" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isPro) {
+                                  setShowUpgradeModal(true);
+                                  return;
+                                }
+                                setShowClipMindMenu(showClipMindMenu === clip.id ? null : clip.id);
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition ${
+                                isDarkTheme
+                                  ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/15'
+                                  : 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
+                              }`}
+                              title="Open ClipMind actions"
+                            >
+                              {clipMindLoadingId === clip.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
+                              ClipMind
+                            </button>
+                            {showClipMindMenu === clip.id && renderClipMindMenu(clip, 'right')}
+                          </div>
                           
                           {/* Card Header & folder indicator */}
                           <div className="flex flex-col gap-2 shrink-0">
-                            <div className="flex items-start justify-between gap-2">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                               <span className={`text-[10px] font-bold uppercase tracking-[0.22em] font-mono transition-all duration-200 ${isSelectionMode ? 'pl-7' : ''} ${subtleTextClass}`}>
                                 {new Date(clip.created_at).toLocaleDateString(undefined, { 
                                   month: 'short', 
@@ -4146,7 +5685,7 @@ export default function Dashboard() {
                                 })}
                               </span>
 
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="flex flex-wrap items-center gap-1.5 shrink-0 sm:justify-end">
                                 {clipFolder && (
                                   <span 
                                     className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${isDarkTheme ? 'bg-black/30' : 'bg-white/70'}`}
@@ -4230,6 +5769,7 @@ export default function Dashboard() {
                             )}
                           </div>
 
+                        {renderClipMindPanel(clip, true)}
                         </CardContent>
                         
                         {/* Collapsible AI Summary Section */}
@@ -4739,6 +6279,21 @@ export default function Dashboard() {
                               <button onClick={(e) => handleOpenShareModal(clip, e)} className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-violet-400 hover:bg-white/5' : 'text-slate-500 hover:text-violet-600 hover:bg-white'}`} title="Share clip">
                                 <Share2 className="w-3.5 h-3.5" />
                               </button>
+                              <div className="relative">
+                                <button
+                                  onClick={() => {
+                                    if (!isPro) { setShowUpgradeModal(true); return; }
+                                    setShowClipMindMenu(showClipMindMenu === clip.id ? null : clip.id);
+                                    setShowRewriteMenu(null);
+                                    setShowTranslateMenu(null);
+                                  }}
+                                  className={`p-1 rounded ${isDarkTheme ? 'text-neutral-500 hover:text-cyan-400 hover:bg-white/5' : 'text-slate-500 hover:text-cyan-600 hover:bg-white'}`}
+                                  title="ClipMind actions"
+                                >
+                                  {clipMindLoadingId === clip.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
+                                </button>
+                                {showClipMindMenu === clip.id && renderClipMindMenu(clip, 'right')}
+                              </div>
                               <button 
                                 onClick={(e) => {
                                   if (!isPro) { setShowUpgradeModal(true); return; }
@@ -5243,11 +6798,13 @@ export default function Dashboard() {
         </main>
       </div>
 
+      {renderClipMindDrawer()}
+
       {/* --- DIALOG MODALS --- */}
 
       {/* 1. NEW CLIP MODAL */}
       <Dialog open={isNewClipOpen} onOpenChange={setIsNewClipOpen}>
-        <DialogContent className="max-h-[92vh] w-[calc(100%-1.25rem)] max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
+        <DialogContent className="max-h-[94vh] w-[calc(100%-1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%-1.25rem)] sm:rounded-2xl">
           <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-start gap-3">
@@ -5337,7 +6894,7 @@ export default function Dashboard() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Tags</label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
                       type="text"
                       placeholder="CODE, NOTES, V1"
@@ -5446,19 +7003,19 @@ export default function Dashboard() {
                 </span>
               </label>
 
-              <DialogFooter className="mt-auto gap-2 pt-2 sm:space-x-0">
+              <DialogFooter className="mt-auto flex-col-reverse gap-2 pt-2 sm:flex-row sm:space-x-0">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setIsNewClipOpen(false)}
-                  className="h-11 text-sm font-bold text-slate-600 hover:bg-white hover:text-slate-950"
+                  className="h-11 w-full text-sm font-bold text-slate-600 hover:bg-white hover:text-slate-950 sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={!newClipContent.trim()}
-                  className="h-11 border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50"
+                  className="h-11 w-full border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50 sm:w-auto"
                 >
                   Create Clip
                 </Button>
@@ -5896,11 +7453,11 @@ export default function Dashboard() {
           }
         }}
       >
-        <DialogContent className="max-h-[92vh] w-[calc(100%-1.25rem)] max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
+        <DialogContent className="max-h-[94vh] w-[calc(100%-1rem)] max-w-4xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%-1.25rem)] sm:rounded-2xl">
           {previewingClip && (
             <div className="relative">
               <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-2 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
@@ -5945,7 +7502,26 @@ export default function Dashboard() {
                     </DialogDescription>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center shrink-0">
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isPro) {
+                            setIsUpgradeModalOpen(true);
+                            return;
+                          }
+                          setShowClipMindMenu(showClipMindMenu === previewingClip.id ? null : previewingClip.id);
+                        }}
+                        className="w-full text-xs font-bold text-cyan-700 hover:bg-cyan-50 sm:w-auto"
+                      >
+                        {clipMindLoadingId === previewingClip.id ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Bot className="w-3.5 h-3.5 mr-1.5" />}
+                        ClipMind
+                      </Button>
+                      {showClipMindMenu === previewingClip.id && renderClipMindMenu(previewingClip, 'right')}
+                    </div>
                     {isDeletedClip(previewingClip) && (
                       <Button
                         type="button"
@@ -5961,7 +7537,7 @@ export default function Dashboard() {
                             },
                           });
                         }}
-                        className="text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                        className="w-full text-xs font-bold text-emerald-700 hover:bg-emerald-50 sm:w-auto"
                       >
                         <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                         Restore
@@ -5971,7 +7547,7 @@ export default function Dashboard() {
                       type="button"
                       variant="ghost"
                       onClick={() => copyClipText(previewingClip.id, previewingClip.content)}
-                      className="text-xs font-bold text-slate-600 hover:bg-white hover:text-slate-950"
+                      className="w-full text-xs font-bold text-slate-600 hover:bg-white hover:text-slate-950 sm:w-auto"
                     >
                       <Clipboard className="w-3.5 h-3.5 mr-1.5" />
                       {copiedClipId === previewingClip.id ? 'Copied' : 'Copy'}
@@ -5983,7 +7559,7 @@ export default function Dashboard() {
                         setIsClipPreviewOpen(false);
                         openEditClipModal(previewingClip);
                       }}
-                      className="text-xs font-bold text-indigo-700 hover:bg-indigo-50"
+                      className="w-full text-xs font-bold text-indigo-700 hover:bg-indigo-50 sm:w-auto"
                     >
                       <Edit2 className="w-3.5 h-3.5 mr-1.5" />
                       Edit
@@ -5996,7 +7572,7 @@ export default function Dashboard() {
                           await handleCreateTaskFromClip(previewingClip, e);
                           setPreviewingClip({ ...previewingClip, tags: withTaskMetadata(previewingClip.tags, 'pending') });
                         }}
-                        className="text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                        className="w-full text-xs font-bold text-emerald-700 hover:bg-emerald-50 sm:w-auto"
                       >
                         <ListChecks className="w-3.5 h-3.5 mr-1.5" />
                         Task
@@ -6009,7 +7585,7 @@ export default function Dashboard() {
                         setIsClipPreviewOpen(false);
                         await openShareModal(previewingClip);
                       }}
-                      className="text-xs font-bold text-violet-700 hover:bg-violet-50"
+                      className="w-full text-xs font-bold text-violet-700 hover:bg-violet-50 sm:w-auto"
                     >
                       <Share2 className="w-3.5 h-3.5 mr-1.5" />
                       Share
@@ -6128,6 +7704,8 @@ export default function Dashboard() {
                   )}
                 </div>
 
+                {renderClipMindPanel(previewingClip)}
+
                 {(previewingClip.metadata?.version_history || []).length > 0 && (
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-900">
@@ -6193,7 +7771,7 @@ export default function Dashboard() {
 
       {/* 3. EDIT CLIP MODAL */}
       <Dialog open={isEditClipOpen} onOpenChange={setIsEditClipOpen}>
-        <DialogContent className="max-h-[92vh] w-[calc(100%-1.25rem)] max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)]">
+        <DialogContent className="max-h-[94vh] w-[calc(100%-1rem)] max-w-3xl overflow-y-auto rounded-[1.4rem] border border-slate-200 bg-white p-0 text-slate-900 shadow-[0_28px_90px_rgba(15,23,42,0.20)] sm:w-[calc(100%-1.25rem)] sm:rounded-2xl">
           <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-fuchsia-50/60 px-5 py-5 text-left sm:px-6">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)]">
@@ -6299,7 +7877,7 @@ export default function Dashboard() {
             {editClipAsTask && (
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
                 <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">Task status</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {(['pending', 'in-progress', 'done'] as TaskStatus[]).map((status) => (
                     <button
                       key={status}
@@ -6318,12 +7896,12 @@ export default function Dashboard() {
               </div>
             )}
 
-            <DialogFooter className="gap-2 pt-2">
+            <DialogFooter className="flex-col-reverse gap-2 pt-2 sm:flex-row">
               <Button 
                 type="button" 
                 variant="ghost" 
                 onClick={() => setIsEditClipOpen(false)}
-                className="h-11 text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                className="h-11 w-full text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-950 sm:w-auto"
               >
                 Cancel
               </Button>
@@ -6331,7 +7909,7 @@ export default function Dashboard() {
               <Button
                 type="submit"
                 disabled={!editClipContent.trim()}
-                className="h-11 border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50"
+                className="h-11 w-full border-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(99,102,241,0.24)] hover:translate-y-[-1px] disabled:translate-y-0 disabled:opacity-50 sm:w-auto"
               >
                 Save Changes
               </Button>
