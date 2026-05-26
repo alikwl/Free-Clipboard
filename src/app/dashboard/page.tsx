@@ -3988,6 +3988,332 @@ export default function Dashboard() {
       </Card>
     );
   };
+
+  const renderMobileListFeedCard = (clip: Clip) => {
+    const clipFolder = folders.find((f) => f.id === clip.folder_id);
+    const isSelected = selectedClipIds.includes(clip.id);
+    const visibleTags = getVisibleClipTags(clip);
+    const taskStatus = isTaskClip(clip) ? getTaskStatus(clip) : null;
+
+    return (
+      <Card
+        key={clip.id}
+        onClick={() => {
+          if (isSelectionMode) {
+            handleToggleSelect(clip.id);
+          } else {
+            openClipPreview(clip);
+          }
+        }}
+        className={`relative overflow-hidden rounded-[20px] border p-3.5 transition-all ${
+          isSelectionMode
+            ? isSelected
+              ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
+              : isDarkTheme
+                ? 'border-white/6 bg-neutral-900/40 cursor-pointer'
+                : 'border-slate-200/80 bg-white/92 cursor-pointer'
+            : isDarkTheme
+              ? 'border-white/6 bg-neutral-900/40 shadow-xl'
+              : 'border-slate-200/80 bg-white/92 shadow-[0_10px_24px_rgba(148,163,184,0.12)]'
+        }`}
+      >
+        {isSelectionMode && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleSelect(clip.id);
+            }}
+            className={`absolute left-3.5 top-3.5 z-20 flex h-5 w-5 items-center justify-center rounded-full border transition-all ${
+              isSelected
+                ? 'border-indigo-400 bg-indigo-500 text-white'
+                : isDarkTheme
+                  ? 'border-white/20 bg-neutral-950/80'
+                  : 'border-slate-300 bg-white'
+            }`}
+          >
+            {isSelected && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </div>
+        )}
+
+        <div className={`flex flex-col gap-2.5 ${isSelectionMode ? 'pl-7' : ''}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={`text-[10px] font-bold uppercase tracking-[0.16em] ${subtleTextClass}`}>
+                  {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+                {clipFolder && (
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${isDarkTheme ? 'bg-black/30' : 'bg-white/85'}`}
+                    style={{ borderColor: `${clipFolder.color}33`, color: clipFolder.color }}
+                  >
+                    {clipFolder.name}
+                  </span>
+                )}
+                {taskStatus && (
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${
+                    taskStatus === 'done'
+                      ? 'border-emerald-300/40 bg-emerald-50 text-emerald-700'
+                      : taskStatus === 'in-progress'
+                        ? 'border-amber-300/40 bg-amber-50 text-amber-700'
+                        : isDarkTheme
+                          ? 'border-slate-500/20 bg-slate-500/10 text-slate-300'
+                          : 'border-slate-200 bg-slate-50 text-slate-700'
+                  }`}>
+                    {taskStatus.replace('-', ' ')}
+                  </span>
+                )}
+              </div>
+              <h4 className={`mt-1.5 line-clamp-2 text-sm font-black leading-5 [overflow-wrap:anywhere] ${titleTextClass}`}>
+                {clip.title || 'Untitled Clip'}
+              </h4>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => openClipPreview(clip)}
+                className={`inline-flex h-8 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  isDarkTheme
+                    ? 'border-indigo-500/15 bg-indigo-500/10 text-indigo-300'
+                    : 'border-indigo-100 bg-indigo-50 text-indigo-700'
+                }`}
+                title="View clip"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => handleCopyContent(clip.id, clip.content)}
+                className={`inline-flex h-8 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  copiedClipId === clip.id
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                    : isDarkTheme
+                      ? 'border-white/10 bg-black/25 text-neutral-300'
+                      : 'border-slate-200 bg-white text-slate-700'
+                }`}
+                title="Copy clip"
+              >
+                {copiedClipId === clip.id ? 'Copied' : <Clipboard className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                onClick={(e) => openMobileCardActionSheet(clip, e)}
+                className={`inline-flex h-8 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  isDarkTheme
+                    ? 'border-white/10 bg-black/25 text-neutral-300'
+                    : 'border-slate-200 bg-white text-slate-700'
+                }`}
+                title="More actions"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <p className={`line-clamp-3 whitespace-pre-wrap break-words rounded-2xl border px-3 py-2 text-[12px] leading-5 ${
+            isDarkTheme ? 'border-white/6 bg-black/20 text-neutral-300' : 'border-slate-200 bg-slate-50/85 text-slate-700'
+          }`}>
+            {clip.content}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {visibleTags.slice(0, 3).map((tag, idx) => (
+              <span
+                key={idx}
+                className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${
+                  isDarkTheme
+                    ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300'
+                    : 'border-indigo-100 bg-indigo-50 text-indigo-600'
+                }`}
+              >
+                {tag}
+              </span>
+            ))}
+            {visibleTags.length > 3 && (
+              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${isDarkTheme ? 'border-white/8 bg-white/5 text-neutral-400' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
+                +{visibleTags.length - 3}
+              </span>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  const renderMobileTableCard = (clip: Clip) => {
+    const clipFolder = folders.find((f) => f.id === clip.folder_id);
+    const isSelected = selectedClipIds.includes(clip.id);
+    const visibleTags = getVisibleClipTags(clip);
+    const taskStatus = isTaskClip(clip) ? getTaskStatus(clip) : null;
+    const isCodeClip = Boolean(clip.metadata?.code_language) || detectClipContentType(clip.content) === 'code';
+
+    return (
+      <Card
+        key={clip.id}
+        onClick={() => {
+          if (isSelectionMode) {
+            handleToggleSelect(clip.id);
+          } else {
+            openClipPreview(clip);
+          }
+        }}
+        className={`relative overflow-hidden rounded-[20px] border p-3.5 transition-all ${
+          isSelectionMode
+            ? isSelected
+              ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
+              : isDarkTheme
+                ? 'border-white/6 bg-neutral-900/40 cursor-pointer'
+                : 'border-slate-200/80 bg-white/92 cursor-pointer'
+            : isDarkTheme
+              ? 'border-white/6 bg-neutral-900/40 shadow-xl'
+              : 'border-slate-200/80 bg-white/92 shadow-[0_10px_24px_rgba(148,163,184,0.12)]'
+        }`}
+      >
+        {isSelectionMode && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleSelect(clip.id);
+            }}
+            className={`absolute left-3.5 top-3.5 z-20 flex h-5 w-5 items-center justify-center rounded-full border transition-all ${
+              isSelected
+                ? 'border-indigo-400 bg-indigo-500 text-white'
+                : isDarkTheme
+                  ? 'border-white/20 bg-neutral-950/80'
+                  : 'border-slate-300 bg-white'
+            }`}
+          >
+            {isSelected && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </div>
+        )}
+
+        <div className={`flex flex-col gap-3 ${isSelectionMode ? 'pl-7' : ''}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${subtleTextClass}`}>
+                {new Date(clip.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+              <h4 className={`mt-1.5 line-clamp-2 text-sm font-black leading-5 [overflow-wrap:anywhere] ${titleTextClass}`}>
+                {clip.title || 'Untitled Clip'}
+              </h4>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => openClipPreview(clip)}
+                className={`inline-flex h-8 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  isDarkTheme
+                    ? 'border-indigo-500/15 bg-indigo-500/10 text-indigo-300'
+                    : 'border-indigo-100 bg-indigo-50 text-indigo-700'
+                }`}
+                title="View clip"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => handleCopyContent(clip.id, clip.content)}
+                className={`inline-flex h-8 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  copiedClipId === clip.id
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                    : isDarkTheme
+                      ? 'border-white/10 bg-black/25 text-neutral-300'
+                      : 'border-slate-200 bg-white text-slate-700'
+                }`}
+                title="Copy clip"
+              >
+                {copiedClipId === clip.id ? 'Copied' : <Clipboard className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                onClick={(e) => openMobileCardActionSheet(clip, e)}
+                className={`inline-flex h-8 items-center justify-center rounded-xl border px-2.5 text-[11px] font-bold ${
+                  isDarkTheme
+                    ? 'border-white/10 bg-black/25 text-neutral-300'
+                    : 'border-slate-200 bg-white text-slate-700'
+                }`}
+                title="More actions"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className={`grid grid-cols-[72px,minmax(0,1fr)] gap-x-3 gap-y-2 rounded-2xl border px-3 py-3 text-[11px] ${
+            isDarkTheme ? 'border-white/6 bg-black/20' : 'border-slate-200 bg-slate-50/85'
+          }`}>
+            <span className={subtleTextClass}>Folder</span>
+            <div className="min-w-0">
+              {clipFolder ? (
+                <span
+                  className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${isDarkTheme ? 'bg-black/30' : 'bg-white/85'}`}
+                  style={{ borderColor: `${clipFolder.color}33`, color: clipFolder.color }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: clipFolder.color }} />
+                  <span className="truncate">{clipFolder.name}</span>
+                </span>
+              ) : (
+                <span className={`break-words ${titleTextClass}`}>Uncategorized</span>
+              )}
+            </div>
+
+            <span className={subtleTextClass}>Status</span>
+            <div className="min-w-0">
+              {taskStatus ? (
+                <span className={`inline-flex max-w-full rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${
+                  taskStatus === 'done'
+                    ? 'border-emerald-300/40 bg-emerald-50 text-emerald-700'
+                    : taskStatus === 'in-progress'
+                      ? 'border-amber-300/40 bg-amber-50 text-amber-700'
+                      : isDarkTheme
+                        ? 'border-slate-500/20 bg-slate-500/10 text-slate-300'
+                        : 'border-slate-200 bg-slate-50 text-slate-700'
+                }`}>
+                  {taskStatus.replace('-', ' ')}
+                </span>
+              ) : (
+                <span className={`break-words ${titleTextClass}`}>{clip.pinned ? 'Pinned' : 'Standard'}</span>
+              )}
+            </div>
+
+            <span className={subtleTextClass}>Tags</span>
+            <div className="flex min-w-0 flex-wrap gap-1.5">
+              {visibleTags.length > 0 ? visibleTags.slice(0, 3).map((tag, idx) => (
+                <span
+                  key={idx}
+                  className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${
+                    isDarkTheme
+                      ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300'
+                      : 'border-indigo-100 bg-indigo-50 text-indigo-600'
+                  }`}
+                >
+                  {tag}
+                </span>
+              )) : (
+                <span className={subtleTextClass}>No tags</span>
+              )}
+              {visibleTags.length > 3 && (
+                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${isDarkTheme ? 'border-white/8 bg-white/5 text-neutral-400' : 'border-slate-200 bg-slate-100 text-slate-500'}`}>
+                  +{visibleTags.length - 3}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className={`overflow-hidden rounded-2xl border px-3 py-2.5 ${isDarkTheme ? 'border-white/6 bg-black/20' : 'border-slate-200 bg-slate-50/85'}`}>
+            <p className={`whitespace-pre-wrap break-words ${isCodeClip ? 'line-clamp-4 font-mono text-[11px] leading-5' : 'line-clamp-3 text-[12px] leading-6'} ${isDarkTheme ? 'text-neutral-300' : 'text-slate-700'}`}>
+              {clip.content}
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
   const renderClipMindPanel = (clip: Clip, compact = false) => {
     const output = clipMindResults[clip.id];
     if (!output) return null;
@@ -5641,9 +5967,10 @@ export default function Dashboard() {
               </div>
 
               <div className={`flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pt-1`}>
-              <div className="flex items-center gap-2 flex-wrap w-full xl:w-auto">
+              <div className="flex w-full flex-col gap-2 xl:w-auto xl:flex-row xl:items-center">
               {/* View Mode Switcher */}
-              <div className={`grid grid-cols-5 w-full sm:w-auto sm:flex items-center p-1 rounded-2xl shrink-0 shadow-lg ${mutedSurfaceClass}`}>
+              <div className={`safe-scroll-x w-full xl:w-auto rounded-2xl p-1 shadow-lg ${mutedSurfaceClass}`}>
+                <div className="flex min-w-max items-center gap-1">
                 <button
                   type="button"
                   onClick={() => handleSetViewMode('board')}
@@ -5719,92 +6046,95 @@ export default function Dashboard() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 9v12"/></svg>
                   <span>Table</span>
                 </button>
+                </div>
               </div>
 
-              {/* Select Mode Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSelectionMode(!isSelectionMode);
-                  setSelectedClipIds([]);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 h-[34px] ${
-                  isSelectionMode
-                    ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300 font-bold'
-                    : isDarkTheme
-                      ? 'bg-black/40 border-white/5 text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
-                      : 'bg-white/80 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-white'
-                }`}
-                title="Select multiple clips to share as a page"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                {isSelectionMode ? 'Cancel' : 'Select'}
-              </button>
-
-              {/* Import/Export buttons in toolbar */}
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-2xl h-[34px] ${mutedSurfaceClass}`}>
+              <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:flex-nowrap">
+                {/* Select Mode Toggle */}
                 <button
                   type="button"
-                  onClick={() => triggerFileInput()}
-                  className={`p-1.5 rounded-lg transition-all ${
-                    isDarkTheme
-                      ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                  onClick={() => {
+                    setIsSelectionMode(!isSelectionMode);
+                    setSelectedClipIds([]);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 h-[34px] ${
+                    isSelectionMode
+                      ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300 font-bold'
+                      : isDarkTheme
+                        ? 'bg-black/40 border-white/5 text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                        : 'bg-white/80 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-white'
                   }`}
-                  title="Import backup file"
+                  title="Select multiple clips to share as a page"
                 >
-                  <Upload className="w-3.5 h-3.5" />
-                </button>
-                <div className={`w-px h-3.5 ${isDarkTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
-                <button
-                  type="button"
-                  onClick={() => handleExport('txt')}
-                  className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
-                    isDarkTheme
-                      ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-white'
-                  }`}
-                  title="Export backup as TXT"
-                >
-                  <Download className={`w-3.5 h-3.5 ${isDarkTheme ? 'text-neutral-500' : 'text-slate-400'}`} />
-                  <span>TXT</span>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => handleExport('json')}
-                  className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
-                    userPlan === 'pro'
-                      ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
-                      : 'text-neutral-600 hover:text-amber-400/85 hover:bg-amber-500/5'
-                  }`}
-                  title={userPlan === 'pro' ? "Export backup as JSON" : "Export backup as JSON (Pro feature)"}
-                >
-                  {userPlan === 'pro' ? (
-                    <Download className="w-3.5 h-3.5 text-neutral-500" />
-                  ) : (
-                    <Lock className="w-3 h-3 text-amber-500/70" />
-                  )}
-                  <span>JSON</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                  {isSelectionMode ? 'Cancel' : 'Select'}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleExport('md')}
-                  className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
-                    userPlan === 'pro'
-                      ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
-                      : 'text-neutral-600 hover:text-amber-400/85 hover:bg-amber-500/5'
-                  }`}
-                  title={userPlan === 'pro' ? "Export backup as Markdown" : "Export backup as Markdown (Pro feature)"}
-                >
-                  {userPlan === 'pro' ? (
-                    <Download className="w-3.5 h-3.5 text-neutral-500" />
-                  ) : (
-                    <Lock className="w-3 h-3 text-amber-500/70" />
-                  )}
-                  <span>MD</span>
-                </button>
+                {/* Import/Export buttons in toolbar */}
+                <div className={`flex min-h-[34px] flex-1 flex-wrap items-center gap-1 rounded-2xl px-2 py-1 xl:flex-none ${mutedSurfaceClass}`}>
+                  <button
+                    type="button"
+                    onClick={() => triggerFileInput()}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      isDarkTheme
+                        ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                    }`}
+                    title="Import backup file"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                  </button>
+                  <div className={`hidden h-3.5 w-px sm:block ${isDarkTheme ? 'bg-white/10' : 'bg-slate-200'}`} />
+                  <button
+                    type="button"
+                    onClick={() => handleExport('txt')}
+                    className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
+                      isDarkTheme
+                        ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                    }`}
+                    title="Export backup as TXT"
+                  >
+                    <Download className={`w-3.5 h-3.5 ${isDarkTheme ? 'text-neutral-500' : 'text-slate-400'}`} />
+                    <span>TXT</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExport('json')}
+                    className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
+                      userPlan === 'pro'
+                        ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                        : 'text-neutral-600 hover:text-amber-400/85 hover:bg-amber-500/5'
+                    }`}
+                    title={userPlan === 'pro' ? "Export backup as JSON" : "Export backup as JSON (Pro feature)"}
+                  >
+                    {userPlan === 'pro' ? (
+                      <Download className="w-3.5 h-3.5 text-neutral-500" />
+                    ) : (
+                      <Lock className="w-3 h-3 text-amber-500/70" />
+                    )}
+                    <span>JSON</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExport('md')}
+                    className={`px-2 py-1 rounded-lg transition-all text-[11px] font-bold flex items-center gap-1 ${
+                      userPlan === 'pro'
+                        ? 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
+                        : 'text-neutral-600 hover:text-amber-400/85 hover:bg-amber-500/5'
+                    }`}
+                    title={userPlan === 'pro' ? "Export backup as Markdown" : "Export backup as Markdown (Pro feature)"}
+                  >
+                    {userPlan === 'pro' ? (
+                      <Download className="w-3.5 h-3.5 text-neutral-500" />
+                    ) : (
+                      <Lock className="w-3 h-3 text-amber-500/70" />
+                    )}
+                    <span>MD</span>
+                  </button>
+                </div>
               </div>
                 </div>
 
@@ -6028,7 +6358,7 @@ export default function Dashboard() {
 
               {/* GRID VIEW RENDERING */}
               {viewMode === 'grid' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-3 2xl:grid-cols-4">
                   {sortedClips.map((clip) => {
                     const clipFolder = folders.find(f => f.id === clip.folder_id);
                     const truncatedContent = clip.content.length > 100 
@@ -6553,10 +6883,7 @@ export default function Dashboard() {
                       activeTranslations[clip.id]
                     );
                     if (isMobileViewport) {
-                      return renderMobileClipCard(clip, {
-                        draggable: !isSelectionMode,
-                        onDragStart: (e) => handleDragStart(e, clip.id),
-                      });
+                      return renderMobileListFeedCard(clip);
                     }
                     return (
                       <Card 
@@ -6835,7 +7162,7 @@ export default function Dashboard() {
                 <>
                   <div className="md:hidden flex flex-col gap-3">
                     {sortedClips.map((clip) => {
-                      return renderMobileClipCard(clip);
+                      return renderMobileTableCard(clip);
                     })}
                   </div>
 
@@ -6963,7 +7290,7 @@ export default function Dashboard() {
 
               {/* KANBAN BOARD VIEW RENDERING */}
               {viewMode === 'board' && (
-                <div className="flex gap-3 md:gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent snap-x snap-mandatory min-h-[550px] items-stretch">
+                <div className="flex min-h-0 items-stretch gap-3 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent snap-x snap-mandatory md:min-h-[550px] md:gap-4">
                   {getKanbanColumns().map((column) => {
                     return (
                       <div
@@ -6972,7 +7299,7 @@ export default function Dashboard() {
                         onDrop={(e) => handleDrop(e, column.id)}
                         onDragEnter={() => setDraggedOverFolderId(column.id)}
                         onDragLeave={() => setDraggedOverFolderId(null)}
-                        className={`flex-1 min-w-[84vw] max-w-[84vw] sm:min-w-[290px] sm:max-w-[340px] rounded-[28px] border p-4 flex flex-col gap-3 snap-align-start shrink-0 transition-all duration-300 ${
+                        className={`flex-1 min-w-[min(82vw,320px)] max-w-[min(82vw,320px)] sm:min-w-[290px] sm:max-w-[340px] rounded-[28px] border p-4 flex flex-col gap-3 snap-align-start shrink-0 transition-all duration-300 ${
                           draggedOverFolderId === column.id
                             ? isDarkTheme
                               ? 'border-indigo-500/40 bg-indigo-500/8 scale-[1.01] shadow-lg shadow-indigo-500/5'
