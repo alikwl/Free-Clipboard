@@ -8079,9 +8079,9 @@ export default function Dashboard() {
           {previewingClip && (
             <div className={safeModalFrameClass}>
               <DialogHeader className={`${safeModalHeaderClass} pr-14`}>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-2 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-4">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2 pr-8">
                       <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
                         {new Date(previewingClip.created_at).toLocaleDateString(undefined, {
                           month: 'short',
@@ -8116,7 +8116,7 @@ export default function Dashboard() {
                         </span>
                       )}
                     </div>
-                    <DialogTitle className="text-2xl font-black tracking-tight text-slate-950">
+                    <DialogTitle className="max-w-full text-xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere] sm:text-2xl">
                       {previewingClip.title || 'Untitled Clip'}
                     </DialogTitle>
                     <DialogDescription className="text-sm leading-6 text-slate-600">
@@ -8124,7 +8124,36 @@ export default function Dashboard() {
                     </DialogDescription>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center shrink-0">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => copyClipText(previewingClip.id, previewingClip.content)}
+                      className="h-11 w-full justify-center rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                    >
+                      <Clipboard className="mr-1.5 h-3.5 w-3.5" />
+                      {copiedClipId === previewingClip.id ? 'Copied' : 'Copy'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => openEditClipModal(previewingClip)}
+                      className="h-11 w-full justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                    >
+                      <Edit2 className="mr-1.5 h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={async () => {
+                        await openShareModal(previewingClip);
+                      }}
+                      className="h-11 w-full justify-center rounded-xl border border-violet-200 bg-violet-50 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                    >
+                      <Share2 className="mr-1.5 h-3.5 w-3.5" />
+                      Share
+                    </Button>
                     <div className="relative">
                       <Button
                         type="button"
@@ -8138,14 +8167,32 @@ export default function Dashboard() {
                           }
                           handleToggleClipMindMenu(previewingClip);
                         }}
-                        className="w-full text-xs font-bold text-cyan-700 hover:bg-cyan-50 sm:w-auto"
+                        className="h-11 w-full justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-xs font-bold text-cyan-700 hover:bg-cyan-100"
                       >
-                        {clipMindLoadingId === previewingClip.id ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Bot className="w-3.5 h-3.5 mr-1.5" />}
+                        {clipMindLoadingId === previewingClip.id ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-1.5 h-3.5 w-3.5" />}
                         ClipMind
                       </Button>
                       {showClipMindMenu === previewingClip.id && renderClipMindMenu(previewingClip, 'right')}
                     </div>
-                    {isDeletedClip(previewingClip) && (
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsClipPreviewOpen(false)}
+                  className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  aria-label="Close clip view modal"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </DialogHeader>
+
+              <div className={`${safeModalBodyClass} space-y-4 pb-[calc(1rem+env(safe-area-inset-bottom))]`}>
+                {isDeletedClip(previewingClip) && (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-semibold leading-5 text-rose-700">
+                        This clip is currently in Trash.
+                      </p>
                       <Button
                         type="button"
                         variant="ghost"
@@ -8160,75 +8207,38 @@ export default function Dashboard() {
                             },
                           });
                         }}
-                        className="w-full text-xs font-bold text-emerald-700 hover:bg-emerald-50 sm:w-auto"
+                        className="h-10 w-full rounded-xl border border-emerald-200 bg-white text-xs font-bold text-emerald-700 hover:bg-emerald-50 sm:w-auto"
                       >
-                        <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                         Restore
                       </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => copyClipText(previewingClip.id, previewingClip.content)}
-                      className="w-full text-xs font-bold text-slate-600 hover:bg-white hover:text-slate-950 sm:w-auto"
-                    >
-                      <Clipboard className="w-3.5 h-3.5 mr-1.5" />
-                      {copiedClipId === previewingClip.id ? 'Copied' : 'Copy'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => openEditClipModal(previewingClip)}
-                      className="w-full text-xs font-bold text-indigo-700 hover:bg-indigo-50 sm:w-auto"
-                    >
-                      <Edit2 className="w-3.5 h-3.5 mr-1.5" />
-                      Edit
-                    </Button>
-                    {!isTaskClip(previewingClip) && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={async (e) => {
-                          await handleCreateTaskFromClip(previewingClip, e);
-                          setPreviewingClip({ ...previewingClip, tags: withTaskMetadata(previewingClip.tags, 'pending') });
-                        }}
-                        className="w-full text-xs font-bold text-emerald-700 hover:bg-emerald-50 sm:w-auto"
-                      >
-                        <ListChecks className="w-3.5 h-3.5 mr-1.5" />
-                        Task
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={async () => {
-                        await openShareModal(previewingClip);
-                      }}
-                      className="w-full text-xs font-bold text-violet-700 hover:bg-violet-50 sm:w-auto"
-                    >
-                      <Share2 className="w-3.5 h-3.5 mr-1.5" />
-                      Share
-                    </Button>
+                    </div>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsClipPreviewOpen(false)}
-                  className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                  aria-label="Close clip view modal"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </DialogHeader>
+                )}
 
-              <div className={`${safeModalBodyClass} space-y-4`}>
+                {!isTaskClip(previewingClip) && !isDeletedClip(previewingClip) && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        await handleCreateTaskFromClip(previewingClip, e);
+                        setPreviewingClip({ ...previewingClip, tags: withTaskMetadata(previewingClip.tags, 'pending') });
+                      }}
+                      className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 text-xs font-black text-emerald-700 transition hover:bg-emerald-50"
+                    >
+                      <ListChecks className="h-3.5 w-3.5" />
+                      Create Task
+                    </button>
+                  </div>
+                )}
+
                 {isTaskClip(previewingClip) && (
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
                     <div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-800">
                       <ListChecks className="h-4 w-4" />
                       Task status
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid grid-cols-3 gap-2">
                       {(['pending', 'in-progress', 'done'] as TaskStatus[]).map((status) => (
                         <button
                           key={status}
@@ -8237,7 +8247,7 @@ export default function Dashboard() {
                             await handleTaskStatusChange(previewingClip, status, e);
                             setPreviewingClip({ ...previewingClip, tags: withTaskMetadata(previewingClip.tags, status) });
                           }}
-                          className={`rounded-xl border px-3 py-2 text-xs font-black capitalize transition ${
+                          className={`rounded-xl border px-2 py-2 text-[11px] font-black capitalize leading-4 transition ${
                             getTaskStatus(previewingClip) === status
                               ? 'border-emerald-300 bg-white text-emerald-700 shadow-sm'
                               : 'border-emerald-100 bg-emerald-50 text-emerald-700/70 hover:bg-white'
@@ -8250,11 +8260,11 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2">
                   <button
                     type="button"
                     onClick={(e) => handleSummarize(previewingClip.id, previewingClip.content, e)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
                   >
                     <Sparkles className="h-4 w-4" />
                     Summarize
@@ -8262,7 +8272,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => handleRewrite(previewingClip.id, previewingClip.content, 'shorter')}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
                   >
                     <RefreshCw className="h-4 w-4" />
                     Reformat shorter
@@ -8270,7 +8280,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => handleTranslate(previewingClip.id, previewingClip.content, 'es')}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-black text-violet-700 transition hover:bg-violet-100"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-black text-violet-700 transition hover:bg-violet-100"
                   >
                     <Languages className="h-4 w-4" />
                     Translate
@@ -8322,7 +8332,7 @@ export default function Dashboard() {
                   {getVisibleClipTags(previewingClip).length > 0 ? getVisibleClipTags(previewingClip).map((tag, idx) => (
                     <span
                       key={idx}
-                      className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700"
+                      className="max-w-full rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700 [overflow-wrap:anywhere]"
                     >
                       {tag}
                     </span>
@@ -8384,7 +8394,7 @@ export default function Dashboard() {
                       dangerouslySetInnerHTML={{ __html: previewMarkdownHtml }}
                     />
                   ) : (
-                    <pre className="max-h-[55vh] max-w-full overflow-auto whitespace-pre-wrap break-words font-mono text-sm leading-7 text-slate-800 scrollbar-thin [overflow-wrap:anywhere]">
+                    <pre className="max-h-[55vh] max-w-full overflow-auto whitespace-pre-wrap break-all font-mono text-sm leading-7 text-slate-800 scrollbar-thin [overflow-wrap:anywhere]">
                       {previewRenderMode === 'formatted' ? previewFormattedContent : previewingClip.content}
                     </pre>
                   )}
