@@ -14,9 +14,11 @@ import {
   Loader2,
   Menu,
   Moon,
+  MoreHorizontal,
   Pin,
   Plus,
   Search,
+  Sparkles,
   StickyNote,
   SunMedium,
   Trash2,
@@ -124,6 +126,8 @@ const DEFAULT_EDITOR = {
   color: NOTE_COLOR_SWATCHES[0].value,
   folderId: '',
   tags: '',
+  isPinned: false,
+  isArchived: false,
 };
 
 const generateUUID = () => {
@@ -230,6 +234,244 @@ const stringifySupabaseError = (error: unknown) => {
 const getAlternateSchemaMode = (schemaMode: StickySchemaMode): StickySchemaMode =>
   schemaMode === 'modern' ? 'legacy' : 'modern';
 
+interface StickyNoteCardProps {
+  note: StickyNoteCard;
+  folders: Folder[];
+  themeMode: 'light' | 'dark';
+  summarizingId: string | null;
+  saving: boolean;
+  onEdit: (note: StickyNoteCard) => void;
+  onCopy: (note: StickyNoteCard) => void;
+  onSummarize: (note: StickyNoteCard) => void;
+  onArchive: (note: StickyNoteCard, archive: boolean) => void;
+  onDelete: (id: string) => void;
+  onConvert: (note: StickyNoteCard) => void;
+  onTogglePin: (note: StickyNoteCard) => void;
+}
+
+function StickyNoteCardComponent({
+  note,
+  folders,
+  themeMode,
+  summarizingId,
+  saving,
+  onEdit,
+  onCopy,
+  onSummarize,
+  onArchive,
+  onDelete,
+  onConvert,
+  onTogglePin,
+}: StickyNoteCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const folder = folders.find((item) => item.id === note.folderId);
+  const visibleTags = note.tags.slice(0, 3);
+  const extraTags = note.tags.length > 3 ? note.tags.length - 3 : 0;
+
+  return (
+    <div
+      ref={cardRef}
+      className={`relative flex flex-col justify-between rounded-[20px] p-5 shadow-sm border border-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+        themeMode === 'dark' ? 'shadow-black/20 border-white/5' : 'shadow-slate-100'
+      }`}
+      style={{
+        backgroundColor: note.color,
+        minHeight: '220px',
+        width: '100%',
+      }}
+    >
+      <div>
+        {/* Header */}
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h4 className="truncate text-sm font-bold text-slate-900 leading-snug">
+              {note.title || 'Untitled Note'}
+            </h4>
+            <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500/80">
+              {folder ? (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: folder.color }} />
+                  <span className="truncate">{folder.name}</span>
+                </>
+              ) : (
+                <span>Uncategorized</span>
+              )}
+              {note.sourceClipId && (
+                <span className="rounded bg-black/5 px-1 py-0.2 text-[9px] uppercase tracking-wide text-slate-600">
+                  Clip
+                </span>
+              )}
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-1 shrink-0">
+            {note.isPinned && (
+              <span className="rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-600 border border-indigo-100 flex items-center gap-0.5">
+                <Pin className="h-2.5 w-2.5 fill-current" />
+                Pinned
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onTogglePin(note)}
+              className={`rounded-full p-1.5 transition ${
+                note.isPinned 
+                  ? 'bg-white text-indigo-600 shadow-sm border border-indigo-100' 
+                  : 'bg-white/50 text-slate-500 hover:bg-white/80'
+              }`}
+              title={note.isPinned ? 'Unpin note' : 'Pin note'}
+            >
+              <Pin className={`h-3.5 w-3.5 ${note.isPinned ? 'fill-current' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content Preview */}
+        <p className="line-clamp-4 md:line-clamp-5 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800 font-medium">
+          {note.content || <span className="italic text-slate-500/60">Empty sticky note</span>}
+        </p>
+      </div>
+
+      <div>
+        {/* Tags */}
+        {note.tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {visibleTags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-white/50 border border-black/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-700"
+              >
+                {tag}
+              </span>
+            ))}
+            {extraTags > 0 && (
+              <span className="rounded-full bg-white/50 border border-black/[0.03] px-2 py-0.5 text-[9px] font-bold text-slate-600">
+                +{extraTags}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Footer actions */}
+        <div className="mt-4 flex items-center justify-between gap-2 border-t border-black/5 pt-3">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onEdit(note)}
+              className="inline-flex h-7 items-center justify-center rounded-lg bg-white/60 px-2.5 text-[11px] font-bold text-slate-700 border border-black/[0.02] hover:bg-white/90 active:bg-white transition"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onCopy(note)}
+              className="inline-flex h-7 items-center justify-center rounded-lg bg-white/60 px-2.5 text-[11px] font-bold text-slate-700 border border-black/[0.02] hover:bg-white/90 active:bg-white transition"
+            >
+              Copy
+            </button>
+            <button
+              type="button"
+              onClick={() => onSummarize(note)}
+              disabled={summarizingId === note.id}
+              className="hidden md:inline-flex h-7 items-center justify-center rounded-lg bg-white/60 px-2.5 text-[11px] font-bold text-slate-700 border border-black/[0.02] hover:bg-white/90 active:bg-white transition disabled:opacity-50"
+            >
+              {summarizingId === note.id ? (
+                <Loader2 className="h-3 w-3 animate-spin text-slate-500" />
+              ) : (
+                <Sparkles className="h-3 w-3 text-indigo-500 mr-0.5" />
+              )}
+              Summarize
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {saving && (
+              <span className="text-[10px] font-semibold text-slate-500 animate-pulse">
+                Saving...
+              </span>
+            )}
+            
+            {/* Custom Popover Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/60 border border-black/[0.02] text-slate-600 hover:bg-white/90 active:bg-white transition"
+                title="More actions"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+
+              {menuOpen && (
+                <div
+                  className={`absolute right-0 bottom-full mb-2 z-30 w-48 rounded-xl border p-1 shadow-xl backdrop-blur-md ${
+                    themeMode === 'dark'
+                      ? 'border-white/10 bg-[#0b1426]/95 text-neutral-200'
+                      : 'border-slate-200/80 bg-white/95 text-slate-800'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onConvert(note);
+                      setMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Convert to Task
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onArchive(note, !note.isArchived);
+                      setMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5 transition"
+                  >
+                    <Archive className="h-3.5 w-3.5 text-indigo-500" />
+                    {note.isArchived ? 'Restore note' : 'Archive note'}
+                  </button>
+                  <div className="my-1 border-t border-black/5 dark:border-white/5" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm('Are you sure you want to permanently delete this sticky note?')) {
+                        onDelete(note.id);
+                      }
+                      setMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                    Delete note
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StickyNotesWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -244,7 +486,7 @@ export function StickyNotesWorkspace() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notes, setNotes] = useState<StickyNoteCard[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'pinned' | 'archived'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'pinned' | 'uncategorized' | 'archived'>('all');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -254,6 +496,7 @@ export function StickyNotesWorkspace() {
   const [savingIds, setSavingIds] = useState<Record<string, boolean>>({});
   const [summarizingId, setSummarizingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const notesRef = useRef<StickyNoteCard[]>([]);
   const saveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const addToast = useCallback((message: string, type: ToastItem['type'] = 'success') => {
@@ -305,6 +548,10 @@ export function StickyNotesWorkspace() {
     const storedTheme = localStorage.getItem('fc_dashboard_theme');
     setThemeMode(storedTheme === 'dark' ? 'dark' : 'light');
   }, []);
+
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
 
   useEffect(() => {
     const load = async () => {
@@ -393,7 +640,7 @@ export function StickyNotesWorkspace() {
   }, [addToast, router, supabase]);
 
   const persistNote = useCallback(async (noteId: string, nextState?: StickyNoteCard) => {
-    const source = nextState || notes.find((note) => note.id === noteId);
+    const source = nextState || notesRef.current.find((note) => note.id === noteId);
     if (!source) return;
 
     setSavingIds((prev) => ({ ...prev, [noteId]: true }));
@@ -413,34 +660,39 @@ export function StickyNotesWorkspace() {
         return next;
       });
     }
-  }, [addToast, notes, schemaMode, supabase]);
+  }, [addToast, schemaMode, supabase]);
 
   useEffect(() => {
     if (!editingNoteId || !editorDirty) return;
-    const current = notes.find((note) => note.id === editingNoteId);
-    if (!current) return;
 
     if (saveTimersRef.current[editingNoteId]) {
       clearTimeout(saveTimersRef.current[editingNoteId]);
     }
 
-    const nextState: StickyNoteCard = {
-      ...current,
-      title: editorState.title,
-      content: editorState.content,
-      color: editorState.color,
-      folderId: editorState.folderId || null,
-      tags: editorState.tags
-        .split(',')
-        .map((tag) => tag.trim().toUpperCase())
-        .filter(Boolean)
-        .slice(0, 8),
-    };
+    let nextState: StickyNoteCard | null = null;
+    setNotes((prev) => prev.map((note) => {
+      if (note.id !== editingNoteId) return note;
+      nextState = {
+        ...note,
+        title: editorState.title,
+        content: editorState.content,
+        color: editorState.color,
+        folderId: editorState.folderId || null,
+        tags: editorState.tags
+          .split(',')
+          .map((tag) => tag.trim().toUpperCase())
+          .filter(Boolean)
+          .slice(0, 8),
+      };
+      return nextState;
+    }));
 
-    setNotes((prev) => prev.map((note) => note.id === editingNoteId ? nextState : note));
+    if (!nextState) {
+      return;
+    }
 
     saveTimersRef.current[editingNoteId] = setTimeout(() => {
-      void persistNote(editingNoteId, nextState);
+      void persistNote(editingNoteId, nextState || undefined);
       delete saveTimersRef.current[editingNoteId];
     }, 500);
 
@@ -449,7 +701,7 @@ export function StickyNotesWorkspace() {
         clearTimeout(saveTimersRef.current[editingNoteId]);
       }
     };
-  }, [editingNoteId, editorDirty, editorState, notes, persistNote]);
+  }, [editingNoteId, editorDirty, editorState, persistNote]);
 
   const handleToggleTheme = () => {
     const nextTheme = themeMode === 'dark' ? 'light' : 'dark';
@@ -457,8 +709,11 @@ export function StickyNotesWorkspace() {
     localStorage.setItem('fc_dashboard_theme', nextTheme);
   };
 
+  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
+
   const openEditor = useCallback((note?: StickyNoteCard) => {
     if (note) {
+      setEditorMode('edit');
       setEditingNoteId(note.id);
       setEditorState({
         id: note.id,
@@ -467,16 +722,27 @@ export function StickyNotesWorkspace() {
         color: note.color,
         folderId: note.folderId || '',
         tags: note.tags.join(', '),
+        isPinned: note.isPinned,
+        isArchived: note.isArchived,
       });
     } else {
+      setEditorMode('create');
       setEditingNoteId(null);
-      setEditorState(DEFAULT_EDITOR);
+      setEditorState({
+        ...DEFAULT_EDITOR,
+        color: NOTE_COLOR_SWATCHES[notesRef.current.length % NOTE_COLOR_SWATCHES.length].value,
+        folderId: selectedFolderId || '',
+      });
     }
     setEditorDirty(false);
     setIsEditorOpen(true);
-  }, []);
+  }, [selectedFolderId]);
 
-  const handleCreateNote = async () => {
+  const handleCreateNote = () => {
+    openEditor();
+  };
+
+  const handleCreateSticky = async () => {
     if (!user) return;
     if (!stickyNotesReady) {
       addToast('Sticky Notes needs the latest database migration before new notes can be created.', 'warning');
@@ -487,18 +753,22 @@ export function StickyNotesWorkspace() {
     const nextNote: StickyNoteCard = {
       id: noteId,
       user_id: user.id,
-      title: 'Untitled note',
-      content: '',
-      color: NOTE_COLOR_SWATCHES[notes.length % NOTE_COLOR_SWATCHES.length].value,
-      isPinned: false,
-      isArchived: false,
-      folderId: selectedFolderId,
+      title: editorState.title.trim() || 'Untitled note',
+      content: editorState.content,
+      color: editorState.color,
+      isPinned: editorState.isPinned,
+      isArchived: editorState.isArchived,
+      folderId: editorState.folderId || null,
       sourceClipId: null,
       positionX: 0,
       positionY: 0,
       width: 280,
       height: 220,
-      tags: ['STICKY'],
+      tags: editorState.tags
+        .split(',')
+        .map((tag) => tag.trim().toUpperCase())
+        .filter(Boolean)
+        .slice(0, 8),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -511,7 +781,7 @@ export function StickyNotesWorkspace() {
       }
 
       setNotes((prev) => [nextNote, ...prev]);
-      openEditor(nextNote);
+      setIsEditorOpen(false);
       addToast('Sticky note created.', 'success');
     } catch (error) {
       addToast('Could not create sticky note.', 'warning');
@@ -700,10 +970,21 @@ export function StickyNotesWorkspace() {
   const filteredNotes = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return notes.filter((note) => {
-      if (activeFilter === 'archived' && !note.isArchived) return false;
-      if (activeFilter !== 'archived' && note.isArchived) return false;
+      // 1. Archive filter is absolute
+      if (activeFilter === 'archived') {
+        if (!note.isArchived) return false;
+      } else {
+        if (note.isArchived) return false;
+      }
+
+      // 2. Specific main filters (when active and not archived)
       if (activeFilter === 'pinned' && !note.isPinned) return false;
+      if (activeFilter === 'uncategorized' && note.folderId !== null && note.folderId !== '') return false;
+
+      // 3. Folder filter
       if (selectedFolderId && note.folderId !== selectedFolderId) return false;
+
+      // 4. Search query
       if (!normalizedSearch) return true;
       return `${note.title} ${note.content} ${note.tags.join(' ')}`.toLowerCase().includes(normalizedSearch);
     });
@@ -770,15 +1051,19 @@ export function StickyNotesWorkspace() {
                 {[
                   { id: 'all', label: 'All Notes', icon: FileText, count: notes.filter((note) => !note.isArchived).length },
                   { id: 'pinned', label: 'Pinned', icon: Pin, count: notes.filter((note) => note.isPinned && !note.isArchived).length },
+                  { id: 'uncategorized', label: 'Uncategorized', icon: FileText, count: notes.filter((note) => !note.folderId && !note.isArchived).length },
                   { id: 'archived', label: 'Archived', icon: Archive, count: notes.filter((note) => note.isArchived).length },
                 ].map((item) => {
                   const Icon = item.icon;
-                  const isActive = activeFilter === item.id;
+                  const isActive = activeFilter === item.id && selectedFolderId === null;
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setActiveFilter(item.id as 'all' | 'pinned' | 'archived')}
+                      onClick={() => {
+                        setActiveFilter(item.id as any);
+                        setSelectedFolderId(null);
+                      }}
                       className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-sm transition ${
                         isActive
                           ? themeMode === 'dark' ? 'border-indigo-400/25 bg-indigo-500/10 text-white' : 'border-indigo-200 bg-indigo-50 text-slate-950'
@@ -803,41 +1088,38 @@ export function StickyNotesWorkspace() {
               </div>
 
               <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedFolderId(null)}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-sm transition ${
-                    selectedFolderId === null
-                      ? themeMode === 'dark' ? 'border-indigo-400/25 bg-indigo-500/10 text-white' : 'border-indigo-200 bg-indigo-50 text-slate-950'
-                      : themeMode === 'dark' ? 'border-white/8 bg-white/[0.02] text-neutral-300 hover:bg-white/[0.04]' : 'border-[#EBEBF0] bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="font-medium">All folders</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${themeMode === 'dark' ? 'bg-white/6 text-neutral-400' : 'bg-slate-100 text-slate-500'}`}>
-                    {notes.filter((note) => !note.isArchived).length}
-                  </span>
-                </button>
-
-                {folders.map((folder) => (
-                  <button
-                    key={folder.id}
-                    type="button"
-                    onClick={() => setSelectedFolderId(folder.id)}
-                    className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-sm transition ${
-                      selectedFolderId === folder.id
-                        ? themeMode === 'dark' ? 'border-indigo-400/25 bg-indigo-500/10 text-white' : 'border-indigo-200 bg-indigo-50 text-slate-950'
-                        : themeMode === 'dark' ? 'border-white/8 bg-white/[0.02] text-neutral-300 hover:bg-white/[0.04]' : 'border-[#EBEBF0] bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: folder.color }} />
-                      <span className="truncate font-medium">{folder.name}</span>
-                    </span>
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] ${themeMode === 'dark' ? 'bg-white/6 text-neutral-400' : 'bg-slate-100 text-slate-500'}`}>
-                      {notes.filter((note) => note.folderId === folder.id && !note.isArchived).length}
-                    </span>
-                  </button>
-                ))}
+                {folders.map((folder) => {
+                  const isActive = selectedFolderId === folder.id;
+                  const noteCount = notes.filter((note) => note.folderId === folder.id && !note.isArchived).length;
+                  const isZero = noteCount === 0;
+                  return (
+                    <button
+                      key={folder.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedFolderId(folder.id);
+                        setActiveFilter('all');
+                      }}
+                      className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-left text-sm transition ${
+                        isActive
+                          ? themeMode === 'dark' ? 'border-indigo-400/25 bg-indigo-500/10 text-white' : 'border-indigo-200 bg-indigo-50 text-slate-950'
+                          : themeMode === 'dark' ? 'border-white/8 bg-white/[0.02] text-neutral-300 hover:bg-white/[0.04]' : 'border-[#EBEBF0] bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: folder.color }} />
+                        <span className="truncate font-medium">{folder.name}</span>
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] transition ${
+                        isZero
+                          ? 'opacity-40 font-normal bg-black/5 dark:bg-white/5 text-neutral-500'
+                          : themeMode === 'dark' ? 'bg-white/6 text-neutral-300 font-semibold' : 'bg-slate-100 text-slate-700 font-semibold'
+                      }`}>
+                        {noteCount}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -911,12 +1193,65 @@ export function StickyNotesWorkspace() {
                 type="button"
                 onClick={handleCreateNote}
                 disabled={!stickyNotesReady}
-                className="h-10 rounded-xl border-0 bg-[#6B5CE7] px-4 text-sm font-semibold text-white hover:bg-[#5e50d8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                className="h-10 rounded-xl border-0 bg-[#6B5CE7] px-4 text-sm font-semibold text-white hover:bg-[#5e50d8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 shrink-0"
               >
                 <Plus className="mr-1.5 h-4 w-4" />
                 New Sticky
               </Button>
             </div>
+
+            {/* Horizontal Filter Chips on Mobile */}
+            <div className="flex md:hidden overflow-x-auto gap-2 mt-3 pb-1 scrollbar-none shrink-0 select-none">
+              {[
+                { id: 'all', label: 'All Notes', count: notes.filter((n) => !n.isArchived).length },
+                { id: 'pinned', label: 'Pinned', count: notes.filter((n) => n.isPinned && !n.isArchived).length },
+                { id: 'uncategorized', label: 'Uncategorized', count: notes.filter((n) => !n.folderId && !n.isArchived).length },
+                { id: 'archived', label: 'Archived', count: notes.filter((n) => n.isArchived).length },
+              ].map((item) => {
+                const isActive = activeFilter === item.id && selectedFolderId === null;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveFilter(item.id as any);
+                      setSelectedFolderId(null);
+                    }}
+                    className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition ${
+                      isActive
+                        ? themeMode === 'dark' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                        : themeMode === 'dark' ? 'bg-white/[0.02] border-white/8 text-neutral-300' : 'bg-white border-[#EBEBF0] text-slate-700'
+                    }`}
+                  >
+                    {item.label} <span className="opacity-60 ml-0.5">{item.count}</span>
+                  </button>
+                );
+              })}
+              
+              {/* Folder Chips */}
+              {folders.map((folder) => {
+                const isActive = selectedFolderId === folder.id;
+                const count = notes.filter((n) => n.folderId === folder.id && !n.isArchived).length;
+                return (
+                  <button
+                    key={folder.id}
+                    onClick={() => {
+                      setSelectedFolderId(folder.id);
+                      setActiveFilter('all');
+                    }}
+                    className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition flex items-center gap-1.5 ${
+                      isActive
+                        ? themeMode === 'dark' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                        : themeMode === 'dark' ? 'bg-white/[0.02] border-white/8 text-neutral-300' : 'bg-white border-[#EBEBF0] text-slate-700'
+                    }`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: folder.color }} />
+                    <span>{folder.name}</span>
+                    <span className="opacity-60">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             {!stickyNotesReady ? (
               <div className={`mt-3 rounded-2xl border px-3 py-2 text-xs ${
                 themeMode === 'dark'
@@ -930,78 +1265,58 @@ export function StickyNotesWorkspace() {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 pb-24 sm:px-5">
             {orderedNotes.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {orderedNotes.map((note) => {
-                  const folder = folders.find((item) => item.id === note.folderId);
-                  return (
-                    <div
-                      key={note.id}
-                      className="rounded-[14px] border p-4 shadow-sm"
-                      style={{ backgroundColor: note.color, borderColor: `${note.color}AA`, minHeight: 220 }}
-                    >
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-[15px] font-semibold text-slate-900">{note.title || 'Untitled note'}</p>
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            {folder?.name || 'No folder'} {note.sourceClipId ? '• From clip' : ''}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleTogglePin(note)}
-                          className={`rounded-full p-1.5 ${note.isPinned ? 'bg-white text-[#6B5CE7]' : 'bg-white/70 text-slate-500'}`}
-                          title={note.isPinned ? 'Unpin note' : 'Pin note'}
-                        >
-                          <Pin className={`h-4 w-4 ${note.isPinned ? 'fill-current' : ''}`} />
-                        </button>
-                      </div>
-
-                      <p className="line-clamp-6 whitespace-pre-wrap text-[14px] leading-6 text-slate-800">
-                        {note.content || 'Empty sticky note'}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {note.tags.slice(0, 4).map((tag) => (
-                          <span key={tag} className="rounded-full bg-white/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-700">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-                        <button onClick={() => openEditor(note)} className="rounded-md border border-white/80 bg-white/70 px-2.5 py-1.5 text-slate-600">Edit</button>
-                        <button onClick={() => void handleCopyNote(note)} className="rounded-md border border-white/80 bg-white/70 px-2.5 py-1.5 text-slate-600">Copy</button>
-                        <button onClick={() => void handleSummarizeNote(note)} className="rounded-md border border-white/80 bg-white/70 px-2.5 py-1.5 text-slate-600">{summarizingId === note.id ? 'Summarizing...' : 'Summarize'}</button>
-                        <button onClick={() => void handleConvertNoteToTask(note)} className="rounded-md border border-white/80 bg-white/70 px-2.5 py-1.5 text-slate-600">Convert to Task</button>
-                        <button onClick={() => void handleArchiveNote(note, !note.isArchived)} className="rounded-md border border-white/80 bg-white/70 px-2.5 py-1.5 text-slate-600">{note.isArchived ? 'Restore' : 'Archive'}</button>
-                        <button onClick={() => void handleDeleteNote(note.id)} className="rounded-md border border-white/80 bg-white/70 px-2.5 py-1.5 text-rose-600">Delete</button>
-                      </div>
-
-                      <div className="mt-3 text-[11px] text-slate-500">
-                        {savingIds[note.id] ? 'Saving...' : 'Auto-saved'}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {orderedNotes.map((note) => (
+                  <StickyNoteCardComponent
+                    key={note.id}
+                    note={note}
+                    folders={folders}
+                    themeMode={themeMode}
+                    summarizingId={summarizingId}
+                    saving={savingIds[note.id] || false}
+                    onEdit={openEditor}
+                    onCopy={handleCopyNote}
+                    onSummarize={handleSummarizeNote}
+                    onArchive={handleArchiveNote}
+                    onDelete={handleDeleteNote}
+                    onConvert={handleConvertNoteToTask}
+                    onTogglePin={handleTogglePin}
+                  />
+                ))}
               </div>
             ) : (
-              <div className={`mx-auto flex max-w-2xl flex-col items-center rounded-[18px] border p-8 text-center ${themeMode === 'dark' ? 'border-white/8 bg-neutral-950 text-neutral-300' : 'border-[#EBEBF0] bg-white text-slate-700'}`}>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white">
+              <div className={`mx-auto flex max-w-2xl flex-col items-center rounded-[24px] border p-8 text-center ${themeMode === 'dark' ? 'border-white/8 bg-[#0b1426] text-neutral-300 shadow-2xl shadow-black/30' : 'border-slate-200/80 bg-white text-slate-700 shadow-xl shadow-slate-100'}`}>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-lg shadow-indigo-500/20">
                   <StickyNote className="h-6 w-6" />
                 </div>
-                <h3 className={`mt-5 text-lg font-semibold ${themeMode === 'dark' ? 'text-white' : 'text-slate-900'}`}>No sticky notes yet</h3>
-                <p className={`mt-2 max-w-lg text-sm leading-7 ${themeMode === 'dark' ? 'text-neutral-400' : 'text-[#8888A0]'}`}>
-                  Capture quick ideas, convert important clips into notes, and keep pinned context ready for the next thing you do.
+                <h3 className={`mt-6 text-lg font-bold ${themeMode === 'dark' ? 'text-white' : 'text-slate-900'}`}>No sticky notes yet</h3>
+                <p className={`mt-2 max-w-lg text-sm leading-relaxed ${themeMode === 'dark' ? 'text-neutral-400' : 'text-slate-500'}`}>
+                  Capture quick ideas, reminders, reusable snippets, and client context. Keep pinned context ready for the next thing you do.
                 </p>
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
-                  <Button type="button" onClick={handleCreateNote} disabled={!stickyNotesReady} className="h-10 rounded-xl border-0 bg-[#6B5CE7] px-4 text-sm font-semibold text-white hover:bg-[#5e50d8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
-                    Create your first sticky note
+                <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+                  <Button
+                    type="button"
+                    onClick={handleCreateNote}
+                    disabled={!stickyNotesReady}
+                    className="h-10 rounded-xl border-0 bg-[#6B5CE7] px-5 text-sm font-semibold text-white hover:bg-[#5e50d8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 hover:translate-y-[-1px] transition shadow-md shadow-indigo-500/10"
+                  >
+                    Create Sticky
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => router.push('/dashboard')} className="h-10 rounded-xl text-sm">
-                    Convert a clip into a note
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push('/dashboard')}
+                    className="h-10 rounded-xl text-sm font-semibold border-slate-200 hover:bg-slate-50"
+                  >
+                    Convert a Clip
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleImportSampleNotes} disabled={!stickyNotesReady} className="h-10 rounded-xl text-sm disabled:cursor-not-allowed">
-                    Import sample notes
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push('/dashboard')}
+                    className="h-10 rounded-xl text-sm font-semibold border-slate-200 hover:bg-slate-50"
+                  >
+                    View Clips
                   </Button>
                 </div>
               </div>
@@ -1011,61 +1326,106 @@ export function StickyNotesWorkspace() {
       </ProGate>
 
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-lg rounded-[18px] border border-slate-200 bg-white p-0 sm:max-h-[90vh]">
-          <DialogHeader className="border-b border-slate-200 px-5 py-4 text-left">
-            <DialogTitle className="text-lg font-semibold text-slate-900">{editingNoteId ? 'Edit sticky note' : 'Create sticky note'}</DialogTitle>
-            <DialogDescription className="text-sm text-slate-500">
-              Changes save automatically after a short pause.
+        <DialogContent className="max-w-full w-full h-[90dvh] max-h-[90dvh] rounded-b-none rounded-t-[24px] self-end mt-auto md:max-w-[720px] md:h-auto md:max-h-[86vh] md:rounded-[20px] md:self-center md:my-auto border border-slate-200/80 bg-white p-0 overflow-hidden flex flex-col shadow-2xl">
+          <DialogHeader className="border-b border-slate-100 px-6 py-4 text-left shrink-0">
+            <DialogTitle className="text-base font-bold text-slate-900">
+              {editorMode === 'create' ? 'Create sticky note' : 'Edit sticky note'}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500/80 font-medium">
+              {editorMode === 'create'
+                ? 'Capture a quick idea, reminder, or reusable note.'
+                : 'Changes save automatically after a short pause.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 px-5 py-4">
-            <Input
-              value={editorState.title}
-              onChange={(event) => {
-                setEditorState((prev) => ({ ...prev, title: event.target.value }));
-                setEditorDirty(true);
-              }}
-              placeholder="Sticky note title"
-              className="h-11 rounded-xl"
-            />
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* Title & Pin Toggle */}
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-1.5">
+                  Title
+                </label>
+                <Input
+                  value={editorState.title}
+                  onChange={(event) => {
+                    setEditorState((prev) => ({ ...prev, title: event.target.value }));
+                    setEditorDirty(true);
+                  }}
+                  placeholder="Sticky note title"
+                  className="h-10 rounded-xl border-slate-200/80 focus:border-indigo-500 focus:ring-indigo-500 text-sm font-semibold text-slate-800"
+                />
+              </div>
+              <div className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditorState((prev) => {
+                      const nextPinned = !prev.isPinned;
+                      setEditorDirty(true);
+                      return { ...prev, isPinned: nextPinned };
+                    });
+                  }}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+                    editorState.isPinned
+                      ? 'border-indigo-200 bg-indigo-50 text-indigo-600'
+                      : 'border-slate-200/80 text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                  }`}
+                  title={editorState.isPinned ? 'Pinned' : 'Pin note'}
+                >
+                  <Pin className={`h-4 w-4 ${editorState.isPinned ? 'fill-current' : ''}`} />
+                </button>
+              </div>
+            </div>
 
-            <Textarea
-              value={editorState.content}
-              onChange={(event) => {
-                const nextContent = event.target.value;
-                setEditorState((prev) => ({
-                  ...prev,
-                  content: nextContent,
-                  tags: prev.tags || deriveTags(nextContent).join(', '),
-                }));
-                setEditorDirty(true);
-              }}
-              placeholder="Write your note..."
-              className="min-h-40 rounded-xl"
-            />
+            {/* Content */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-1.5">
+                Content
+              </label>
+              <Textarea
+                value={editorState.content}
+                onChange={(event) => {
+                  const nextContent = event.target.value;
+                  setEditorState((prev) => ({
+                    ...prev,
+                    content: nextContent,
+                    tags: prev.tags || deriveTags(nextContent).join(', '),
+                  }));
+                  setEditorDirty(true);
+                }}
+                placeholder="Write your note here..."
+                className="min-h-[140px] max-h-[220px] rounded-xl border-slate-200/80 focus:border-indigo-500 focus:ring-indigo-500 text-sm leading-relaxed text-slate-800 font-medium"
+              />
+            </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            {/* Folder & Color Picker (2 columns on desktop, stacked on mobile) */}
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Folder</label>
+                <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-1.5">
+                  Folder
+                </label>
                 <select
                   value={editorState.folderId}
                   onChange={(event) => {
                     setEditorState((prev) => ({ ...prev, folderId: event.target.value }));
                     setEditorDirty(true);
                   }}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none"
+                  className="h-10 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-indigo-500 font-medium transition"
                 >
-                  <option value="">No folder</option>
+                  <option value="">Uncategorized / No folder</option>
                   {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>{folder.name}</option>
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Color</label>
-                <div className="flex flex-wrap gap-2">
+                <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">
+                  Color Background
+                </label>
+                <div className="flex flex-wrap items-center gap-1.5 h-10">
                   {NOTE_COLOR_SWATCHES.map((swatch) => (
                     <button
                       key={swatch.value}
@@ -1074,7 +1434,11 @@ export function StickyNotesWorkspace() {
                         setEditorState((prev) => ({ ...prev, color: swatch.value }));
                         setEditorDirty(true);
                       }}
-                      className={`h-9 w-9 rounded-full border-2 transition ${editorState.color === swatch.value ? 'border-slate-900' : 'border-white'}`}
+                      className={`h-7 w-7 rounded-full border-2 transition ${
+                        editorState.color === swatch.value
+                          ? 'border-slate-900 scale-110 shadow-sm'
+                          : 'border-transparent hover:scale-105'
+                      }`}
                       style={{ backgroundColor: swatch.value }}
                       title={swatch.label}
                     />
@@ -1083,35 +1447,102 @@ export function StickyNotesWorkspace() {
               </div>
             </div>
 
+            {/* Tags */}
             <div>
-              <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Tags</label>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-1.5">
+                Tags (comma separated)
+              </label>
               <Input
                 value={editorState.tags}
                 onChange={(event) => {
                   setEditorState((prev) => ({ ...prev, tags: event.target.value }));
                   setEditorDirty(true);
                 }}
-                placeholder="Comma-separated tags"
-                className="h-11 rounded-xl"
+                placeholder="e.g., TASKS, NOTES, STICKY"
+                className="h-10 rounded-xl border-slate-200/80 focus:border-indigo-500 focus:ring-indigo-500 text-sm font-semibold text-slate-800"
               />
             </div>
+
+            {/* Archive Toggle (only in edit mode) */}
+            {editorMode === 'edit' && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="archive-toggle"
+                  checked={editorState.isArchived}
+                  onChange={(event) => {
+                    const nextArchived = event.target.checked;
+                    setEditorState((prev) => ({ ...prev, isArchived: nextArchived }));
+                    setEditorDirty(true);
+                  }}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label
+                  htmlFor="archive-toggle"
+                  className="text-xs font-bold text-slate-600 select-none cursor-pointer hover:text-slate-800 transition"
+                >
+                  Archive this note (hides from active grid and folders)
+                </label>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="flex flex-col gap-2 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-slate-500">
-              {editingNoteId && savingIds[editingNoteId] ? 'Saving changes...' : 'Auto-save enabled'}
+          <DialogFooter className="flex flex-col gap-2 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between shrink-0 bg-slate-50/50">
+            <div className="text-xs font-semibold text-slate-500">
+              {editorMode === 'edit' && editingNoteId ? (
+                savingIds[editingNoteId] ? (
+                  <span className="flex items-center gap-1.5 text-indigo-600">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Saving changes...
+                  </span>
+                ) : (
+                  <span className="text-slate-400 font-medium">Auto-saved</span>
+                )
+              ) : (
+                <span className="text-slate-400 font-medium">Auto-save disabled for drafts</span>
+              )}
             </div>
             <div className="flex gap-2">
-              {editingNoteId ? (
-                <Button type="button" variant="outline" onClick={() => void handleDeleteNote(editingNoteId)} className="rounded-xl text-rose-600">
-                  <Trash2 className="mr-1.5 h-4 w-4" />
-                  Delete
+              {editorMode === 'edit' && editingNoteId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleDeleteNote(editingNoteId)}
+                  className="rounded-xl border-slate-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 h-9 text-xs font-bold px-3"
+                >
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                  Delete Note
                 </Button>
-              ) : null}
-              <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)} className="rounded-xl">
-                <X className="mr-1.5 h-4 w-4" />
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditorOpen(false)}
+                className="rounded-xl border-slate-200 h-9 text-xs font-bold px-3 text-slate-600 hover:bg-slate-50"
+              >
                 Close
               </Button>
+              {editorMode === 'create' ? (
+                <Button
+                  type="button"
+                  onClick={handleCreateSticky}
+                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white h-9 text-xs font-bold px-4 border-0 hover:translate-y-[-1px] transition shadow-md shadow-indigo-500/10"
+                >
+                  Create Sticky
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    if (editingNoteId) {
+                      await persistNote(editingNoteId);
+                    }
+                    setIsEditorOpen(false);
+                  }}
+                  className="rounded-xl bg-[#6B5CE7] hover:bg-[#5e50d8] text-white h-9 text-xs font-bold px-4 border-0 shadow-md shadow-indigo-500/10"
+                >
+                  Done
+                </Button>
+              )}
             </div>
           </DialogFooter>
         </DialogContent>

@@ -38,6 +38,7 @@ import {
   Search, 
   Share2,
   Sparkles,
+  Pin,
   Star, 
   SunMedium,
   Moon,
@@ -121,6 +122,7 @@ interface StickyNotePreview {
   content: string;
   color: string | null;
   is_pinned: boolean;
+  folder_id?: string | null;
   updated_at: string;
 }
 
@@ -1243,7 +1245,7 @@ export default function Dashboard() {
     try {
       const stickyPreviewPromise = supabase
         .from('sticky_notes')
-        .select('id, title, content, color, is_pinned, updated_at')
+        .select('id, title, content, color, is_pinned, folder_id, updated_at')
         .eq('user_id', currentUser.id)
         .eq('is_archived', false)
         .order('is_pinned', { ascending: false })
@@ -1306,7 +1308,7 @@ export default function Dashboard() {
       } else {
         const legacyPreviewResult = await supabase
           .from('sticky_notes')
-          .select('id, title, content, color, pinned, updated_at')
+          .select('id, title, content, color, pinned, folder_id, updated_at')
           .eq('user_id', currentUser.id)
           .eq('archived', false)
           .order('pinned', { ascending: false })
@@ -1321,6 +1323,7 @@ export default function Dashboard() {
               content: note.content || '',
               color: note.color || null,
               is_pinned: Boolean(note.pinned),
+              folder_id: note.folder_id || null,
               updated_at: note.updated_at,
             }))
           );
@@ -6130,7 +6133,7 @@ export default function Dashboard() {
               </div>
 
               <div className={`rounded-2xl border p-4 ${mutedSurfaceClass}`}>
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
@@ -6141,24 +6144,13 @@ export default function Dashboard() {
                         <StickyNote className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>Sticky Notes</p>
-                        <p className={`text-sm font-semibold ${titleTextClass}`}>Quick note board</p>
+                        <p className={`text-sm font-semibold ${titleTextClass}`}>Sticky Notes</p>
+                        <p className={`text-xs ${subtleTextClass}`}>Quick thoughts and reminders</p>
                       </div>
                     </div>
-                    <p className={`mt-2 text-sm ${subtleTextClass}`}>
-                      Pinned notes stay first, and you can jump into the full board whenever you need deeper editing.
-                    </p>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => router.push('/dashboard/sticky-notes')}
-                      className="h-9 rounded-xl text-xs font-semibold"
-                    >
-                      View all
-                    </Button>
                     <Button
                       type="button"
                       onClick={() => router.push('/dashboard/sticky-notes')}
@@ -6167,46 +6159,87 @@ export default function Dashboard() {
                       <Plus className="mr-1.5 h-3.5 w-3.5" />
                       New Sticky
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push('/dashboard/sticky-notes')}
+                      className="h-9 rounded-xl text-xs font-semibold"
+                    >
+                      View All
+                    </Button>
                   </div>
                 </div>
 
                 {stickyNotesPreview.length > 0 ? (
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    {stickyNotesPreview.map((note) => (
-                      <button
-                        key={note.id}
-                        type="button"
-                        onClick={() => router.push(`/dashboard/sticky-notes?note=${encodeURIComponent(note.id)}`)}
-                        className={`rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 ${
-                          isDarkTheme
-                            ? 'border-white/8 bg-white/[0.03] hover:bg-white/[0.05]'
-                            : 'border-[#EBEBF0] bg-white hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className={`truncate text-sm font-semibold ${titleTextClass}`}>
-                              {note.title || 'Untitled note'}
-                            </p>
-                            <p className={`mt-1 text-[11px] ${subtleTextClass}`}>
-                              {new Date(note.updated_at).toLocaleDateString()}
-                            </p>
+                    {stickyNotesPreview.map((note) => {
+                      const folder = folders.find((item) => item.id === note.folder_id);
+                      return (
+                        <div
+                          key={note.id}
+                          className={`rounded-2xl border p-3 transition ${
+                            isDarkTheme ? 'border-white/8 bg-white/[0.03]' : 'border-[#EBEBF0] bg-white'
+                          }`}
+                          style={{
+                            backgroundColor: note.color
+                              ? `${note.color}${isDarkTheme ? '24' : '20'}`
+                              : undefined,
+                            borderColor: note.color ? `${note.color}${isDarkTheme ? '44' : '55'}` : undefined,
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={`truncate text-sm font-semibold ${titleTextClass}`}>
+                                {note.title || 'Untitled note'}
+                              </p>
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                  isDarkTheme ? 'bg-black/20 text-neutral-300' : 'bg-white/80 text-slate-600'
+                                }`}>
+                                  {folder?.name || 'No folder'}
+                                </span>
+                              </div>
+                            </div>
+                            <Pin className={`h-4 w-4 shrink-0 ${note.is_pinned ? 'fill-current text-[#6B5CE7]' : isDarkTheme ? 'text-neutral-600' : 'text-slate-300'}`} />
                           </div>
-                          {note.is_pinned ? (
-                            <span className="rounded-full bg-[#F0EFFE] px-2 py-0.5 text-[10px] font-bold text-[#6B5CE7]">
-                              Pinned
-                            </span>
-                          ) : null}
+
+                          <p className={`mt-3 line-clamp-2 min-h-[2.75rem] text-sm leading-5 ${subtleTextClass}`}>
+                            {note.content || 'Empty sticky note'}
+                          </p>
+
+                          <div className="mt-4 flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={async (event) => {
+                                event.stopPropagation();
+                                try {
+                                  await navigator.clipboard.writeText(note.content || '');
+                                  addToast('Sticky note copied.', 'success');
+                                } catch (err) {
+                                  addToast('Could not copy this sticky note.', 'warning');
+                                }
+                              }}
+                              className="h-8 rounded-lg px-3 text-[11px] font-semibold"
+                            >
+                              Copy
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => router.push(`/dashboard/sticky-notes?note=${encodeURIComponent(note.id)}`)}
+                              className="h-8 rounded-lg px-3 text-[11px] font-semibold"
+                            >
+                              Edit
+                            </Button>
+                          </div>
                         </div>
-                        <p className={`mt-3 line-clamp-3 text-sm leading-6 ${subtleTextClass}`}>
-                          {note.content || 'Empty sticky note'}
-                        </p>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className={`mt-4 rounded-2xl border border-dashed p-4 text-sm ${subtleTextClass}`}>
-                    No sticky notes yet. Convert a clip into a note or start a fresh sticky.
+                    No notes yet. Create one from a clip or write a quick note.
                   </div>
                 )}
               </div>
