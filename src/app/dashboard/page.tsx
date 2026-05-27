@@ -61,6 +61,7 @@ import {
   ListChecks,
   ScanText,
   Send,
+  StickyNote,
   Tags,
   User as UserIcon,
   Wand2,
@@ -113,6 +114,31 @@ interface Folder {
   color: string; // e.g. '#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'
   created_at: string;
 }
+
+interface StickyNotePreview {
+  id: string;
+  title: string;
+  content: string;
+  color: string | null;
+  is_pinned: boolean;
+  updated_at: string;
+}
+
+const stringifySupabaseError = (error: unknown) => {
+  if (!error) return 'Unknown error';
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object') {
+    const maybeError = error as Record<string, unknown>;
+    return String(
+      maybeError.message ||
+      maybeError.error_description ||
+      maybeError.details ||
+      maybeError.hint ||
+      JSON.stringify(error)
+    );
+  }
+  return String(error);
+};
 
 const PRESET_COLORS = [
   { name: 'Indigo', value: '#6366f1' },
@@ -667,6 +693,7 @@ export default function Dashboard() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [clips, setClips] = useState<Clip[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [stickyNotesPreview, setStickyNotesPreview] = useState<StickyNotePreview[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   
   // Navigation & Filtering
@@ -1214,27 +1241,40 @@ export default function Dashboard() {
   // Fetch Cloud Data
   const fetchData = useCallback(async (currentUser: User) => {
     try {
-      const { data: dbFolders, error: foldersError } = await supabase
-        .from('folders')
-        .select('*')
+      const stickyPreviewPromise = supabase
+        .from('sticky_notes')
+        .select('id, title, content, color, is_pinned, updated_at')
         .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: true });
+        .eq('is_archived', false)
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false })
+        .limit(3);
+
+      const [
+        { data: dbFolders, error: foldersError },
+        { data: dbClips, error: clipsError },
+        { data: dbClipMetadata, error: clipMetadataError },
+        stickyPreviewResult,
+      ] = await Promise.all([
+        supabase
+          .from('folders')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('clips')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('clip_metadata')
+          .select('clip_id, entities')
+          .eq('user_id', currentUser.id),
+        stickyPreviewPromise,
+      ]);
 
       if (foldersError) throw foldersError;
-
-      const { data: dbClips, error: clipsError } = await supabase
-        .from('clips')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
       if (clipsError) throw clipsError;
-
-      const { data: dbClipMetadata, error: clipMetadataError } = await supabase
-        .from('clip_metadata')
-        .select('clip_id, entities')
-        .eq('user_id', currentUser.id);
-
       if (clipMetadataError) throw clipMetadataError;
 
       const metadataMap = new Map(
@@ -1261,6 +1301,37 @@ export default function Dashboard() {
 
       setFolders(formattedFolders);
       setClips(formattedClips);
+      if (!stickyPreviewResult.error) {
+        setStickyNotesPreview((stickyPreviewResult.data || []) as StickyNotePreview[]);
+      } else {
+        const legacyPreviewResult = await supabase
+          .from('sticky_notes')
+          .select('id, title, content, color, pinned, updated_at')
+          .eq('user_id', currentUser.id)
+          .eq('archived', false)
+          .order('pinned', { ascending: false })
+          .order('updated_at', { ascending: false })
+          .limit(3);
+
+        if (!legacyPreviewResult.error) {
+          setStickyNotesPreview(
+            (legacyPreviewResult.data || []).map((note) => ({
+              id: note.id,
+              title: note.title || '',
+              content: note.content || '',
+              color: note.color || null,
+              is_pinned: Boolean(note.pinned),
+              updated_at: note.updated_at,
+            }))
+          );
+        } else {
+          console.warn('Sticky notes preview unavailable until migration is applied:', {
+            modern: stringifySupabaseError(stickyPreviewResult.error),
+            legacy: stringifySupabaseError(legacyPreviewResult.error),
+          });
+          setStickyNotesPreview([]);
+        }
+      }
 
       localStorage.setItem('freeclipboard_dashboard_folders', JSON.stringify(formattedFolders));
       localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(formattedClips));
@@ -1272,6 +1343,7 @@ export default function Dashboard() {
       const storedFolders = localStorage.getItem('freeclipboard_dashboard_folders');
       if (storedClips) setClips(JSON.parse(storedClips));
       if (storedFolders) setFolders(JSON.parse(storedFolders));
+      setStickyNotesPreview([]);
     } finally {
       setDataLoading(false);
     }
@@ -3287,6 +3359,65 @@ export default function Dashboard() {
     await persistClipTags(clip.id, nextTags, 'Clip converted into a pending task.');
   };
 
+  const handleConvertClipToStickyNote = async (clip: Clip, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!user) return;
+
+    const noteId = generateUUID();
+    const colorPool = ['#FDE68A', '#FBCFE8', '#BFDBFE', '#BBF7D0', '#DDD6FE', '#FCD34D'];
+    const chosenColor = colorPool[Math.floor(Math.random() * colorPool.length)];
+    const modernPayload = {
+      id: noteId,
+      user_id: user.id,
+      source_clip_id: clip.id,
+      title: clip.title || 'Sticky Note',
+      content: clip.content,
+      color: chosenColor,
+      is_pinned: clip.pinned,
+      is_archived: false,
+      position_x: 0,
+      position_y: 0,
+      width: 280,
+      height: 220,
+      folder_id: clip.folder_id || null,
+      tags: Array.from(new Set([...(clip.tags || []), 'STICKY'])).slice(0, 8),
+    };
+
+    const legacyPayload = {
+      id: noteId,
+      user_id: user.id,
+      clip_id: clip.id,
+      title: clip.title || 'Sticky Note',
+      content: clip.content,
+      color: chosenColor,
+      pinned: clip.pinned,
+      archived: false,
+      position: { x: 0, y: 0 },
+      size: { w: 280, h: 220 },
+      folder_id: clip.folder_id || null,
+      tags: Array.from(new Set([...(clip.tags || []), 'STICKY'])).slice(0, 8),
+    };
+
+    try {
+      const modernResult = await supabase.from('sticky_notes').insert(modernPayload);
+      if (modernResult.error) {
+        const legacyResult = await supabase.from('sticky_notes').insert(legacyPayload);
+        if (legacyResult.error) {
+          console.warn('Sticky note conversion unavailable until migration is applied:', {
+            modern: stringifySupabaseError(modernResult.error),
+            legacy: stringifySupabaseError(legacyResult.error),
+          });
+          throw legacyResult.error;
+        }
+      }
+      addToast('Converted clip into a sticky note.', 'success');
+      void fetchData(user);
+      router.push(`/dashboard/sticky-notes?note=${encodeURIComponent(noteId)}`);
+    } catch (err) {
+      addToast('Sticky Notes needs the latest database migration before clips can be converted.', 'warning');
+    }
+  };
+
   const handleTaskStatusChange = async (clip: Clip, status: TaskStatus, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const nextTags = withTaskMetadata(clip.tags, status);
@@ -5287,6 +5418,18 @@ export default function Dashboard() {
                 <span className="text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-bold border border-amber-500/20 ml-auto">Pro</span>
               )}
             </button>
+
+            <button
+              onClick={() => router.push('/dashboard/sticky-notes')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-transparent transition-all ${
+                isDarkTheme
+                  ? 'text-neutral-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/5 hover:border-fuchsia-500/10'
+                  : 'text-slate-600 hover:text-fuchsia-600 hover:bg-fuchsia-50 hover:border-fuchsia-100'
+              }`}
+            >
+              <StickyNote className="w-3.5 h-3.5 text-fuchsia-400" />
+              Sticky Notes
+            </button>
           </div>
 
           {/* Folders block */}
@@ -5960,7 +6103,7 @@ export default function Dashboard() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 xl:min-w-[24rem]">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 xl:min-w-[24rem]">
                   <div className={`rounded-2xl border px-4 py-3 ${mutedSurfaceClass}`}>
                     <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>Visible</p>
                     <p className={`mt-2 text-2xl font-black leading-none ${titleTextClass}`}>{filteredClips.length}</p>
@@ -5984,6 +6127,88 @@ export default function Dashboard() {
                     <p className={`mt-1 text-[11px] ${subtleTextClass}`}>Enhanced items</p>
                   </div>
                 </div>
+              </div>
+
+              <div className={`rounded-2xl border p-4 ${mutedSurfaceClass}`}>
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
+                        isDarkTheme
+                          ? 'border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300'
+                          : 'border-fuchsia-100 bg-fuchsia-50 text-fuchsia-600'
+                      }`}>
+                        <StickyNote className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${subtleTextClass}`}>Sticky Notes</p>
+                        <p className={`text-sm font-semibold ${titleTextClass}`}>Quick note board</p>
+                      </div>
+                    </div>
+                    <p className={`mt-2 text-sm ${subtleTextClass}`}>
+                      Pinned notes stay first, and you can jump into the full board whenever you need deeper editing.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push('/dashboard/sticky-notes')}
+                      className="h-9 rounded-xl text-xs font-semibold"
+                    >
+                      View all
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => router.push('/dashboard/sticky-notes')}
+                      className="h-9 rounded-xl border-0 bg-[#6B5CE7] px-4 text-xs font-semibold text-white hover:bg-[#5e50d8]"
+                    >
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      New Sticky
+                    </Button>
+                  </div>
+                </div>
+
+                {stickyNotesPreview.length > 0 ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    {stickyNotesPreview.map((note) => (
+                      <button
+                        key={note.id}
+                        type="button"
+                        onClick={() => router.push(`/dashboard/sticky-notes?note=${encodeURIComponent(note.id)}`)}
+                        className={`rounded-2xl border p-3 text-left transition hover:-translate-y-0.5 ${
+                          isDarkTheme
+                            ? 'border-white/8 bg-white/[0.03] hover:bg-white/[0.05]'
+                            : 'border-[#EBEBF0] bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className={`truncate text-sm font-semibold ${titleTextClass}`}>
+                              {note.title || 'Untitled note'}
+                            </p>
+                            <p className={`mt-1 text-[11px] ${subtleTextClass}`}>
+                              {new Date(note.updated_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          {note.is_pinned ? (
+                            <span className="rounded-full bg-[#F0EFFE] px-2 py-0.5 text-[10px] font-bold text-[#6B5CE7]">
+                              Pinned
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className={`mt-3 line-clamp-3 text-sm leading-6 ${subtleTextClass}`}>
+                          {note.content || 'Empty sticky note'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={`mt-4 rounded-2xl border border-dashed p-4 text-sm ${subtleTextClass}`}>
+                    No sticky notes yet. Convert a clip into a note or start a fresh sticky.
+                  </div>
+                )}
               </div>
 
               <div className={`flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pt-1`}>
@@ -7701,6 +7926,7 @@ export default function Dashboard() {
                   <button onClick={() => { handleOpenShareModal(mobileCardActionClip).finally(closeMobileCardActionSheet); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>Share</button>
                   <button onClick={() => { handleTogglePin(mobileCardActionClip.id).finally(closeMobileCardActionSheet); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>{mobileCardActionClip.pinned ? 'Unpin' : 'Pin'}</button>
                   <button onClick={() => setMobileCardActionPanel('task')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-white/10 bg-black/25 text-neutral-200' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>{isTaskClip(mobileCardActionClip) ? 'Task Status' : 'Make Task'}</button>
+                  <button onClick={() => { handleConvertClipToStickyNote(mobileCardActionClip); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300' : 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700'}`}>Sticky Note</button>
                   <button onClick={() => { handleSummarize(mobileCardActionClip.id, mobileCardActionClip.content); closeMobileCardActionSheet(); }} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>AI Summary</button>
                   <button onClick={() => setMobileCardActionPanel('rewrite')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300' : 'border-indigo-200 bg-indigo-50 text-indigo-700'}`}>Rewrite</button>
                   <button onClick={() => setMobileCardActionPanel('translate')} className={`rounded-2xl border px-3 py-3 text-left text-xs font-bold ${isDarkTheme ? 'border-violet-500/20 bg-violet-500/10 text-violet-300' : 'border-violet-200 bg-violet-50 text-violet-700'}`}>Translate</button>
@@ -8471,11 +8697,11 @@ export default function Dashboard() {
                     </DialogDescription>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => copyClipText(previewingClip.id, previewingClip.content)}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => copyClipText(previewingClip.id, previewingClip.content)}
                       className="h-11 w-full justify-center rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-950"
                     >
                       <Clipboard className="mr-1.5 h-3.5 w-3.5" />
@@ -8490,16 +8716,25 @@ export default function Dashboard() {
                       <Edit2 className="mr-1.5 h-3.5 w-3.5" />
                       Edit
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={async () => {
-                        await openShareModal(previewingClip);
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={async () => {
+                      await openShareModal(previewingClip);
                       }}
                       className="h-11 w-full justify-center rounded-xl border border-violet-200 bg-violet-50 text-xs font-bold text-violet-700 hover:bg-violet-100"
                     >
                       <Share2 className="mr-1.5 h-3.5 w-3.5" />
                       Share
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={(e) => void handleConvertClipToStickyNote(previewingClip, e)}
+                      className="h-11 w-full justify-center rounded-xl border border-fuchsia-200 bg-fuchsia-50 text-xs font-bold text-fuchsia-700 hover:bg-fuchsia-100"
+                    >
+                      <StickyNote className="mr-1.5 h-3.5 w-3.5" />
+                      Sticky Note
                     </Button>
                     <div className="relative">
                       <Button

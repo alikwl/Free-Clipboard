@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { createClient } from '@/utils/supabase/client';
 import { filterQuickPasteEntries, type QuickPasteActionKind, type QuickPasteEntry } from '@/lib/quick-paste';
 
-const ALLOWED_PREFIXES = ['/dashboard', '/clipmind', '/analytics', '/graph'];
+const ALLOWED_PREFIXES = ['/dashboard', '/clipmind', '/analytics', '/graph', '/notes', '/dashboard/sticky-notes'];
 
 type SectionKey = 'pinned' | 'recent' | 'snippets' | 'secrets' | 'notes';
 

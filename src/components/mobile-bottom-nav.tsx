@@ -2,10 +2,11 @@
 
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Clipboard, Sparkles, BarChart3, User } from 'lucide-react';
+import { Clipboard, Sparkles, BarChart3, User, StickyNote } from 'lucide-react';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Clips', icon: Clipboard },
+  { path: '/dashboard/sticky-notes', label: 'Notes', icon: StickyNote },
   { path: '/clipmind', label: 'ClipMind', icon: Sparkles },
   { path: '/analytics', label: 'Stats', icon: BarChart3 },
   { path: '/upgrade', label: 'Pro', icon: User },
@@ -28,7 +29,7 @@ export function MobileBottomNav({ themeMode = 'light' }: MobileBottomNavProps) {
           : 'border-slate-200/80 bg-white/92 shadow-[0_-12px_35px_rgba(148,163,184,0.16)]'
       }`}
     >
-      <div className="grid grid-cols-4 items-center h-16 px-2.5 pb-[max(env(safe-area-inset-bottom),0.35rem)]">
+      <div className="grid grid-cols-5 items-center h-16 px-2.5 pb-[max(env(safe-area-inset-bottom),0.35rem)]">
         {NAV_ITEMS.map(({ path, label, icon: Icon }) => {
           const isActive = pathname === path || (path !== '/' && pathname.startsWith(path));
           return (
