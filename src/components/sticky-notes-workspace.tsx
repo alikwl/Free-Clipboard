@@ -476,7 +476,7 @@ function StickyNoteCardComponent({
 export function StickyNotesWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [user, setUser] = useState<User | null>(null);
   const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
   const [userTrialEndsAt, setUserTrialEndsAt] = useState<string | null>(null);

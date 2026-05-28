@@ -119,7 +119,7 @@ function generateUUID() {
 
 export default function ClipMindPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [user, setUser] = useState<User | null>(null);
   const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
   const [userTrialEndsAt, setUserTrialEndsAt] = useState<string | null>(null);

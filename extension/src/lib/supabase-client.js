@@ -579,9 +579,6 @@ class RealtimeChannel {
   }
 
   subscribe(callback) {
-    // Simplified: poll instead of WebSocket for MV3 compatibility
-    this.startPolling();
-    
     if (callback) {
       callback('SUBSCRIBED');
     }
@@ -597,11 +594,7 @@ class RealtimeChannel {
   }
 
   startPolling() {
-    // Poll every 5 seconds for changes
-    this.pollInterval = setInterval(async () => {
-      // This is a simplified version
-      // In production, you'd use a proper realtime solution
-    }, 5000);
+    // Intentionally no-op: extension realtime uses explicit Supabase channel subscriptions.
   }
 }
 
