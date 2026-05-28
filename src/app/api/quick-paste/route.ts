@@ -5,6 +5,11 @@ import {
   buildSnippetQuickPasteEntry,
   groupQuickPasteEntries,
 } from '@/lib/quick-paste';
+import {
+  QUICK_PASTE_CLIPS_LIMIT,
+  QUICK_PASTE_SNIPPETS_LIMIT,
+  mediumPrivateCache,
+} from '@/lib/egress';
 
 export async function GET() {
   try {
@@ -25,7 +30,7 @@ export async function GET() {
           .eq('user_id', user.id)
           .order('pinned', { ascending: false })
           .order('created_at', { ascending: false })
-          .limit(120),
+          .limit(QUICK_PASTE_CLIPS_LIMIT),
         supabase
           .from('clip_metadata')
           .select('clip_id, entities')
@@ -36,7 +41,7 @@ export async function GET() {
           .eq('user_id', user.id)
           .order('use_count', { ascending: false })
           .order('created_at', { ascending: false })
-          .limit(60),
+          .limit(QUICK_PASTE_SNIPPETS_LIMIT),
       ]);
 
     if (clipsError) throw clipsError;
@@ -57,11 +62,14 @@ export async function GET() {
       ...(snippets || []).map((snippet) => buildSnippetQuickPasteEntry(snippet)),
     ];
 
-    return NextResponse.json({
-      success: true,
-      entries,
-      sections: groupQuickPasteEntries(entries),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        entries,
+        sections: groupQuickPasteEntries(entries),
+      },
+      { headers: { 'Cache-Control': mediumPrivateCache } }
+    );
   } catch (error: unknown) {
     console.error('Quick paste load error:', error);
     return NextResponse.json(

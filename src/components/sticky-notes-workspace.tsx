@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { DASHBOARD_FOLDERS_PAGE_SIZE, STICKY_NOTES_PAGE_SIZE } from '@/lib/egress';
 
 interface Folder {
   id: string;
@@ -486,6 +487,10 @@ export function StickyNotesWorkspace() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notes, setNotes] = useState<StickyNoteCard[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [notesHasMore, setNotesHasMore] = useState(false);
+  const [foldersHasMore, setFoldersHasMore] = useState(false);
+  const [loadingMoreNotes, setLoadingMoreNotes] = useState(false);
+  const [loadingMoreFolders, setLoadingMoreFolders] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'pinned' | 'uncategorized' | 'archived'>('all');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -580,28 +585,32 @@ export function StickyNotesWorkspace() {
       ] = await Promise.all([
         supabase
           .from('sticky_notes')
-          .select('*')
+          .select('id, user_id, title, content, color, is_pinned, is_archived, folder_id, source_clip_id, position_x, position_y, width, height, tags, created_at, updated_at')
           .eq('user_id', currentUser.id)
           .order('is_pinned', { ascending: false })
-          .order('updated_at', { ascending: false }),
+          .order('updated_at', { ascending: false })
+          .limit(STICKY_NOTES_PAGE_SIZE + 1),
         supabase
           .from('folders')
-          .select('*')
+          .select('id, name, color, created_at')
           .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(DASHBOARD_FOLDERS_PAGE_SIZE + 1),
       ]);
 
-      let stickyRows = modernStickyResult.data;
+      let stickyRows: Array<StickyNoteRow | LegacyStickyNoteRow> | null =
+        (modernStickyResult.data as StickyNoteRow[] | null);
       let stickyError = modernStickyResult.error;
       let resolvedSchemaMode: StickySchemaMode = 'modern';
 
       if (stickyError) {
         const legacyResult = await supabase
           .from('sticky_notes')
-          .select('*')
+          .select('id, user_id, title, content, color, pinned, archived, folder_id, clip_id, position, size, tags, created_at, updated_at')
           .eq('user_id', currentUser.id)
           .order('pinned', { ascending: false })
-          .order('updated_at', { ascending: false });
+          .order('updated_at', { ascending: false })
+          .limit(STICKY_NOTES_PAGE_SIZE + 1);
 
         if (!legacyResult.error) {
           stickyRows = legacyResult.data;
@@ -621,11 +630,14 @@ export function StickyNotesWorkspace() {
       } else {
         setStickyNotesReady(true);
         setSchemaMode(resolvedSchemaMode);
-        setNotes((stickyRows || []).map((row) => normalizeNote(row as StickyNoteRow | LegacyStickyNoteRow)));
+        const limitedRows = (stickyRows || []).slice(0, STICKY_NOTES_PAGE_SIZE);
+        setNotesHasMore((stickyRows || []).length > STICKY_NOTES_PAGE_SIZE);
+        setNotes(limitedRows.map((row) => normalizeNote(row as StickyNoteRow | LegacyStickyNoteRow)));
       }
 
       if (!folderError && folderRows) {
-        setFolders(folderRows.map((folder) => ({
+        setFoldersHasMore(folderRows.length > DASHBOARD_FOLDERS_PAGE_SIZE);
+        setFolders(folderRows.slice(0, DASHBOARD_FOLDERS_PAGE_SIZE).map((folder) => ({
           id: folder.id,
           name: folder.name,
           color: folder.color || '#6366f1',
@@ -638,6 +650,79 @@ export function StickyNotesWorkspace() {
 
     load();
   }, [addToast, router, supabase]);
+
+  const loadMoreFolders = useCallback(async () => {
+    if (!user || loadingMoreFolders || !foldersHasMore) return;
+    setLoadingMoreFolders(true);
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .select('id, name, color, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .range(folders.length, folders.length + DASHBOARD_FOLDERS_PAGE_SIZE);
+      if (error) throw error;
+      const nextRows = data || [];
+      setFoldersHasMore(nextRows.length > DASHBOARD_FOLDERS_PAGE_SIZE);
+      setFolders((prev) => [
+        ...prev,
+        ...nextRows.slice(0, DASHBOARD_FOLDERS_PAGE_SIZE).map((folder) => ({
+          id: folder.id,
+          name: folder.name,
+          color: folder.color || '#6366f1',
+          created_at: folder.created_at,
+        })),
+      ]);
+    } catch (error) {
+      console.error('Load more sticky-note folders failed:', error);
+      addToast('Could not load more folders.', 'warning');
+    } finally {
+      setLoadingMoreFolders(false);
+    }
+  }, [addToast, folders.length, foldersHasMore, loadingMoreFolders, supabase, user]);
+
+  const loadMoreNotes = useCallback(async () => {
+    if (!user || loadingMoreNotes || !notesHasMore) return;
+    setLoadingMoreNotes(true);
+    try {
+      const modernResult = await supabase
+        .from('sticky_notes')
+        .select('id, user_id, title, content, color, is_pinned, is_archived, folder_id, source_clip_id, position_x, position_y, width, height, tags, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false })
+        .range(notes.length, notes.length + STICKY_NOTES_PAGE_SIZE);
+
+      let nextRows = modernResult.data as Array<StickyNoteRow | LegacyStickyNoteRow> | null;
+      let nextError = modernResult.error;
+
+      if (nextError) {
+        const legacyResult = await supabase
+          .from('sticky_notes')
+          .select('id, user_id, title, content, color, pinned, archived, folder_id, clip_id, position, size, tags, created_at, updated_at')
+          .eq('user_id', user.id)
+          .order('pinned', { ascending: false })
+          .order('updated_at', { ascending: false })
+          .range(notes.length, notes.length + STICKY_NOTES_PAGE_SIZE);
+        nextRows = legacyResult.data as Array<StickyNoteRow | LegacyStickyNoteRow> | null;
+        nextError = legacyResult.error;
+      }
+
+      if (nextError) throw nextError;
+
+      const rows = nextRows || [];
+      setNotesHasMore(rows.length > STICKY_NOTES_PAGE_SIZE);
+      setNotes((prev) => [
+        ...prev,
+        ...rows.slice(0, STICKY_NOTES_PAGE_SIZE).map((row) => normalizeNote(row)),
+      ]);
+    } catch (error) {
+      console.error('Load more sticky notes failed:', error);
+      addToast('Could not load more sticky notes.', 'warning');
+    } finally {
+      setLoadingMoreNotes(false);
+    }
+  }, [addToast, loadingMoreNotes, notes.length, notesHasMore, supabase, user]);
 
   const persistNote = useCallback(async (noteId: string, nextState?: StickyNoteCard) => {
     const source = nextState || notesRef.current.find((note) => note.id === noteId);
@@ -1120,6 +1205,20 @@ export function StickyNotesWorkspace() {
                     </button>
                   );
                 })}
+                {foldersHasMore && (
+                  <button
+                    type="button"
+                    onClick={() => void loadMoreFolders()}
+                    disabled={loadingMoreFolders}
+                    className={`flex w-full items-center justify-center rounded-2xl border px-3 py-2 text-xs font-semibold transition ${
+                      themeMode === 'dark'
+                        ? 'border-white/8 bg-white/[0.02] text-neutral-300 hover:bg-white/[0.04] disabled:opacity-60'
+                        : 'border-[#EBEBF0] bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+                    }`}
+                  >
+                    {loadingMoreFolders ? 'Loading...' : 'Load more folders'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1265,24 +1364,42 @@ export function StickyNotesWorkspace() {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 pb-24 sm:px-5">
             {orderedNotes.length > 0 ? (
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {orderedNotes.map((note) => (
-                  <StickyNoteCardComponent
-                    key={note.id}
-                    note={note}
-                    folders={folders}
-                    themeMode={themeMode}
-                    summarizingId={summarizingId}
-                    saving={savingIds[note.id] || false}
-                    onEdit={openEditor}
-                    onCopy={handleCopyNote}
-                    onSummarize={handleSummarizeNote}
-                    onArchive={handleArchiveNote}
-                    onDelete={handleDeleteNote}
-                    onConvert={handleConvertNoteToTask}
-                    onTogglePin={handleTogglePin}
-                  />
-                ))}
+              <div className="space-y-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {orderedNotes.map((note) => (
+                    <StickyNoteCardComponent
+                      key={note.id}
+                      note={note}
+                      folders={folders}
+                      themeMode={themeMode}
+                      summarizingId={summarizingId}
+                      saving={savingIds[note.id] || false}
+                      onEdit={openEditor}
+                      onCopy={handleCopyNote}
+                      onSummarize={handleSummarizeNote}
+                      onArchive={handleArchiveNote}
+                      onDelete={handleDeleteNote}
+                      onConvert={handleConvertNoteToTask}
+                      onTogglePin={handleTogglePin}
+                    />
+                  ))}
+                </div>
+                {notesHasMore && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => void loadMoreNotes()}
+                      disabled={loadingMoreNotes}
+                      className={`rounded-2xl border px-4 py-2.5 text-sm font-semibold transition ${
+                        themeMode === 'dark'
+                          ? 'border-white/8 bg-white/[0.02] text-neutral-200 hover:bg-white/[0.04] disabled:opacity-60'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+                      }`}
+                    >
+                      {loadingMoreNotes ? 'Loading notes...' : 'Load more notes'}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className={`mx-auto flex max-w-2xl flex-col items-center rounded-[24px] border p-8 text-center ${themeMode === 'dark' ? 'border-white/8 bg-[#0b1426] text-neutral-300 shadow-2xl shadow-black/30' : 'border-slate-200/80 bg-white text-slate-700 shadow-xl shadow-slate-100'}`}>

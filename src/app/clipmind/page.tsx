@@ -235,7 +235,7 @@ export default function ClipMindPage() {
 
       const { data: chats, error } = await supabase
         .from('clipmind_conversations')
-        .select('*')
+        .select('id, user_id, title, messages, created_at, updated_at')
         .eq('user_id', currentUser.id)
         .order('updated_at', { ascending: false });
 
@@ -409,7 +409,7 @@ export default function ClipMindPage() {
 
       const { data: updatedConv } = await supabase
         .from('clipmind_conversations')
-        .select('*')
+        .select('id, user_id, title, messages, created_at, updated_at')
         .eq('id', convId)
         .single();
 

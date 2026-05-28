@@ -62,7 +62,7 @@ export async function executeAutomation(
     if (clip?.id) {
       const { data: metaData } = await supabase
         .from('clip_metadata')
-        .select('*')
+        .select('id, clip_id, clip_type, entities, topics, keywords')
         .eq('clip_id', clip.id)
         .single();
       metadata = metaData;

@@ -130,7 +130,7 @@ async function handleProcessQueue(request: NextRequest) {
     // 2. Fetch pending items from the queue
     let query = supabase
       .from('clip_embedding_queue')
-      .select('*')
+      .select('id, user_id, clip_id, status, attempts, created_at, updated_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
       .limit(10); // Process in batches of 10
@@ -164,7 +164,7 @@ async function handleProcessQueue(request: NextRequest) {
         // Fetch clip content
         const { data: clip, error: clipError } = await supabase
           .from('clips')
-          .select('*')
+          .select('id, user_id, content, title, tags, pinned, folder_id, created_at')
           .eq('id', item.clip_id)
           .single();
 
@@ -391,7 +391,7 @@ Return ONLY valid JSON in this exact schema. No markdown blocks, no formatting t
 
           const { data: rules } = await supabase
             .from('automations')
-            .select('*')
+            .select('id, name, enabled, trigger_type, conditions, actions')
             .eq('user_id', clip.user_id)
             .eq('trigger_type', triggerType)
             .eq('enabled', true);

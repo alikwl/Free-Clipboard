@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { executeAutomation } from '@/lib/automations-engine';
+import { checkRateLimit, getRateLimitKey } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,10 +27,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User identity could not be verified.' }, { status: 401 });
     }
 
+    const rateLimit = checkRateLimit(
+      getRateLimitKey(request, 'automations:trigger', finalUserId),
+      { limit: 90, windowMs: 60_000 }
+    );
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { error: 'Too many automation trigger requests. Please slow down.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } }
+      );
+    }
+
     // 1. Fetch the clip details
     const { data: clip, error: clipError } = await supabase
       .from('clips')
-      .select('*')
+      .select('id, user_id, content, title, tags, pinned, folder_id, created_at')
       .eq('id', clip_id)
       .single();
 
@@ -45,7 +57,7 @@ export async function POST(request: NextRequest) {
     // 2. Fetch all enabled automation rules of the user matching this trigger_type
     const { data: rules, error: rulesError } = await supabase
       .from('automations')
-      .select('*')
+      .select('id, name, enabled, trigger_type, conditions, actions')
       .eq('user_id', finalUserId)
       .eq('trigger_type', trigger_type)
       .eq('enabled', true);

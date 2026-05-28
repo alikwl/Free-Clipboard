@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { checkRateLimit, getRateLimitKey } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +9,17 @@ export async function GET(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+
+    const rateLimit = checkRateLimit(
+      getRateLimitKey(request, 'snippets:expand', user.id),
+      { limit: 90, windowMs: 60_000 }
+    );
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { error: 'Too many snippet expansion requests. Please slow down.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -19,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     const { data: snippet } = await supabase
       .from('snippets')
-      .select('*')
+      .select('id, trigger_key, content, use_count')
       .eq('user_id', user.id)
       .eq('trigger_key', trigger)
       .single();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { QuickPasteActionKind } from '@/lib/quick-paste';
+import { checkRateLimit, getRateLimitKey } from '@/lib/rate-limit';
 
 type RequestBody = {
   action: QuickPasteActionKind;
@@ -18,6 +19,17 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+
+    const rateLimit = checkRateLimit(
+      getRateLimitKey(request, 'quick-paste:usage', user.id),
+      { limit: 120, windowMs: 60_000 }
+    );
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { error: 'Too many quick paste actions. Please slow down.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } }
+      );
     }
 
     const body = (await request.json()) as RequestBody;

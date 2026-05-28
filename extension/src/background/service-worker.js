@@ -574,7 +574,7 @@ async function syncFromServer() {
 
   try {
     await uploadPendingLocalClips();
-    const result = await state.supabase.getClips({ limit: 200, offset: 0 });
+    const result = await state.supabase.getClips({ limit: 50, offset: 0 });
     for (const clip of result.clips) {
       await saveToLocalDB(clip);
     }

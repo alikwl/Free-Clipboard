@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Load the selected clip to test, ensuring it belongs to the user
     const { data: clip, error: clipError } = await supabase
       .from('clips')
-      .select('*')
+      .select('id, user_id, content, title, tags, pinned, folder_id, created_at')
       .eq('id', clip_id)
       .eq('user_id', user.id)
       .single();

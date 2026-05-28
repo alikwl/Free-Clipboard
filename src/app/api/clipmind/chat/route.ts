@@ -393,7 +393,7 @@ export async function POST(request: NextRequest) {
     // Fetch matching clip_metadata for additional filter checks
     const { data: clipsMetadata } = await supabase
       .from('clip_metadata')
-      .select('*')
+      .select('clip_id, clip_type, entities, topics, keywords')
       .eq('user_id', user.id);
 
     // Apply parsed filters

@@ -23,7 +23,7 @@ export async function POST() {
 
     const { count } = await supabase
       .from('clip_metadata')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     if (count && count > 0) {
       return NextResponse.json({ message: 'Already done. Metadata exists.', count });
@@ -31,7 +31,7 @@ export async function POST() {
 
     const { data: clips } = await supabase
       .from('clips')
-      .select('*')
+      .select('id, content')
       .eq('user_id', user.id);
 
     if (!clips || clips.length === 0) {

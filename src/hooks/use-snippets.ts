@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { resolveVariables, detectTriggerAtCursor } from '@/lib/snippets';
+import { SNIPPETS_PAGE_SIZE } from '@/lib/egress';
 
 interface Snippet {
   id: string;
@@ -26,9 +27,10 @@ export function useSnippets({ user, addToast }: UseSnippetsOptions) {
       const supabase = createClient();
       const { data } = await supabase
         .from('snippets')
-        .select('*')
+        .select('id, trigger_key, content, use_count')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(SNIPPETS_PAGE_SIZE);
 
       const list = data || [];
       setSnippets(list);

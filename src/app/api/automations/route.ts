@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { shortPrivateCache } from '@/lib/egress';
 
 /**
  * GET: Fetch all automations & past 50 run logs for the authenticated user
@@ -16,7 +17,7 @@ export async function GET() {
     // Fetch automations rules
     const { data: automations, error: autoError } = await supabase
       .from('automations')
-      .select('*')
+      .select('id, name, enabled, trigger_type, conditions, actions, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -28,7 +29,7 @@ export async function GET() {
     // Fetch last 50 automation runs
     const { data: runs, error: runsError } = await supabase
       .from('automation_runs')
-      .select('*')
+      .select('id, automation_id, clip_id, status, logs, error_message, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -37,10 +38,13 @@ export async function GET() {
       console.error('Error fetching automation runs:', runsError);
     }
 
-    return NextResponse.json({
-      automations: automations || [],
-      runs: runs || [],
-    });
+    return NextResponse.json(
+      {
+        automations: automations || [],
+        runs: runs || [],
+      },
+      { headers: { 'Cache-Control': shortPrivateCache } }
+    );
 
   } catch (error: unknown) {
     console.error('Automations GET Critical Error:', error);

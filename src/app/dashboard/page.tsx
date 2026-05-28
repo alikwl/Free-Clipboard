@@ -75,6 +75,11 @@ import { OfflineBanner } from '@/components/offline-banner';
 import { MobileBottomNav } from '@/components/mobile-bottom-nav';
 import { OnboardingModal } from '@/components/onboarding-modal';
 import { ClipListSkeleton } from '@/components/skeletons';
+import {
+  DASHBOARD_CLIPS_PAGE_SIZE,
+  DASHBOARD_FOLDERS_PAGE_SIZE,
+  DASHBOARD_STICKY_PREVIEW_LIMIT,
+} from '@/lib/egress';
 
 interface Clip {
   id: string;
@@ -697,6 +702,10 @@ export default function Dashboard() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [stickyNotesPreview, setStickyNotesPreview] = useState<StickyNotePreview[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [clipsHasMore, setClipsHasMore] = useState(false);
+  const [foldersHasMore, setFoldersHasMore] = useState(false);
+  const [clipsLoadingMore, setClipsLoadingMore] = useState(false);
+  const [foldersLoadingMore, setFoldersLoadingMore] = useState(false);
   
   // Navigation & Filtering
   const [activeFilter, setActiveFilter] = useState<'all' | 'pinned' | 'folder' | 'trash'>('all');
@@ -1250,7 +1259,7 @@ export default function Dashboard() {
         .eq('is_archived', false)
         .order('is_pinned', { ascending: false })
         .order('updated_at', { ascending: false })
-        .limit(3);
+        .limit(DASHBOARD_STICKY_PREVIEW_LIMIT);
 
       const [
         { data: dbFolders, error: foldersError },
@@ -1260,14 +1269,16 @@ export default function Dashboard() {
       ] = await Promise.all([
         supabase
           .from('folders')
-          .select('*')
+          .select('id, name, color, created_at')
           .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(DASHBOARD_FOLDERS_PAGE_SIZE + 1),
         supabase
           .from('clips')
-          .select('*')
+          .select('id, content, title, tags, pinned, folder_id, created_at')
           .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(DASHBOARD_CLIPS_PAGE_SIZE + 1),
         supabase
           .from('clip_metadata')
           .select('clip_id, entities')
@@ -1283,14 +1294,19 @@ export default function Dashboard() {
         (dbClipMetadata || []).map((row) => [row.clip_id, normalizeClipEntities(row.entities)])
       );
 
-      const formattedFolders: Folder[] = (dbFolders || []).map(f => ({
+      const limitedFolders = (dbFolders || []).slice(0, DASHBOARD_FOLDERS_PAGE_SIZE);
+      const limitedClips = (dbClips || []).slice(0, DASHBOARD_CLIPS_PAGE_SIZE);
+      setFoldersHasMore((dbFolders || []).length > DASHBOARD_FOLDERS_PAGE_SIZE);
+      setClipsHasMore((dbClips || []).length > DASHBOARD_CLIPS_PAGE_SIZE);
+
+      const formattedFolders: Folder[] = limitedFolders.map(f => ({
         id: f.id,
         name: f.name,
         color: f.color || '#6366f1',
         created_at: f.created_at,
       }));
 
-      const formattedClips: Clip[] = (dbClips || []).map(c => ({
+      const formattedClips: Clip[] = limitedClips.map(c => ({
         id: c.id,
         content: c.content,
         title: c.title || undefined,
@@ -1351,6 +1367,86 @@ export default function Dashboard() {
       setDataLoading(false);
     }
   }, [supabase, addToast]);
+
+  const loadMoreFolders = useCallback(async () => {
+    if (!user || foldersLoadingMore || !foldersHasMore) return;
+    setFoldersLoadingMore(true);
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .select('id, name, color, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .range(folders.length, folders.length + DASHBOARD_FOLDERS_PAGE_SIZE);
+      if (error) throw error;
+
+      const nextRows = data || [];
+      setFoldersHasMore(nextRows.length > DASHBOARD_FOLDERS_PAGE_SIZE);
+      const merged = [
+        ...folders,
+        ...nextRows.slice(0, DASHBOARD_FOLDERS_PAGE_SIZE).map((folder) => ({
+          id: folder.id,
+          name: folder.name,
+          color: folder.color || '#6366f1',
+          created_at: folder.created_at,
+        })),
+      ];
+      setFolders(merged);
+      localStorage.setItem('freeclipboard_dashboard_folders', JSON.stringify(merged));
+    } catch (error) {
+      console.error('Load more folders failed:', error);
+      addToast('Could not load more folders right now.', 'warning');
+    } finally {
+      setFoldersLoadingMore(false);
+    }
+  }, [addToast, folders, foldersHasMore, foldersLoadingMore, supabase, user]);
+
+  const loadMoreClips = useCallback(async () => {
+    if (!user || clipsLoadingMore || !clipsHasMore) return;
+    setClipsLoadingMore(true);
+    try {
+      const [{ data, error }, { data: metadataRows, error: metadataError }] = await Promise.all([
+        supabase
+          .from('clips')
+          .select('id, content, title, tags, pinned, folder_id, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .range(clips.length, clips.length + DASHBOARD_CLIPS_PAGE_SIZE),
+        supabase
+          .from('clip_metadata')
+          .select('clip_id, entities')
+          .eq('user_id', user.id),
+      ]);
+      if (error) throw error;
+      if (metadataError) throw metadataError;
+
+      const metadataMap = new Map(
+        (metadataRows || []).map((row) => [row.clip_id, normalizeClipEntities(row.entities)])
+      );
+      const nextRows = data || [];
+      setClipsHasMore(nextRows.length > DASHBOARD_CLIPS_PAGE_SIZE);
+      const merged = [
+        ...clips,
+        ...nextRows.slice(0, DASHBOARD_CLIPS_PAGE_SIZE).map((clip) => ({
+          id: clip.id,
+          content: clip.content,
+          title: clip.title || undefined,
+          tags: clip.tags || [],
+          pinned: clip.pinned,
+          folder_id: clip.folder_id || undefined,
+          created_at: clip.created_at,
+          metadata: metadataMap.get(clip.id) || {},
+        })),
+      ];
+      setClips(merged);
+      localStorage.setItem('freeclipboard_dashboard_clips', JSON.stringify(merged));
+    } catch (error) {
+      console.error('Load more clips failed:', error);
+      addToast('Could not load more clips right now.', 'warning');
+    } finally {
+      setClipsLoadingMore(false);
+    }
+  }, [addToast, clips, clipsHasMore, clipsLoadingMore, supabase, user]);
 
   // Enqueue action to local storage sync queue
   const enqueueAction = useCallback((table: 'clips' | 'folders' | 'clip_metadata', action: 'insert' | 'update' | 'delete', payload: SyncQueueItem['payload']) => {
@@ -5547,6 +5643,20 @@ export default function Dashboard() {
                   </div>
                 );
               })}
+              {foldersHasMore && (
+                <button
+                  type="button"
+                  onClick={() => void loadMoreFolders()}
+                  disabled={foldersLoadingMore}
+                  className={`mt-1 flex items-center justify-center rounded-lg border px-3 py-2 text-[11px] font-bold transition ${
+                    isDarkTheme
+                      ? 'border-white/8 bg-white/[0.02] text-neutral-300 hover:bg-white/[0.04] disabled:opacity-60'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+                  }`}
+                >
+                  {foldersLoadingMore ? 'Loading...' : 'Load more folders'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -7727,6 +7837,22 @@ export default function Dashboard() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+              {clipsHasMore && (
+                <div className="mt-5 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => void loadMoreClips()}
+                    disabled={clipsLoadingMore}
+                    className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${
+                      isDarkTheme
+                        ? 'border-white/10 bg-black/25 text-neutral-200 hover:bg-black/35 disabled:opacity-60'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+                    }`}
+                  >
+                    {clipsLoadingMore ? 'Loading clips...' : 'Load more clips'}
+                  </button>
                 </div>
               )}
             </>

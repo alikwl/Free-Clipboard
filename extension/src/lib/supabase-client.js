@@ -769,18 +769,6 @@ class FreeClipboardSupabase {
           this.notifySubscribers('clip_change', payload);
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_settings',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          this.notifySubscribers('settings_change', payload);
-        }
-      )
       .subscribe((status) => {
         console.log('[FreeClipboard Supabase] Realtime status:', status);
         this.notifySubscribers('connection', { status });
@@ -845,7 +833,7 @@ class FreeClipboardSupabase {
 
     let query = this.client
       .from('clips')
-      .select('*')
+      .select('id, user_id, content, title, tags, pinned, created_at, folder_id')
       .eq('user_id', this.session?.user?.id);
 
     if (search) {
@@ -1056,7 +1044,8 @@ class FreeClipboardSupabase {
     const { data, error } = await this.client
       .from('clip_metadata')
       .select('id, clip_id, entities, clip_type')
-      .eq('user_id', this.session.user.id);
+      .eq('user_id', this.session.user.id)
+      .in('clip_id', clipIds);
 
     if (error) throw error;
 

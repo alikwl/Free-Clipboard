@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { shortPrivateCache } from '@/lib/egress';
 
 /**
  * Quick local mask to sanitize graph visual payloads
@@ -51,7 +52,7 @@ export async function GET() {
     // Fetch all nodes
     const { data: nodesData, error: nodesError } = await supabase
       .from('knowledge_nodes')
-      .select('*')
+      .select('id, name, type, properties')
       .eq('user_id', user.id);
 
     if (nodesError) {
@@ -62,7 +63,7 @@ export async function GET() {
     // Fetch all edges
     const { data: edgesData, error: edgesError } = await supabase
       .from('knowledge_edges')
-      .select('*')
+      .select('id, source_node_id, target_node_id, relation_type, properties')
       .eq('user_id', user.id);
 
     if (edgesError) {
@@ -95,10 +96,13 @@ export async function GET() {
       strength: edge.properties?.strength || 0.5,
     }));
 
-    return NextResponse.json({
-      nodes: sanitizedNodes,
-      edges: formattedEdges,
-    });
+    return NextResponse.json(
+      {
+        nodes: sanitizedNodes,
+        edges: formattedEdges,
+      },
+      { headers: { 'Cache-Control': shortPrivateCache } }
+    );
 
   } catch (error: unknown) {
     console.error('Graph Data API Exception:', error);

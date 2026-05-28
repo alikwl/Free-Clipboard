@@ -272,7 +272,7 @@ class SyncEngine {
     // Get server clips
     const { data: serverClips, error } = await this.db
       .from('clips')
-      .select('*')
+      .select('id, user_id, content, title, tags, pinned, created_at')
       .eq('user_id', user.id)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false });
